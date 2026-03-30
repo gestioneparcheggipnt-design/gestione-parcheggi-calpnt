@@ -1,0 +1,230 @@
+{
+  "spots": {
+    "A03": {
+      "user": "daniele.gibertini@calsrl.it",
+      "occupied": true,
+      "since": "2026-03-13T11:12:19.150000+00:00",
+      "damaged": true,
+      "plate": "789"
+    },
+    "A08": {
+      "user": "[Giorgio Verdi] (check-in esterno)",
+      "occupied": true,
+      "since": "2026-03-16T17:11:49.109000+00:00",
+      "damaged": false,
+      "plate": "801"
+    },
+    "A10": {
+      "user": null,
+      "occupied": false,
+      "since": null,
+      "plate": null
+    },
+    "A13": {
+      "user": null,
+      "occupied": false,
+      "since": null,
+      "plate": null
+    },
+    "A20": {
+      "user": null,
+      "occupied": false,
+      "since": null,
+      "plate": null
+    },
+    "A22": {
+      "user": "daniele.gibertini@calsrl.it",
+      "occupied": true,
+      "since": "2026-03-13T11:07:29.093000+00:00",
+      "damaged": false,
+      "plate": "654"
+    },
+    "B01": {
+      "user": "[Giorgio Verdi] (check-in esterno)",
+      "occupied": true,
+      "since": "2026-03-16T17:12:19.950000+00:00",
+      "damaged": false,
+      "plate": "750"
+    },
+    "C04": {
+      "user": "daniele.gibertini@calsrl.it",
+      "occupied": true,
+      "since": "2026-03-16T11:29:40.781000+00:00",
+      "damaged": false,
+      "plate": "768"
+    },
+    "C05": {
+      "user": null,
+      "occupied": false,
+      "since": null,
+      "plate": null
+    },
+    "C09": {
+      "user": "daniele.gibertini@calsrl.it",
+      "occupied": true,
+      "since": "2026-03-13T14:50:52.506000+00:00",
+      "damaged": false,
+      "plate": "726"
+    },
+    "C14": {
+      "user": "[Daniele Gibertini] (check-in esterno)",
+      "occupied": true,
+      "since": "2026-03-16T17:06:29.051000+00:00",
+      "damaged": false,
+      "plate": "629"
+    },
+    "C15": {
+      "user": "daniele.gibertini@calsrl.it",
+      "occupied": true,
+      "since": "2026-03-13T15:00:52.988000+00:00",
+      "damaged": false,
+      "plate": "701"
+    }
+  },
+  "history": [
+    {
+      "user": "daniele.gibertini@calsrl.it",
+      "spot": "A13",
+      "action": "Assegnato",
+      "ts": "2026-03-12T16:24:26.644000+00:00",
+      "zone": "P VERDE",
+      "plate": "781",
+      "_id": "uLqSLKziP1JzqFeuIUTZ"
+    },
+    {
+      "user": "daniele.gibertini@calsrl.it",
+      "spot": "A20",
+      "action": "Assegnato",
+      "ts": "2026-03-12T16:46:22.104000+00:00",
+      "zone": "P VERDE",
+      "plate": "714",
+      "_id": "ljvOQ8njQyYP28xieNEa"
+    },
+    {
+      "user": "daniele.gibertini@calsrl.it",
+      "spot": "C05",
+      "action": "Assegnato",
+      "ts": "2026-03-12T20:04:28.339000+00:00",
+      "plate": "725",
+      "_id": "cdGvKzMvwYUhgGqwjTo7"
+    },
+    {
+      "user": "daniele.gibertini@calsrl.it",
+      "spot": "A13",
+      "action": "Liberato",
+      "ts": "2026-03-13T10:23:20.741000+00:00",
+      "plate": "781",
+      "_id": "lxupFTeboaIl5KVSopFA"
+    },
+    {
+      "user": "daniele.gibertini@calsrl.it",
+      "spot": "A20",
+      "action": "Liberato",
+      "ts": "2026-03-13T10:23:24.853000+00:00",
+      "plate": "714",
+      "_id": "FTI8cEual2W507mbMWnZ"
+    },
+    {
+      "user": "daniele.gibertini@calsrl.it",
+      "spot": "C05",
+      "action": "Liberato",
+      "ts": "2026-03-13T10:23:32+00:00",
+      "plate": "725",
+      "_id": "IGtVJa1KzN7pnImcxZ9G"
+    },
+    {
+      "user": "daniele.gibertini@calsrl.it",
+      "spot": "A10",
+      "action": "Assegnato",
+      "ts": "2026-03-13T10:59:11.069000+00:00",
+      "damaged": true,
+      "plate": "714",
+      "_id": "8BHixSwo6mKcjPSsNdfc"
+    },
+    {
+      "user": "daniele.gibertini@calsrl.it",
+      "spot": "A10",
+      "action": "Liberato",
+      "ts": "2026-03-13T10:59:50.074000+00:00",
+      "plate": "714",
+      "_id": "Agf3nUUWiQyIaAvUpl1v"
+    },
+    {
+      "user": "daniele.gibertini@calsrl.it",
+      "spot": "A22",
+      "action": "Assegnato",
+      "ts": "2026-03-13T11:07:29.379000+00:00",
+      "damaged": true,
+      "plate": "654",
+      "_id": "xu3Kcpk9RfbGeTX21IHn"
+    },
+    {
+      "user": "daniele.gibertini@calsrl.it",
+      "spot": "A22",
+      "action": "Danno rimosso",
+      "ts": "2026-03-13T11:11:54.194000+00:00",
+      "plate": "654",
+      "_id": "MrzInsTCBdeVuj2VEKxl"
+    },
+    {
+      "user": "daniele.gibertini@calsrl.it",
+      "spot": "A03",
+      "action": "Assegnato",
+      "ts": "2026-03-13T11:12:19.405000+00:00",
+      "damaged": true,
+      "plate": "789",
+      "_id": "pw0SzyCrmSEKdtDIk4aq"
+    },
+    {
+      "user": "daniele.gibertini@calsrl.it",
+      "spot": "C09",
+      "action": "Assegnato",
+      "ts": "2026-03-13T14:50:52.916000+00:00",
+      "damaged": false,
+      "plate": "726",
+      "_id": "y7swg3We9n3uoIaLkmBK"
+    },
+    {
+      "user": "daniele.gibertini@calsrl.it",
+      "spot": "C15",
+      "action": "Assegnato",
+      "ts": "2026-03-13T15:00:53.388000+00:00",
+      "damaged": false,
+      "plate": "701",
+      "_id": "zyp5BDoYuDe6HglaB6wh"
+    },
+    {
+      "user": "daniele.gibertini@calsrl.it",
+      "spot": "C04",
+      "action": "Assegnato",
+      "ts": "2026-03-16T11:29:40.917000+00:00",
+      "damaged": false,
+      "plate": "768",
+      "_id": "Y06F03ypc1hiczgfxENo"
+    },
+    {
+      "user": "[Daniele Gibertini] (check-in esterno)",
+      "spot": "C14",
+      "action": "Assegnato",
+      "ts": "2026-03-16T17:06:29.198000+00:00",
+      "plate": "629",
+      "_id": "BM6bNMXUC3sogYP0nMK1"
+    },
+    {
+      "user": "[Giorgio Verdi] (check-in esterno)",
+      "spot": "A08",
+      "action": "Assegnato",
+      "ts": "2026-03-16T17:11:49.217000+00:00",
+      "plate": "801",
+      "_id": "X3LlNF7OxujdaEm6mA9k"
+    },
+    {
+      "user": "[Giorgio Verdi] (check-in esterno)",
+      "spot": "B01",
+      "action": "Assegnato",
+      "ts": "2026-03-16T17:12:20.051000+00:00",
+      "plate": "750",
+      "_id": "HzYF7wdTUYiUlwAWjy5q"
+    }
+  ]
+}

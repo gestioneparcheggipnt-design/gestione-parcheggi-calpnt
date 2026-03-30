@@ -1,0 +1,34 @@
+{
+  "hosting": {
+    "public": ".",
+    "cleanUrls": false,
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**",
+      "_backup/**",
+      "**/*.bat",
+      "**/*.py",
+      "**/*.json"
+    ],
+    "headers": [
+      {
+        "source": "/**/*.html",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "no-cache, no-store, must-revalidate"
+          },
+          {
+            "key": "Pragma",
+            "value": "no-cache"
+          },
+          {
+            "key": "Expires",
+            "value": "0"
+          }
+        ]
+      }
+    ]
+  }
+}
