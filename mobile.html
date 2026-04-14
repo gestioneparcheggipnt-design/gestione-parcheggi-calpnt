@@ -6,190 +6,198 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <title>Gestione Parcheggi Mobile</title>
 <style>
+/* ── mobile-styles.css ──────────────────────────────────────────────────────── */
+/* Layout touch, drawer, toast — CalPnt Mobile                                  */
+
 @import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;500;600;700;800&display=swap');
-:root{
-  --bg:#f5f7fa;
-  --surface:#fff;
-  --surface2:#eef1f6;
-  --border:#dde2ec;
-  --accent:#A4D200;
-  --accent2:#7fa000;
-  --text:#1C1F26;
-  --muted:#6b7280;
-  --red:#ef4444;
-  --orange:#f59e0b;
-  --green:#A4D200;
-  --card:#fff;
-  --shadow:0 2px 12px rgba(28,31,38,.08);
+
+:root {
+  --bg: #f5f7fa;
+  --surface: #fff;
+  --surface2: #eef1f6;
+  --border: #dde2ec;
+  --accent: #A4D200;
+  --accent2: #7fa000;
+  --text: #1C1F26;
+  --muted: #6b7280;
+  --red: #ef4444;
+  --orange: #f59e0b;
+  --green: #A4D200;
+  --card: #fff;
+  --shadow: 0 2px 12px rgba(28,31,38,.08);
 }
-*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
-body{font-family:'Barlow Condensed',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden;}
+
+* { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+body { font-family: 'Barlow Condensed', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; overflow-x: hidden; }
 
 /* ── LOGIN ─────────────────────────────── */
-#loginScreen{min-height:100vh;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#1C1F26 0%,#2e333d 100%);padding:16px;}
-.loginBox{background:#fff;border-radius:20px;padding:36px 28px;width:100%;max-width:380px;box-shadow:0 20px 60px rgba(0,0,0,.35);}
-.loginLogo{text-align:center;margin-bottom:28px;}
-.loginLogo .icon{font-size:44px;display:block;margin-bottom:10px;}
-.loginLogo h1{font-size:26px;font-weight:800;color:var(--text);}
-.loginLogo p{color:var(--muted);font-size:14px;margin-top:4px;}
-.formGroup{margin-bottom:16px;}
-.formGroup label{display:block;font-size:12px;font-weight:600;color:var(--muted);margin-bottom:5px;text-transform:uppercase;letter-spacing:.5px;}
-.formGroup input{width:100%;background:var(--bg);border:1.5px solid var(--border);border-radius:10px;padding:12px 14px;color:var(--text);font-family:inherit;font-size:16px;outline:none;transition:border-color .2s;}
-.formGroup input:focus{border-color:var(--accent);}
-.btnPrimary{width:100%;background:linear-gradient(135deg,var(--accent),var(--accent2));border:none;border-radius:10px;padding:14px;color:#1C1F26;font-family:inherit;font-size:16px;font-weight:700;cursor:pointer;letter-spacing:.5px;}
-.loginError{color:var(--red);font-size:13px;margin-top:10px;text-align:center;display:none;}
+#loginScreen { min-height: 100vh; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, #1C1F26 0%, #2e333d 100%); padding: 16px; }
+.loginBox { background: #fff; border-radius: 20px; padding: 36px 28px; width: 100%; max-width: 380px; box-shadow: 0 20px 60px rgba(0,0,0,.35); }
+.loginLogo { text-align: center; margin-bottom: 28px; }
+.loginLogo .icon { font-size: 44px; display: block; margin-bottom: 10px; }
+.loginLogo h1 { font-size: 26px; font-weight: 800; color: var(--text); }
+.loginLogo p { color: var(--muted); font-size: 14px; margin-top: 4px; }
+.formGroup { margin-bottom: 16px; }
+.formGroup label { display: block; font-size: 12px; font-weight: 600; color: var(--muted); margin-bottom: 5px; text-transform: uppercase; letter-spacing: .5px; }
+.formGroup input { width: 100%; background: var(--bg); border: 1.5px solid var(--border); border-radius: 10px; padding: 12px 14px; color: var(--text); font-family: inherit; font-size: 16px; outline: none; transition: border-color .2s; }
+.formGroup input:focus { border-color: var(--accent); }
+.btnPrimary { width: 100%; background: linear-gradient(135deg, var(--accent), var(--accent2)); border: none; border-radius: 10px; padding: 14px; color: #1C1F26; font-family: inherit; font-size: 16px; font-weight: 700; cursor: pointer; letter-spacing: .5px; }
+.loginError { color: var(--red); font-size: 13px; margin-top: 10px; text-align: center; display: none; }
 
 /* ── APP SHELL ─────────────────────────── */
-#app{display:none;flex-direction:column;min-height:100vh;}
+#app { display: none; flex-direction: column; min-height: 100vh; }
 
 /* top bar */
-.topBar{background:#1C1F26;padding:10px 16px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;box-shadow:0 2px 8px rgba(0,0,0,.3);}
-.topBarLeft{display:flex;align-items:center;gap:10px;}
-.topBarLogo{font-weight:800;font-size:14px;color:#A4D200;letter-spacing:.5px;}
-.topBarUser{font-size:12px;color:rgba(255,255,255,.6);}
-.topBarRight{display:flex;align-items:center;gap:8px;}
-.roleBadge{border-radius:20px;padding:3px 10px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;border:1px solid;}
-.roleBadge.autista{color:#A4D200;border-color:#A4D20044;background:#A4D20011;}
-.roleBadge.portineria{color:#60a5fa;border-color:#60a5fa44;background:#60a5fa11;}
-.roleBadge.amministrativo{color:#f59e0b;border-color:#f59e0b44;background:#f59e0b11;}
-.roleBadge.amministratore{color:#A4D200;border-color:#A4D20044;background:#A4D20011;}
-.roleBadge.operativo{color:#a78bfa;border-color:#a78bfa44;background:#a78bfa11;}
-.btnLogout{background:transparent;border:1px solid rgba(255,255,255,.2);border-radius:8px;padding:5px 10px;color:rgba(255,255,255,.6);font-family:inherit;font-size:12px;cursor:pointer;}
+.topBar { background: #1C1F26; padding: 10px 16px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 100; box-shadow: 0 2px 8px rgba(0,0,0,.3); }
+.topBarLeft { display: flex; align-items: center; gap: 10px; }
+.topBarLogo { font-weight: 800; font-size: 14px; color: #A4D200; letter-spacing: .5px; }
+.topBarUser { font-size: 12px; color: rgba(255,255,255,.6); }
+.topBarRight { display: flex; align-items: center; gap: 8px; }
+.roleBadge { border-radius: 20px; padding: 3px 10px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; border: 1px solid; }
+.roleBadge.autista      { color: #A4D200; border-color: #A4D20044; background: #A4D20011; }
+.roleBadge.portineria   { color: #60a5fa; border-color: #60a5fa44; background: #60a5fa11; }
+.roleBadge.amministrativo { color: #f59e0b; border-color: #f59e0b44; background: #f59e0b11; }
+.roleBadge.amministratore { color: #A4D200; border-color: #A4D20044; background: #A4D20011; }
+.roleBadge.operativo    { color: #a78bfa; border-color: #a78bfa44; background: #a78bfa11; }
+.btnLogout { background: transparent; border: 1px solid rgba(255,255,255,.2); border-radius: 8px; padding: 5px 10px; color: rgba(255,255,255,.6); font-family: inherit; font-size: 12px; cursor: pointer; }
 
 /* mode toggle */
-.modeBar{background:#252930;padding:8px 16px;display:flex;align-items:center;gap:8px;}
-.modeToggle{display:flex;background:rgba(255,255,255,.08);border-radius:8px;overflow:hidden;border:1px solid rgba(255,255,255,.1);}
-.modeToggle button{padding:6px 14px;border:none;background:transparent;color:rgba(255,255,255,.5);font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;transition:all .15s;}
-.modeToggle button.active{background:var(--accent);color:#1C1F26;}
-.modeBarLabel{font-size:12px;color:rgba(255,255,255,.4);margin-left:auto;}
+.modeBar { background: #252930; padding: 8px 16px; display: flex; align-items: center; gap: 8px; }
+.modeToggle { display: flex; background: rgba(255,255,255,.08); border-radius: 8px; overflow: hidden; border: 1px solid rgba(255,255,255,.1); }
+.modeToggle button { padding: 6px 14px; border: none; background: transparent; color: rgba(255,255,255,.5); font-family: inherit; font-size: 13px; font-weight: 600; cursor: pointer; transition: all .15s; }
+.modeToggle button.active { background: var(--accent); color: #1C1F26; }
+.modeBarLabel { font-size: 12px; color: rgba(255,255,255,.4); margin-left: auto; }
 
 /* bottom nav */
-.bottomNav{position:fixed;bottom:0;left:0;right:0;background:#1C1F26;border-top:1px solid #2e333d;display:flex;z-index:100;padding-bottom:env(safe-area-inset-bottom);}
-.navBtn{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;padding:10px 4px;border:none;background:transparent;color:rgba(255,255,255,.45);font-family:inherit;font-size:10px;font-weight:600;letter-spacing:.3px;cursor:pointer;text-transform:uppercase;transition:color .15s;}
-.navBtn .navIcon{font-size:20px;line-height:1;}
-.navBtn.active{color:var(--accent);}
-.navBtn.hidden{display:none;}
+.bottomNav { position: fixed; bottom: 0; left: 0; right: 0; background: #1C1F26; border-top: 1px solid #2e333d; display: flex; z-index: 100; padding-bottom: env(safe-area-inset-bottom); }
+.navBtn { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 10px 4px; border: none; background: transparent; color: rgba(255,255,255,.45); font-family: inherit; font-size: 10px; font-weight: 600; letter-spacing: .3px; cursor: pointer; text-transform: uppercase; transition: color .15s; }
+.navBtn .navIcon { font-size: 20px; line-height: 1; }
+.navBtn.active { color: var(--accent); }
+.navBtn.hidden { display: none; }
 
 /* pages */
-.page{display:none;flex:1;padding:16px 14px 80px;overflow-y:auto;}
-.page.active{display:block;}
-.pageHeader{font-size:20px;font-weight:800;color:var(--text);margin-bottom:3px;}
-.pageSubtitle{font-size:13px;color:var(--muted);margin-bottom:14px;}
+.page { display: none; flex: 1; padding: 16px 14px 80px; overflow-y: auto; }
+.page.active { display: block; }
+.pageHeader { font-size: 20px; font-weight: 800; color: var(--text); margin-bottom: 3px; }
+.pageSubtitle { font-size: 13px; color: var(--muted); margin-bottom: 14px; }
 
 /* ── CARDS ─────────────────────────────── */
-.card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:16px;margin-bottom:12px;box-shadow:var(--shadow);}
-.cardTitle{font-size:13px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px;}
+.card { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 16px; margin-bottom: 12px; box-shadow: var(--shadow); }
+.cardTitle { font-size: 13px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 12px; }
 
 /* stats row */
-.statsRow{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:14px;}
-.statCard{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px 14px;box-shadow:var(--shadow);}
-.statCard .val{font-size:28px;font-weight:800;line-height:1;margin-bottom:2px;}
-.statCard .lbl{font-size:11px;color:var(--muted);font-weight:600;}
-.statCard.green .val{color:var(--accent);}
-.statCard.red .val{color:var(--red);}
-.statCard.orange .val{color:var(--orange);}
-.statCard.blue .val{color:#60a5fa;}
+.statsRow { display: grid; grid-template-columns: repeat(2,1fr); gap: 8px; margin-bottom: 14px; }
+.statCard { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; box-shadow: var(--shadow); }
+.statCard .val { font-size: 28px; font-weight: 800; line-height: 1; margin-bottom: 2px; }
+.statCard .lbl { font-size: 11px; color: var(--muted); font-weight: 600; }
+.statCard.green  .val { color: var(--accent); }
+.statCard.red    .val { color: var(--red); }
+.statCard.orange .val { color: var(--orange); }
+.statCard.blue   .val { color: #60a5fa; }
 
 /* ── CHECKIN RAPIDO ─────────────────────── */
-.checkinInput{width:100%;background:var(--bg);border:2px solid var(--border);border-radius:12px;padding:14px 16px;color:var(--text);font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:700;text-transform:uppercase;letter-spacing:2px;outline:none;text-align:center;}
-.checkinInput:focus{border-color:var(--accent);}
-.btnCheckin{width:100%;background:linear-gradient(135deg,var(--accent),var(--accent2));border:none;border-radius:12px;padding:15px;color:#1C1F26;font-family:inherit;font-size:16px;font-weight:700;cursor:pointer;margin-top:10px;letter-spacing:.5px;}
-.btnFree{width:100%;background:linear-gradient(135deg,#ef4444,#dc2626);border:none;border-radius:12px;padding:15px;color:#fff;font-family:inherit;font-size:16px;font-weight:700;cursor:pointer;margin-top:8px;}
-.checkinResult{margin-top:10px;padding:12px 14px;border-radius:10px;font-size:14px;font-weight:600;display:none;}
-.checkinResult.ok{background:#A4D20015;border:1px solid #A4D20040;color:#5a7800;}
-.checkinResult.warn{background:#ef444415;border:1px solid #ef444440;color:#dc2626;}
+.checkinInput { width: 100%; background: var(--bg); border: 2px solid var(--border); border-radius: 12px; padding: 14px 16px; color: var(--text); font-family: 'Barlow Condensed', sans-serif; font-size: 18px; font-weight: 700; text-transform: uppercase; letter-spacing: 2px; outline: none; text-align: center; }
+.checkinInput:focus { border-color: var(--accent); }
+.btnCheckin { width: 100%; background: linear-gradient(135deg, var(--accent), var(--accent2)); border: none; border-radius: 12px; padding: 15px; color: #1C1F26; font-family: inherit; font-size: 16px; font-weight: 700; cursor: pointer; margin-top: 10px; letter-spacing: .5px; }
+.btnFree { width: 100%; background: linear-gradient(135deg, #ef4444, #dc2626); border: none; border-radius: 12px; padding: 15px; color: #fff; font-family: inherit; font-size: 16px; font-weight: 700; cursor: pointer; margin-top: 8px; }
+.checkinResult { margin-top: 10px; padding: 12px 14px; border-radius: 10px; font-size: 14px; font-weight: 600; display: none; }
+.checkinResult.ok   { background: #A4D20015; border: 1px solid #A4D20040; color: #5a7800; }
+.checkinResult.warn { background: #ef444415; border: 1px solid #ef444440; color: #dc2626; }
 
 /* ── LISTA POSTI ─────────────────────────── */
-.spotList{display:flex;flex-direction:column;gap:8px;}
-.spotItem{background:var(--card);border:1.5px solid var(--border);border-radius:12px;padding:12px 14px;display:flex;align-items:center;gap:12px;cursor:pointer;box-shadow:var(--shadow);transition:border-color .15s;}
-.spotItem:active{border-color:var(--accent);}
-.spotItem.occupied{border-left:4px solid var(--red);}
-.spotItem.free{border-left:4px solid var(--accent);}
-.spotId{font-size:18px;font-weight:800;min-width:52px;color:var(--text);}
-.spotInfo{flex:1;}
-.spotPlate{font-size:14px;font-weight:700;color:var(--text);font-variant-numeric:tabular-nums;}
-.spotMeta{font-size:11px;color:var(--muted);margin-top:2px;}
-.spotBadge{font-size:11px;font-weight:700;padding:3px 9px;border-radius:20px;}
-.spotBadge.free{background:#A4D20013;color:var(--accent2);}
-.spotBadge.occ{background:#ef444413;color:var(--red);}
+.spotList { display: flex; flex-direction: column; gap: 8px; }
+.spotItem { background: var(--card); border: 1.5px solid var(--border); border-radius: 12px; padding: 12px 14px; display: flex; align-items: center; gap: 12px; cursor: pointer; box-shadow: var(--shadow); transition: border-color .15s; }
+.spotItem:active { border-color: var(--accent); }
+.spotItem.occupied { border-left: 4px solid var(--red); }
+.spotItem.free     { border-left: 4px solid var(--accent); }
+.spotId   { font-size: 18px; font-weight: 800; min-width: 52px; color: var(--text); }
+.spotInfo { flex: 1; }
+.spotPlate { font-size: 14px; font-weight: 700; color: var(--text); font-variant-numeric: tabular-nums; }
+.spotMeta  { font-size: 11px; color: var(--muted); margin-top: 2px; }
+.spotBadge { font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 20px; }
+.spotBadge.free { background: #A4D20013; color: var(--accent2); }
+.spotBadge.occ  { background: #ef444413; color: var(--red); }
 
 /* search */
-.searchBar{display:flex;gap:8px;margin-bottom:12px;}
-.searchBar input{flex:1;background:var(--card);border:1.5px solid var(--border);border-radius:10px;padding:10px 14px;color:var(--text);font-family:inherit;font-size:14px;outline:none;}
-.searchBar input:focus{border-color:var(--accent);}
-.btnSearch{background:var(--accent);border:none;border-radius:10px;padding:10px 16px;color:#1C1F26;font-family:inherit;font-size:14px;font-weight:700;cursor:pointer;}
+.searchBar { display: flex; gap: 8px; margin-bottom: 12px; }
+.searchBar input { flex: 1; background: var(--card); border: 1.5px solid var(--border); border-radius: 10px; padding: 10px 14px; color: var(--text); font-family: inherit; font-size: 14px; outline: none; }
+.searchBar input:focus { border-color: var(--accent); }
+.btnSearch { background: var(--accent); border: none; border-radius: 10px; padding: 10px 16px; color: #1C1F26; font-family: inherit; font-size: 14px; font-weight: 700; cursor: pointer; }
 
 /* spot detail drawer */
-.drawer{position:fixed;bottom:0;left:0;right:0;z-index:200;background:var(--card);border-radius:20px 20px 0 0;padding:20px 18px 30px;box-shadow:0 -8px 40px rgba(0,0,0,.18);transform:translateY(110%);transition:transform .3s ease;max-height:85vh;overflow-y:auto;}
-.drawer.open{transform:translateY(0);}
-.drawerHandle{width:40px;height:4px;background:var(--border);border-radius:4px;margin:0 auto 16px;}
-.drawerTitle{font-size:20px;font-weight:800;margin-bottom:4px;}
-.drawerOverlay{position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:199;display:none;}
-.drawerOverlay.open{display:block;}
-.inputField{width:100%;background:var(--bg);border:1.5px solid var(--border);border-radius:10px;padding:12px 14px;color:var(--text);font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:700;text-transform:uppercase;letter-spacing:2px;outline:none;text-align:center;margin-bottom:10px;}
-.inputField:focus{border-color:var(--accent);}
-.checkLabel{display:flex;align-items:center;gap:10px;font-size:14px;color:var(--muted);margin-bottom:10px;cursor:pointer;user-select:none;}
-.checkLabel input{width:18px;height:18px;cursor:pointer;}
-.btnGreen{width:100%;background:linear-gradient(135deg,var(--accent),var(--accent2));border:none;border-radius:11px;padding:14px;color:#1C1F26;font-family:inherit;font-size:15px;font-weight:700;cursor:pointer;margin-bottom:8px;}
-.btnRed{width:100%;background:linear-gradient(135deg,#ef4444,#dc2626);border:none;border-radius:11px;padding:14px;color:#fff;font-family:inherit;font-size:15px;font-weight:700;cursor:pointer;margin-bottom:8px;}
-.btnOrange{width:100%;background:linear-gradient(135deg,#f59e0b,#d97706);border:none;border-radius:11px;padding:14px;color:#fff;font-family:inherit;font-size:15px;font-weight:700;cursor:pointer;margin-bottom:8px;}
-.btnGray{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:11px;padding:12px;color:var(--muted);font-family:inherit;font-size:14px;cursor:pointer;}
-.infoRow{display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--border);font-size:14px;}
-.infoRow:last-child{border-bottom:none;}
-.infoKey{color:var(--muted);}
-.infoVal{font-weight:700;}
+.drawer { position: fixed; bottom: 0; left: 0; right: 0; z-index: 200; background: var(--card); border-radius: 20px 20px 0 0; padding: 20px 18px 30px; box-shadow: 0 -8px 40px rgba(0,0,0,.18); transform: translateY(110%); transition: transform .3s ease; max-height: 85vh; overflow-y: auto; }
+.drawer.open { transform: translateY(0); }
+.drawerHandle { width: 40px; height: 4px; background: var(--border); border-radius: 4px; margin: 0 auto 16px; }
+.drawerTitle { font-size: 20px; font-weight: 800; margin-bottom: 4px; }
+.drawerOverlay { position: fixed; inset: 0; background: rgba(0,0,0,.4); z-index: 199; display: none; }
+.drawerOverlay.open { display: block; }
+.inputField { width: 100%; background: var(--bg); border: 1.5px solid var(--border); border-radius: 10px; padding: 12px 14px; color: var(--text); font-family: 'Barlow Condensed', sans-serif; font-size: 16px; font-weight: 700; text-transform: uppercase; letter-spacing: 2px; outline: none; text-align: center; margin-bottom: 10px; }
+.inputField:focus { border-color: var(--accent); }
+.checkLabel { display: flex; align-items: center; gap: 10px; font-size: 14px; color: var(--muted); margin-bottom: 10px; cursor: pointer; user-select: none; }
+.checkLabel input { width: 18px; height: 18px; cursor: pointer; }
+.btnGreen  { width: 100%; background: linear-gradient(135deg, var(--accent), var(--accent2)); border: none; border-radius: 11px; padding: 14px; color: #1C1F26; font-family: inherit; font-size: 15px; font-weight: 700; cursor: pointer; margin-bottom: 8px; }
+.btnRed    { width: 100%; background: linear-gradient(135deg, #ef4444, #dc2626); border: none; border-radius: 11px; padding: 14px; color: #fff; font-family: inherit; font-size: 15px; font-weight: 700; cursor: pointer; margin-bottom: 8px; }
+.btnOrange { width: 100%; background: linear-gradient(135deg, #f59e0b, #d97706); border: none; border-radius: 11px; padding: 14px; color: #fff; font-family: inherit; font-size: 15px; font-weight: 700; cursor: pointer; margin-bottom: 8px; }
+.btnGray   { width: 100%; background: var(--surface2); border: 1px solid var(--border); border-radius: 11px; padding: 12px; color: var(--muted); font-family: inherit; font-size: 14px; cursor: pointer; }
+.infoRow { display: flex; justify-content: space-between; padding: 7px 0; border-bottom: 1px solid var(--border); font-size: 14px; }
+.infoRow:last-child { border-bottom: none; }
+.infoKey { color: var(--muted); }
+.infoVal { font-weight: 700; }
 
 /* ── PRENOTAZIONI ───────────────────────── */
-.prenCard{background:var(--card);border:1.5px solid var(--border);border-radius:14px;padding:14px;margin-bottom:10px;box-shadow:var(--shadow);}
-.prenCard.urgente{border-left:4px solid var(--red);}
-.prenHeader{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;}
-.prenPlate{font-size:17px;font-weight:800;}
-.prenBadge{font-size:11px;font-weight:700;padding:3px 9px;border-radius:20px;}
-.prenBadge.creata{background:#60a5fa13;color:#2563eb;}
-.prenBadge.completata{background:#A4D20013;color:var(--accent2);}
-.prenMeta{font-size:12px;color:var(--muted);margin-bottom:4px;}
-.prenDest{font-size:13px;font-weight:700;margin-bottom:6px;}
-.urgBadge{font-size:11px;font-weight:700;color:var(--red);background:#ef444413;border:1px solid #ef444430;border-radius:20px;padding:2px 8px;display:inline-block;margin-bottom:6px;}
-.btnCompleta{background:linear-gradient(135deg,var(--accent),var(--accent2));border:none;border-radius:9px;padding:9px 18px;color:#1C1F26;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer;margin-top:6px;}
-.prenGroup{margin-bottom:16px;}
-.prenGroupTitle{font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;padding:6px 0;border-bottom:1px solid var(--border);}
-.btnCompletaGruppo{width:100%;background:linear-gradient(135deg,var(--accent),var(--accent2));border:none;border-radius:10px;padding:13px;color:#1C1F26;font-family:inherit;font-size:15px;font-weight:700;cursor:pointer;margin-top:8px;}
-.filterRow{display:flex;gap:8px;margin-bottom:12px;}
-.filterSelect{flex:1;background:var(--card);border:1.5px solid var(--border);border-radius:10px;padding:9px 12px;color:var(--text);font-family:inherit;font-size:14px;outline:none;cursor:pointer;}
-.emptyState{text-align:center;padding:30px 16px;color:var(--muted);font-size:14px;}
+.prenCard { background: var(--card); border: 1.5px solid var(--border); border-radius: 14px; padding: 14px; margin-bottom: 10px; box-shadow: var(--shadow); }
+.prenCard.urgente { border-left: 4px solid var(--red); }
+.prenHeader { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.prenPlate { font-size: 17px; font-weight: 800; }
+.prenBadge { font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 20px; }
+.prenBadge.creata     { background: #60a5fa13; color: #2563eb; }
+.prenBadge.completata { background: #A4D20013; color: var(--accent2); }
+.prenMeta { font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+.prenDest { font-size: 13px; font-weight: 700; margin-bottom: 6px; }
+.urgBadge { font-size: 11px; font-weight: 700; color: var(--red); background: #ef444413; border: 1px solid #ef444430; border-radius: 20px; padding: 2px 8px; display: inline-block; margin-bottom: 6px; }
+.btnCompleta { background: linear-gradient(135deg, var(--accent), var(--accent2)); border: none; border-radius: 9px; padding: 9px 18px; color: #1C1F26; font-family: inherit; font-size: 13px; font-weight: 700; cursor: pointer; margin-top: 6px; }
+.prenGroup { margin-bottom: 16px; }
+.prenGroupTitle { font-size: 12px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 8px; padding: 6px 0; border-bottom: 1px solid var(--border); }
+.btnCompletaGruppo { width: 100%; background: linear-gradient(135deg, var(--accent), var(--accent2)); border: none; border-radius: 10px; padding: 13px; color: #1C1F26; font-family: inherit; font-size: 15px; font-weight: 700; cursor: pointer; margin-top: 8px; }
+.filterRow { display: flex; gap: 8px; margin-bottom: 12px; }
+.filterSelect { flex: 1; background: var(--card); border: 1.5px solid var(--border); border-radius: 10px; padding: 9px 12px; color: var(--text); font-family: inherit; font-size: 14px; outline: none; cursor: pointer; }
+.emptyState { text-align: center; padding: 30px 16px; color: var(--muted); font-size: 14px; }
 
 /* ── FORM PRENOTAZIONE ───────────────────── */
-.prenForm .formGroup{margin-bottom:12px;}
-.prenForm .formGroup label{display:block;font-size:12px;font-weight:600;color:var(--muted);margin-bottom:5px;text-transform:uppercase;letter-spacing:.4px;}
-.prenForm .formGroup input,.prenForm .formGroup select{width:100%;background:var(--bg);border:1.5px solid var(--border);border-radius:10px;padding:12px 14px;color:var(--text);font-family:inherit;font-size:15px;outline:none;}
-.prenForm .formGroup input:focus,.prenForm .formGroup select:focus{border-color:var(--accent);}
-.prenFeedback{font-size:12px;margin-top:4px;display:block;}
-.prenFeedback.ok{color:#5a7800;}
-.prenFeedback.err{color:var(--red);}
-.mezzoTrovato{background:#A4D20010;border:1px solid #A4D20030;border-radius:10px;padding:12px;margin-bottom:10px;display:none;}
-.mezzoTrovato .mrow{display:flex;justify-content:space-between;font-size:13px;margin-bottom:3px;}
+.prenForm .formGroup { margin-bottom: 12px; }
+.prenForm .formGroup label { display: block; font-size: 12px; font-weight: 600; color: var(--muted); margin-bottom: 5px; text-transform: uppercase; letter-spacing: .4px; }
+.prenForm .formGroup input,
+.prenForm .formGroup select { width: 100%; background: var(--bg); border: 1.5px solid var(--border); border-radius: 10px; padding: 12px 14px; color: var(--text); font-family: inherit; font-size: 15px; outline: none; }
+.prenForm .formGroup input:focus,
+.prenForm .formGroup select:focus { border-color: var(--accent); }
+.prenFeedback { font-size: 12px; margin-top: 4px; display: block; }
+.prenFeedback.ok  { color: #5a7800; }
+.prenFeedback.err { color: var(--red); }
+.mezzoTrovato { background: #A4D20010; border: 1px solid #A4D20030; border-radius: 10px; padding: 12px; margin-bottom: 10px; display: none; }
+.mezzoTrovato .mrow { display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 3px; }
 
 /* ── TOAST ─────────────────────────────── */
-.toast{position:fixed;top:70px;left:50%;transform:translateX(-50%) translateY(-80px);background:#1C1F26;color:#fff;border-radius:12px;padding:12px 20px;font-size:14px;font-weight:600;z-index:999;opacity:0;transition:all .3s;white-space:nowrap;max-width:90vw;box-shadow:0 8px 30px rgba(0,0,0,.3);}
-.toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
-.toast.success{border-left:4px solid var(--green);}
-.toast.error{border-left:4px solid var(--red);}
+.toast { position: fixed; top: 70px; left: 50%; transform: translateX(-50%) translateY(-80px); background: #1C1F26; color: #fff; border-radius: 12px; padding: 12px 20px; font-size: 14px; font-weight: 600; z-index: 999; opacity: 0; transition: all .3s; white-space: nowrap; max-width: 90vw; box-shadow: 0 8px 30px rgba(0,0,0,.3); }
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+.toast.success { border-left: 4px solid var(--green); }
+.toast.error   { border-left: 4px solid var(--red); }
 
 /* ── RIBALTA (portineria) ───────────────── */
-.sugBox{background:linear-gradient(135deg,#A4D20018,#A4D20008);border:1px solid #A4D20040;border-radius:12px;padding:14px;margin-bottom:12px;}
-.sugTitle{font-size:13px;font-weight:700;color:var(--accent2);margin-bottom:6px;}
-.sugList{display:flex;flex-direction:column;gap:6px;}
-.sugItem{background:var(--card);border:1px solid var(--border);border-radius:9px;padding:10px 12px;font-size:13px;font-weight:600;display:flex;justify-content:space-between;align-items:center;}
+.sugBox { background: linear-gradient(135deg, #A4D20018, #A4D20008); border: 1px solid #A4D20040; border-radius: 12px; padding: 14px; margin-bottom: 12px; }
+.sugTitle { font-size: 13px; font-weight: 700; color: var(--accent2); margin-bottom: 6px; }
+.sugList { display: flex; flex-direction: column; gap: 6px; }
+.sugItem { background: var(--card); border: 1px solid var(--border); border-radius: 9px; padding: 10px 12px; font-size: 13px; font-weight: 600; display: flex; justify-content: space-between; align-items: center; }
 
-/* scrollbar thin */
-::-webkit-scrollbar{width:4px;}
-::-webkit-scrollbar-track{background:transparent;}
-::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px;}
+/* scrollbar sottile */
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
 </style>
 </head>
 <body>
 
-<!-- LOGIN -->
+<!-- ══ LOGIN ══════════════════════════════════════════════════════════════════ -->
 <div id="loginScreen">
   <div class="loginBox">
     <div class="loginLogo">
@@ -201,15 +209,23 @@ body{font-family:'Barlow Condensed',sans-serif;background:var(--bg);color:var(--
       <h1>Gestione Parcheggi</h1>
       <p>Accesso Mobile</p>
     </div>
-    <div class="formGroup"><label>Email</label><input type="email" id="loginEmail" placeholder="utente@azienda.it" autocomplete="username"></div>
-    <div class="formGroup"><label>Password</label><input type="password" id="loginPass" placeholder="••••••••" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()"></div>
+    <div class="formGroup">
+      <label>Email</label>
+      <input type="email" id="loginEmail" placeholder="utente@azienda.it" autocomplete="username">
+    </div>
+    <div class="formGroup">
+      <label>Password</label>
+      <input type="password" id="loginPass" placeholder="••••••••" autocomplete="current-password"
+             onkeydown="if(event.key==='Enter')doLogin()">
+    </div>
     <button class="btnPrimary" id="loginBtn" onclick="doLogin()">Accedi</button>
     <div class="loginError" id="loginError"></div>
   </div>
 </div>
 
-<!-- APP -->
+<!-- ══ APP ════════════════════════════════════════════════════════════════════ -->
 <div id="app">
+
   <!-- Top bar -->
   <div class="topBar">
     <div class="topBarLeft">
@@ -226,30 +242,30 @@ body{font-family:'Barlow Condensed',sans-serif;background:var(--bg);color:var(--
   <div class="modeBar" id="modeBar">
     <div class="modeToggle">
       <button id="btnContainer" onclick="setMode('container')">🚛 Container</button>
-      <button id="btnCassa" onclick="setMode('cassa')">📦 Cassa</button>
+      <button id="btnCassa"     onclick="setMode('cassa')">📦 Cassa</button>
     </div>
     <span class="modeBarLabel" id="modeBarLabel"></span>
   </div>
 
-  <!-- PAGINE -->
-
-  <!-- 1. CHECK-IN RAPIDO -->
+  <!-- ── PAGINA 1: CHECK-IN RAPIDO ───────────────────────────────────────── -->
   <div class="page active" id="pageCheckin">
     <div class="pageHeader">Check-in Rapido</div>
     <div class="pageSubtitle" id="checkinSubtitle">Assegna un veicolo a un posto libero</div>
 
-    <!-- stats -->
     <div class="statsRow" id="checkinStats"></div>
 
     <div class="card">
       <div class="cardTitle" id="checkinCardTitle">Nuovo Check-in</div>
-      <label style="font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;display:block;margin-bottom:6px" id="checkinPlaceholderLabel">Targa / Identificativo</label>
-      <input class="checkinInput" id="checkinInput" type="text" placeholder="AB123CD" maxlength="15" oninput="this.value=this.value.toUpperCase()" onkeydown="if(event.key==='Enter')doCheckinRapido()">
+      <label style="font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;display:block;margin-bottom:6px"
+             id="checkinPlaceholderLabel">Targa / Identificativo</label>
+      <input class="checkinInput" id="checkinInput" type="text" placeholder="AB123CD" maxlength="15"
+             oninput="this.value=this.value.toUpperCase()"
+             onkeydown="if(event.key==='Enter')doCheckinRapido()">
       <div class="checkinResult" id="checkinResult"></div>
       <button class="btnCheckin" onclick="doCheckinRapido()">✓ Assegna al primo posto libero</button>
     </div>
 
-    <!-- Suggerimento posto (portineria) -->
+    <!-- Suggerimento ribalta (portineria) -->
     <div id="ribalteBox" style="display:none">
       <div class="sugBox">
         <div class="sugTitle">🔮 Destinazioni Suggerite (ribalta)</div>
@@ -260,7 +276,7 @@ body{font-family:'Barlow Condensed',sans-serif;background:var(--bg);color:var(--
     </div>
   </div>
 
-  <!-- 2. LISTA POSTI -->
+  <!-- ── PAGINA 2: LISTA POSTI ────────────────────────────────────────────── -->
   <div class="page" id="pagePosti">
     <div class="pageHeader">Posti</div>
     <div class="pageSubtitle">Cerca e gestisci i parcheggi</div>
@@ -285,14 +301,14 @@ body{font-family:'Barlow Condensed',sans-serif;background:var(--bg);color:var(--
     <div class="spotList" id="spotList"></div>
   </div>
 
-  <!-- 3. PRENOTAZIONI (solo modalità CASSA) -->
+  <!-- ── PAGINA 3: PRENOTAZIONI (solo modalità CASSA) ─────────────────────── -->
   <div class="page" id="pagePrenotazioni">
     <div class="pageHeader">Prenotazioni</div>
     <div class="pageSubtitle">Ordinate per urgenza e anzianità</div>
     <div id="prenList"></div>
   </div>
 
-  <!-- 4. ADMIN (solo amministratore) -->
+  <!-- ── PAGINA 4: ADMIN (solo amministratore / amministrativo) ───────────── -->
   <div class="page" id="pageAdmin">
     <div class="pageHeader">Amministrazione</div>
     <div class="pageSubtitle">Statistiche e gestione</div>
@@ -305,20 +321,20 @@ body{font-family:'Barlow Condensed',sans-serif;background:var(--bg);color:var(--
 
   <!-- Bottom nav -->
   <nav class="bottomNav" id="bottomNav">
-    <button class="navBtn active" id="navCheckin" onclick="showPage('Checkin',this)">
+    <button class="navBtn active"  id="navCheckin"       onclick="showPage('Checkin',this)">
       <span class="navIcon">⚡</span>Check-in
     </button>
-    <button class="navBtn" id="navPosti" onclick="showPage('Posti',this)">
+    <button class="navBtn"         id="navPosti"         onclick="showPage('Posti',this)">
       <span class="navIcon">🅿️</span>Posti
     </button>
-    <button class="navBtn hidden" id="navPrenotazioni" onclick="showPage('Prenotazioni',this)">
+    <button class="navBtn hidden"  id="navPrenotazioni"  onclick="showPage('Prenotazioni',this)">
       <span class="navIcon">📋</span>Prenotazioni
     </button>
-    <button class="navBtn hidden" id="navAdmin" onclick="showPage('Admin',this)">
+    <button class="navBtn hidden"  id="navAdmin"         onclick="showPage('Admin',this)">
       <span class="navIcon">⚙️</span>Admin
     </button>
   </nav>
-</div>
+</div><!-- /app -->
 
 <!-- Spot drawer -->
 <div class="drawerOverlay" id="drawerOverlay" onclick="closeDrawer()"></div>
@@ -329,28 +345,18 @@ body{font-family:'Barlow Condensed',sans-serif;background:var(--bg);color:var(--
 
 <div class="toast" id="toast"></div>
 
-<script type="module">
-import { initializeApp }       from "https://www.gstatic.com/firebasejs/11.6.0/firebase-app.js";
-import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged }
-                                from "https://www.gstatic.com/firebasejs/11.6.0/firebase-auth.js";
-import { getFirestore, doc, getDoc, setDoc, updateDoc, collection,
-         query, orderBy, limit, where, onSnapshot, addDoc, serverTimestamp, getDocs, deleteDoc }
-                                from "https://www.gstatic.com/firebasejs/11.6.0/firebase-firestore.js";
+<!-- ══ LOGICA APPLICAZIONE ════════════════════════════════════════════════════ -->
+<script>
 
-const firebaseConfig = {
-  apiKey: "AIzaSyCJK372CJBjsBoGRLiOjCcwpYxDJ5hpyls",
-  authDomain: "gestione-parcheggi-calpnt.firebaseapp.com",
-  projectId: "gestione-parcheggi-calpnt",
-  storageBucket: "gestione-parcheggi-calpnt.firebasestorage.app",
-  messagingSenderId: "977997780262",
-  appId: "1:977997780262:web:759e979e5af89832049de7"
-};
-const app  = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db   = getFirestore(app);
+// ════════════════════════════════════════
+// spots-data.js
+// ════════════════════════════════════════
 
-// ── SPOT DEFS (stesso di index.html) ──────────────────────────────────────────
-const SPOT_DEFS=[
+// ── spots-data.js ─────────────────────────────────────────────────────────────
+// Definizioni posti parcheggio + costanti (DESTINAZIONI_VALIDE)
+// Condiviso tra mobile.html e index.html
+
+const SPOT_DEFS = [
   ["A13","P VERDE"],["A01","P VERDE"],["A14","P VERDE"],["A02","P VERDE"],["A15","P VERDE"],["A03","P VERDE"],
   ["A16","P VERDE"],["A04","P VERDE"],["A17","P VERDE"],["A05","P VERDE"],["A18","P VERDE"],["A06","P VERDE"],
   ["A19","P VERDE"],["A07","P VERDE"],["A20","P VERDE"],["A08","P VERDE"],["A21","P VERDE"],["A09","P VERDE"],
@@ -382,299 +388,256 @@ const DESTINAZIONI_VALIDE = [
   'PNT2-41','PNT2-42','PNT2-43','PNT2-44','PNT2-45','PNT2-46','PNT2-47','PNT2-48','PNT2-49'
 ];
 
-// ── STATO ─────────────────────────────────────────────────────────────────────
-let currentUser = null;
-let currentMode = 'container';
-let spots = {};
-let historyCache = [];
-let _prenotazioni = [];
-let _mezzoCorrente = null;
-let _destinazioneValida = false;
-let unsubSpots = null, unsubHistory = null, unsubPren = null;
-let toastTimer = null;
 
-SPOT_DEFS.forEach(([id, zone]) => { spots[id] = { id, zone, occupied:false, plate:null, since:null, user:null, damaged:false, full:false }; });
+// ════════════════════════════════════════
+// shared-utils.js
+// ════════════════════════════════════════
 
-// ── AUTH ──────────────────────────────────────────────────────────────────────
-onAuthStateChanged(auth, async fbUser => {
-  if(fbUser){
-    try {
-      const snap = await getDoc(doc(db,'users',fbUser.uid));
-      const role = snap.exists() ? (snap.data().role || 'autista') : 'autista';
-      const name = snap.exists() ? (snap.data().name || fbUser.email) : fbUser.email;
-      currentUser = { uid: fbUser.uid, email: fbUser.email, role, name };
-      showApp();
-    } catch(e) {
-      console.error('Errore caricamento utente:', e);
-      // Fallback: accedi come autista anche se Firestore non risponde
-      currentUser = { uid: fbUser.uid, email: fbUser.email, role: 'autista', name: fbUser.email };
-      showApp();
-    }
-  } else {
-    currentUser = null;
-    showLogin();
-    stopListeners();
-  }
-});
+// ── shared-utils.js ───────────────────────────────────────────────────────────
+// Utilities condivise: formattazione date, toast, escape HTML
 
-async function doLogin(){
-  const email = document.getElementById('loginEmail').value.trim();
-  const pass  = document.getElementById('loginPass').value;
-  const errEl = document.getElementById('loginError');
-  const btn   = document.getElementById('loginBtn');
-  errEl.style.display = 'none';
-  if(!email || !pass){ errEl.textContent = 'Inserisci email e password.'; errEl.style.display = 'block'; return; }
-  btn.textContent = 'Accesso…'; btn.disabled = true;
-  try {
-    await signInWithEmailAndPassword(auth, email, pass);
-  } catch(e) {
-    let msg = 'Credenziali non valide.';
-    if(e.code === 'auth/invalid-credential' || e.code === 'auth/wrong-password') msg = 'Email o password errata.';
-    if(e.code === 'auth/user-not-found') msg = 'Utente non trovato.';
-    if(e.code === 'auth/invalid-email') msg = 'Email non valida.';
-    if(e.code === 'auth/too-many-requests') msg = 'Troppi tentativi. Riprova più tardi.';
-    if(e.code === 'auth/network-request-failed') msg = 'Errore di rete. Controlla la connessione.';
-    errEl.textContent = msg; errEl.style.display = 'block';
-  } finally { btn.textContent = 'Accedi'; btn.disabled = false; }
-}
+let _toastTimer = null;
 
-async function doLogout(){
-  await signOut(auth);
-}
-
-function showLogin(){
-  document.getElementById('loginScreen').style.display = 'flex';
-  document.getElementById('app').style.display = 'none';
-}
-
-function showApp(){
-  document.getElementById('loginScreen').style.display = 'none';
-  document.getElementById('app').style.display = 'flex';
-
-  // set user info
-  const rb = document.getElementById('topRole');
-  rb.textContent = currentUser.role;
-  rb.className = 'roleBadge ' + currentUser.role;
-  document.getElementById('topBarUser').textContent = currentUser.name || currentUser.email;
-
-  // load mode
-  loadMode();
-
-  // show/hide tabs by role
-  const role = currentUser.role;
-  const isAutista = role === 'autista';
-  const isPortineria = role === 'portineria';
-  const isAdmin = role === 'amministratore' || role === 'amministrativo';
-
-  // prenotazioni: show only in cassa mode → handled in setMode
-  document.getElementById('navAdmin').classList.toggle('hidden', !isAdmin);
-  document.getElementById('ribalteBox').style.display = isPortineria ? 'block' : 'none';
-
-  startListeners();
-
-  // default page by role
-  if(isAdmin){
-    showPage('Admin', document.getElementById('navAdmin'));
-  } else {
-    showPage('Checkin', document.getElementById('navCheckin'));
-  }
-}
-
-// ── MODE ──────────────────────────────────────────────────────────────────────
-function loadMode(){
-  const uid = currentUser ? currentUser.uid : 'guest';
-  const saved = localStorage.getItem('parkMode_' + uid);
-  currentMode = saved === 'cassa' ? 'cassa' : 'container';
-  applyModeUI();
-}
-
-function setMode(mode){
-  currentMode = mode;
-  const uid = currentUser ? currentUser.uid : 'guest';
-  localStorage.setItem('parkMode_' + uid, mode);
-  applyModeUI();
-  updateCheckinUI();
-  renderPosti();
-}
-
-function applyModeUI(){
-  const btnC = document.getElementById('btnContainer');
-  const btnK = document.getElementById('btnCassa');
-  btnC.classList.toggle('active', currentMode === 'container');
-  btnK.classList.toggle('active', currentMode === 'cassa');
-
-  const label = currentMode === 'cassa' ? '📦 Modalità Cassa' : '🚛 Modalità Container';
-  document.getElementById('modeBarLabel').textContent = label;
-
-  // tab Prenotazioni: visibile solo in CASSA
-  const showPren = currentMode === 'cassa';
-  document.getElementById('navPrenotazioni').classList.toggle('hidden', !showPren);
-  if(showPren && currentUser) initPrenotazioni();
-}
-
-// ── LISTENERS ─────────────────────────────────────────────────────────────────
-function startListeners(){
-  unsubSpots = onSnapshot(collection(db, 'spots'), snap => {
-    snap.docChanges().forEach(ch => {
-      const data = ch.doc.data(), id = ch.doc.id;
-      if(spots[id]){
-        if(ch.type === 'removed'){
-          spots[id] = { ...spots[id], occupied:false, plate:null, since:null, user:null, full:false };
-        } else {
-          spots[id] = { ...spots[id],
-            occupied: data.occupied||false, plate: data.plate||null,
-            since: data.since?.toDate()||null, user: data.user||null,
-            damaged: data.damaged||false, full: data.full||false
-          };
-        }
-      }
-    });
-    updateCheckinUI();
-    renderPosti();
-    updateAdminStats();
-  });
-
-  const hq = query(collection(db,'history'), orderBy('ts','desc'), limit(100));
-  unsubHistory = onSnapshot(hq, snap => {
-    historyCache = snap.docs.map(d => ({ ...d.data(), ts: d.data().ts?.toDate() }));
-    renderStorico();
-    updateAdminStats();
+/**
+ * Formatta una data in DD/MM HH:MM
+ * @param {Date|string|null} d
+ */
+function fmtDate(d) {
+  if (!d) return '—';
+  return new Date(d).toLocaleString('it-IT', {
+    day: '2-digit', month: '2-digit',
+    hour: '2-digit', minute: '2-digit'
   });
 }
 
-function stopListeners(){
-  if(unsubSpots)  { unsubSpots(); unsubSpots = null; }
-  if(unsubHistory){ unsubHistory(); unsubHistory = null; }
-  if(unsubPren)   { unsubPren(); unsubPren = null; }
+/**
+ * Formatta la durata da una data di inizio a oggi (es. "2h 15m")
+ * @param {Date|string|null} since
+ */
+function fmtDur(since) {
+  if (!since) return '';
+  const m = Math.floor((Date.now() - new Date(since)) / 60000);
+  return m < 60 ? `${m}m` : `${Math.floor(m / 60)}h${m % 60 ? ` ${m % 60}m` : ''}`;
 }
 
-// ── PAGES ─────────────────────────────────────────────────────────────────────
-function showPage(id, btn){
-  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-  document.querySelectorAll('.navBtn').forEach(b => b.classList.remove('active'));
-  document.getElementById('page' + id).classList.add('active');
-  if(btn) btn.classList.add('active');
-  if(id === 'Prenotazioni') initPrenotazioni();
+/**
+ * Mostra un toast in sovrimpressione
+ * @param {string} msg
+ * @param {'success'|'error'} type
+ */
+function showToast(msg, type = 'success') {
+  const t = document.getElementById('toast');
+  t.textContent = (type === 'success' ? '✓ ' : '⚠ ') + msg;
+  t.className = 'toast ' + type + ' show';
+  clearTimeout(_toastTimer);
+  _toastTimer = setTimeout(() => t.classList.remove('show'), 3000);
 }
 
-// ── CHECK-IN RAPIDO ───────────────────────────────────────────────────────────
-function updateCheckinUI(){
-  const all = Object.values(spots);
-  const occ = all.filter(s => s.occupied).length;
-  const free = all.length - occ;
-  const mode = currentMode === 'cassa' ? 'Cassa' : 'Container';
+/**
+ * Escape HTML per prevenire XSS
+ * @param {string} str
+ */
+function _esc(str) {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+
+// ════════════════════════════════════════
+// firebase-config.js
+// ════════════════════════════════════════
+
+// ── firebase-config.js ────────────────────────────────────────────────────────
+// Inizializzazione Firebase + Auth + Firestore
+// Importato da mobile.html e index.html
+
+                                from "https://www.gstatic.com/firebasejs/11.6.0/firebase-auth.js";
+         query, orderBy, limit, where, onSnapshot, addDoc, serverTimestamp, getDocs, deleteDoc }
+                                from "https://www.gstatic.com/firebasejs/11.6.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyCJK372CJBjsBoGRLiOjCcwpYxDJ5hpyls",
+  authDomain: "gestione-parcheggi-calpnt.firebaseapp.com",
+  projectId: "gestione-parcheggi-calpnt",
+  storageBucket: "gestione-parcheggi-calpnt.firebasestorage.app",
+  messagingSenderId: "977997780262",
+  appId: "1:977997780262:web:759e979e5af89832049de7"
+};
+
+const app  = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db   = getFirestore(app);
+
+  app, auth, db,
+  // re-export Firebase functions usate dagli altri moduli
+  signInWithEmailAndPassword, signOut, onAuthStateChanged,
+  doc, getDoc, setDoc, updateDoc, collection,
+  query, orderBy, limit, where, onSnapshot, addDoc, serverTimestamp, getDocs, deleteDoc
+};
+
+
+// ════════════════════════════════════════
+// checkin.js
+// ════════════════════════════════════════
+
+// ── checkin.js ────────────────────────────────────────────────────────────────
+// Check-in rapido + lista posti per la vista Mobile
+// Dipende da: firebase-config.js, shared-utils.js, stato globale (spots, currentUser, currentMode)
+
+  from './firebase-config.js';
+
+// Riferimento allo stato condiviso (definito in mobile.html e passato a questo modulo)
+// Usato tramite getters per evitare problemi di riferimento circolare
+let _getSpots, _getUser, _getMode;
+
+function initCheckin({ getSpots, getUser, getMode }) {
+  _getSpots = getSpots;
+  _getUser  = getUser;
+  _getMode  = getMode;
+}
+
+// ── UI CHECK-IN ───────────────────────────────────────────────────────────────
+function updateCheckinUI() {
+  const spots = _getSpots();
+  const all   = Object.values(spots);
+  const occ   = all.filter(s => s.occupied).length;
+  const free  = all.length - occ;
+  const mode  = _getMode() === 'cassa' ? 'Cassa' : 'Container';
+  const user  = _getUser();
 
   document.getElementById('checkinSubtitle').textContent =
     `Modalità: ${mode} | ${free} posti liberi`;
   document.getElementById('checkinCardTitle').textContent =
     `Nuovo Check-in ${mode}`;
+
   const lbl = document.getElementById('checkinPlaceholderLabel');
-  lbl.textContent = currentMode === 'cassa' ? 'N. Cassa' : 'Targa';
-  document.getElementById('checkinInput').placeholder = currentMode === 'cassa' ? 'CAX-001' : 'AB123CD';
+  lbl.textContent = _getMode() === 'cassa' ? 'N. Cassa' : 'Targa';
+  document.getElementById('checkinInput').placeholder =
+    _getMode() === 'cassa' ? 'CAX-001' : 'AB123CD';
 
   document.getElementById('checkinStats').innerHTML = `
     <div class="statCard blue"><div class="val">${all.length}</div><div class="lbl">Totali</div></div>
     <div class="statCard green"><div class="val">${free}</div><div class="lbl">Liberi</div></div>
     <div class="statCard red"><div class="val">${occ}</div><div class="lbl">Occupati</div></div>
-    <div class="statCard orange"><div class="val">${Math.round(occ/all.length*100)||0}%</div><div class="lbl">Occupazione</div></div>`;
+    <div class="statCard orange"><div class="val">${Math.round(occ / all.length * 100) || 0}%</div><div class="lbl">Occupazione</div></div>`;
 
   // portineria: mostra suggerimenti (prime 5 casse libere)
-  if(currentUser?.role === 'portineria'){
-    const freeSpots = all.filter(s => !s.occupied).slice(0,5);
+  if (user?.role === 'portineria') {
+    const freeSpots = all.filter(s => !s.occupied).slice(0, 5);
     document.getElementById('sugList').innerHTML = freeSpots.length
-      ? freeSpots.map(s => `<div class="sugItem"><span>${s.id}</span><span style="color:var(--accent2);font-weight:700;font-size:12px">LIBERO</span></div>`).join('')
+      ? freeSpots.map(s =>
+          `<div class="sugItem"><span>${s.id}</span><span style="color:var(--accent2);font-weight:700;font-size:12px">LIBERO</span></div>`
+        ).join('')
       : '<div class="emptyState">Nessun posto libero</div>';
   }
 }
 
-async function doCheckinRapido(){
-  const input = document.getElementById('checkinInput');
-  const plate = input.value.trim().toUpperCase();
-  const res = document.getElementById('checkinResult');
-  if(!plate){ showResult(res, '⚠️ Inserisci ' + (currentMode==='cassa'?'n. cassa':'targa'), 'warn'); return; }
+async function doCheckinRapido() {
+  const input  = document.getElementById('checkinInput');
+  const plate  = input.value.trim().toUpperCase();
+  const res    = document.getElementById('checkinResult');
+  const spots  = _getSpots();
+  const user   = _getUser();
+  const mode   = _getMode();
 
-  // verifica posto libero
+  if (!plate) {
+    showResult(res, '⚠️ Inserisci ' + (mode === 'cassa' ? 'n. cassa' : 'targa'), 'warn');
+    return;
+  }
+
   const all = Object.values(spots);
   const alreadySpot = all.find(s => s.occupied && s.plate === plate);
-  if(alreadySpot){
+  if (alreadySpot) {
     showResult(res, `⚠️ ${plate} già al posto ${alreadySpot.id}`, 'warn');
     return;
   }
 
   const freeSpot = all.find(s => !s.occupied);
-  if(!freeSpot){ showResult(res, '⚠️ Nessun posto libero disponibile', 'warn'); return; }
+  if (!freeSpot) {
+    showResult(res, '⚠️ Nessun posto libero disponibile', 'warn');
+    return;
+  }
 
   try {
-    await setDoc(doc(db,'spots',freeSpot.id), {
-      occupied: true, plate, since: serverTimestamp(), user: currentUser.email, damaged: false, full: false
+    await setDoc(doc(db, 'spots', freeSpot.id), {
+      occupied: true, plate, since: serverTimestamp(),
+      user: user.email, damaged: false, full: false
     });
-    await addDoc(collection(db,'history'), {
+    await addDoc(collection(db, 'history'), {
       ts: serverTimestamp(), spot: freeSpot.id,
-      action: 'Assegnato', plate, user: currentUser.email, mode: currentMode
+      action: 'Assegnato', plate, user: user.email, mode
     });
     showResult(res, `✅ ${plate} → Posto ${freeSpot.id}`, 'ok');
     input.value = '';
     showToast(`Posto ${freeSpot.id} assegnato a ${plate}`, 'success');
-  } catch(e) {
+  } catch (e) {
     showResult(res, '⚠️ Errore: ' + e.message, 'warn');
   }
 }
 
-function showResult(el, msg, type){
+function showResult(el, msg, type) {
   el.textContent = msg;
   el.className = 'checkinResult ' + type;
   el.style.display = 'block';
   setTimeout(() => { el.style.display = 'none'; }, 4000);
 }
 
-// ── LISTA POSTI ────────────────────────────────────────────────────────────────
-function renderPosti(){
-  const q = (document.getElementById('searchPosto')?.value || '').trim().toUpperCase();
+// ── LISTA POSTI ───────────────────────────────────────────────────────────────
+function renderPosti() {
+  const spots = _getSpots();
+  const q      = (document.getElementById('searchPosto')?.value || '').trim().toUpperCase();
   const fStato = document.getElementById('filterStato')?.value || '';
-  const fZona  = document.getElementById('filterZona')?.value || '';
+  const fZona  = document.getElementById('filterZona')?.value  || '';
 
   let res = Object.values(spots);
-  if(q) res = res.filter(s => s.id.includes(q) || (s.plate && s.plate.includes(q)));
-  if(fStato === 'libero')   res = res.filter(s => !s.occupied);
-  if(fStato === 'occupato') res = res.filter(s => s.occupied);
-  if(fZona) res = res.filter(s => s.zone === fZona);
+  if (q)                res = res.filter(s => s.id.includes(q) || (s.plate && s.plate.includes(q)));
+  if (fStato === 'libero')   res = res.filter(s => !s.occupied);
+  if (fStato === 'occupato') res = res.filter(s => s.occupied);
+  if (fZona) res = res.filter(s => s.zone === fZona);
 
-  const mode = currentMode === 'cassa' ? 'Cassa' : 'Container';
   document.getElementById('spotList').innerHTML = res.map(s => `
-    <div class="spotItem ${s.occupied?'occupied':'free'}" onclick="openSpotDrawer('${s.id}')">
+    <div class="spotItem ${s.occupied ? 'occupied' : 'free'}" onclick="openSpotDrawer('${s.id}')">
       <div class="spotId">${s.id}</div>
       <div class="spotInfo">
         <div class="spotPlate">${s.plate || (s.occupied ? '—' : 'Libero')}</div>
         <div class="spotMeta">${s.zone}${s.since ? ' · ' + fmtDur(s.since) : ''}${s.damaged ? ' · ⚠️ Danneggiato' : ''}${s.full ? ' · 🟡 Pieno' : ''}</div>
       </div>
-      <span class="spotBadge ${s.occupied?'occ':'free'}">${s.occupied?'Occupato':'Libero'}</span>
+      <span class="spotBadge ${s.occupied ? 'occ' : 'free'}">${s.occupied ? 'Occupato' : 'Libero'}</span>
     </div>`).join('') || '<div class="emptyState">Nessun posto trovato</div>';
 }
 
 // ── DRAWER POSTO ──────────────────────────────────────────────────────────────
-function openSpotDrawer(id){
-  const sp = spots[id];
-  if(!sp) return;
-  const canManage = currentUser && (currentUser.role === 'autista' || currentUser.role === 'amministratore' || currentUser.role === 'portineria');
-  const mode = currentMode === 'cassa' ? 'Cassa' : 'Container';
-  const modeIcon = currentMode === 'cassa' ? '📦' : '🚛';
+function openSpotDrawer(id) {
+  const spots   = _getSpots();
+  const user    = _getUser();
+  const mode    = _getMode();
+  const sp      = spots[id];
+  if (!sp) return;
+
+  const canManage = user && (user.role === 'autista' || user.role === 'amministratore' || user.role === 'portineria');
+  const modeLabel = mode === 'cassa' ? 'Cassa' : 'Container';
+  const modeIcon  = mode === 'cassa' ? '📦' : '🚛';
+
   let html = `<div class="drawerTitle">${modeIcon} Posto ${id}</div>
     <div style="font-size:12px;color:var(--muted);margin-bottom:14px">${sp.zone}</div>`;
 
-  if(!sp.occupied){
+  if (!sp.occupied) {
     html += `<div style="background:#A4D20013;border:1px solid #A4D20030;border-radius:10px;padding:10px 14px;margin-bottom:14px;font-weight:700;color:var(--accent2)">🟢 Libero</div>`;
-    if(canManage){
-      html += `<label style="font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;display:block;margin-bottom:6px">${mode} / Identificativo</label>
-        <input class="inputField" id="drawerInput" type="text" placeholder="${currentMode==='cassa'?'CAX-001':'AB123CD'}" maxlength="15" oninput="this.value=this.value.toUpperCase()" onkeydown="if(event.key==='Enter')assignFromDrawer('${id}')">
+    if (canManage) {
+      html += `<label style="font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;display:block;margin-bottom:6px">${modeLabel} / Identificativo</label>
+        <input class="inputField" id="drawerInput" type="text" placeholder="${mode === 'cassa' ? 'CAX-001' : 'AB123CD'}" maxlength="15" oninput="this.value=this.value.toUpperCase()" onkeydown="if(event.key==='Enter')assignFromDrawer('${id}')">
         <label class="checkLabel"><input type="checkbox" id="drawerDamaged" style="accent-color:var(--red)"> ⚠️ Veicolo danneggiato</label>
         <label class="checkLabel"><input type="checkbox" id="drawerFull" style="accent-color:var(--orange)"> 🟡 Piena/o (carico completo)</label>
-        <button class="btnGreen" onclick="assignFromDrawer('${id}')">✓ Assegna ${mode}</button>`;
+        <button class="btnGreen" onclick="assignFromDrawer('${id}')">✓ Assegna ${modeLabel}</button>`;
     } else {
       html += `<div style="color:var(--muted);font-size:13px">Solo gli autisti possono assegnare veicoli.</div>`;
     }
   } else {
     html += `<div style="background:#ef444413;border:1px solid #ef444430;border-radius:10px;padding:10px 14px;margin-bottom:14px;font-weight:700;color:var(--red)">🔴 Occupato</div>
-      <div class="infoRow"><span class="infoKey">${mode}</span><span class="infoVal">${sp.plate || '—'}</span></div>
+      <div class="infoRow"><span class="infoKey">${modeLabel}</span><span class="infoVal">${sp.plate || '—'}</span></div>
       <div class="infoRow"><span class="infoKey">Da</span><span class="infoVal">${fmtDate(sp.since)}</span></div>
       <div class="infoRow"><span class="infoKey">Durata</span><span class="infoVal">${fmtDur(sp.since)}</span></div>
       <div class="infoRow"><span class="infoKey">Utente</span><span class="infoVal" style="font-size:12px">${sp.user || '—'}</span></div>
@@ -684,7 +647,7 @@ function openSpotDrawer(id){
       ${sp.full
         ? `<button class="btnGreen" style="margin-bottom:8px" onclick="toggleFullDrawer('${id}',false)">🟢 Segna come Vuota</button>`
         : `<button class="btnOrange" style="margin-bottom:8px" onclick="toggleFullDrawer('${id}',true)">🟡 Segna come Piena</button>`}`;
-    if(canManage){
+    if (canManage) {
       html += `${sp.damaged
         ? `<button class="btnOrange" style="margin-bottom:8px" onclick="removeDamagedDrawer('${id}')">✓ Rimuovi segnalazione danno</button>`
         : `<button class="btnOrange" style="margin-bottom:8px" onclick="addDamagedDrawer('${id}')">⚠️ Segnala veicolo danneggiato</button>`}
@@ -696,81 +659,109 @@ function openSpotDrawer(id){
   document.getElementById('drawerContent').innerHTML = html;
   document.getElementById('spotDrawer').classList.add('open');
   document.getElementById('drawerOverlay').classList.add('open');
-  if(!sp.occupied && canManage) setTimeout(() => document.getElementById('drawerInput')?.focus(), 100);
+  if (!sp.occupied && canManage) setTimeout(() => document.getElementById('drawerInput')?.focus(), 100);
 }
 
-function closeDrawer(){
+function closeDrawer() {
   document.getElementById('spotDrawer').classList.remove('open');
   document.getElementById('drawerOverlay').classList.remove('open');
 }
 
-async function assignFromDrawer(id){
-  const inp = document.getElementById('drawerInput');
+async function assignFromDrawer(id) {
+  const spots = _getSpots();
+  const user  = _getUser();
+  const mode  = _getMode();
+  const inp   = document.getElementById('drawerInput');
   const plate = inp?.value.trim().toUpperCase();
-  if(!plate){ showToast('Inserisci identificativo', 'error'); return; }
+  if (!plate) { showToast('Inserisci identificativo', 'error'); return; }
 
-  const alreadySpot = Object.entries(spots).find(([sid,s]) => s.occupied && s.plate === plate && sid !== id);
-  if(alreadySpot){ showToast(`⚠️ ${plate} già al posto ${alreadySpot[0]}`, 'error'); return; }
+  const alreadySpot = Object.entries(spots).find(([sid, s]) => s.occupied && s.plate === plate && sid !== id);
+  if (alreadySpot) { showToast(`⚠️ ${plate} già al posto ${alreadySpot[0]}`, 'error'); return; }
 
   const damaged = document.getElementById('drawerDamaged')?.checked || false;
-  const full    = document.getElementById('drawerFull')?.checked || false;
+  const full    = document.getElementById('drawerFull')?.checked    || false;
   try {
-    await setDoc(doc(db,'spots',id), { occupied:true, plate, since:serverTimestamp(), user:currentUser.email, damaged, full });
-    await addDoc(collection(db,'history'), { ts:serverTimestamp(), spot:id, action:'Assegnato', plate, user:currentUser.email, mode:currentMode });
+    await setDoc(doc(db, 'spots', id), { occupied: true, plate, since: serverTimestamp(), user: user.email, damaged, full });
+    await addDoc(collection(db, 'history'), { ts: serverTimestamp(), spot: id, action: 'Assegnato', plate, user: user.email, mode });
     showToast(`Posto ${id} → ${plate}`, 'success');
     closeDrawer();
-  } catch(e){ showToast('Errore: ' + e.message, 'error'); }
+  } catch (e) { showToast('Errore: ' + e.message, 'error'); }
 }
 
-async function freeFromDrawer(id){
-  const sp = spots[id];
+async function freeFromDrawer(id) {
+  const spots = _getSpots();
+  const user  = _getUser();
+  const sp    = spots[id];
   try {
-    await addDoc(collection(db,'history'), { ts:serverTimestamp(), spot:id, action:'Liberato', plate:sp.plate, user:currentUser.email });
-    await setDoc(doc(db,'spots',id), { occupied:false, plate:null, since:null, user:null, full:false });
+    await addDoc(collection(db, 'history'), { ts: serverTimestamp(), spot: id, action: 'Liberato', plate: sp.plate, user: user.email });
+    await setDoc(doc(db, 'spots', id), { occupied: false, plate: null, since: null, user: null, full: false });
     showToast(`Posto ${id} liberato`, 'success');
     closeDrawer();
-  } catch(e){ showToast('Errore: ' + e.message, 'error'); }
+  } catch (e) { showToast('Errore: ' + e.message, 'error'); }
 }
 
-async function toggleFullDrawer(id, newFull){
+async function toggleFullDrawer(id, newFull) {
+  const spots = _getSpots();
+  const user  = _getUser();
   try {
-    await updateDoc(doc(db,'spots',id), { full: newFull });
-    await addDoc(collection(db,'history'), { ts:serverTimestamp(), spot:id, action:newFull?'Segnato Pieno':'Segnato Vuoto', plate:spots[id].plate, user:currentUser.email });
-    showToast(`Posto ${id} ${newFull?'segnato pieno':'segnato vuoto'}`, 'success');
+    await updateDoc(doc(db, 'spots', id), { full: newFull });
+    await addDoc(collection(db, 'history'), { ts: serverTimestamp(), spot: id, action: newFull ? 'Segnato Pieno' : 'Segnato Vuoto', plate: spots[id].plate, user: user.email });
+    showToast(`Posto ${id} ${newFull ? 'segnato pieno' : 'segnato vuoto'}`, 'success');
     openSpotDrawer(id);
-  } catch(e){ showToast('Errore: ' + e.message, 'error'); }
+  } catch (e) { showToast('Errore: ' + e.message, 'error'); }
 }
 
-async function addDamagedDrawer(id){
+async function addDamagedDrawer(id) {
+  const spots = _getSpots();
+  const user  = _getUser();
   try {
-    await updateDoc(doc(db,'spots',id), { damaged: true });
-    await addDoc(collection(db,'history'), { ts:serverTimestamp(), spot:id, action:'Danno segnalato', plate:spots[id].plate, user:currentUser.email });
+    await updateDoc(doc(db, 'spots', id), { damaged: true });
+    await addDoc(collection(db, 'history'), { ts: serverTimestamp(), spot: id, action: 'Danno segnalato', plate: spots[id].plate, user: user.email });
     showToast(`Danno segnalato per ${id}`, 'success');
     openSpotDrawer(id);
-  } catch(e){ showToast('Errore: ' + e.message, 'error'); }
+  } catch (e) { showToast('Errore: ' + e.message, 'error'); }
 }
 
-async function removeDamagedDrawer(id){
+async function removeDamagedDrawer(id) {
+  const spots = _getSpots();
+  const user  = _getUser();
   try {
-    await updateDoc(doc(db,'spots',id), { damaged: false });
-    await addDoc(collection(db,'history'), { ts:serverTimestamp(), spot:id, action:'Danno rimosso', plate:spots[id].plate, user:currentUser.email });
+    await updateDoc(doc(db, 'spots', id), { damaged: false });
+    await addDoc(collection(db, 'history'), { ts: serverTimestamp(), spot: id, action: 'Danno rimosso', plate: spots[id].plate, user: user.email });
     showToast(`Danno rimosso per ${id}`, 'success');
     openSpotDrawer(id);
-  } catch(e){ showToast('Errore: ' + e.message, 'error'); }
+  } catch (e) { showToast('Errore: ' + e.message, 'error'); }
 }
 
-// ── PRENOTAZIONI ───────────────────────────────────────────────────────────────
-function initPrenotazioni(){
+
+// ════════════════════════════════════════
+// prenotazioni-autista.js
+// ════════════════════════════════════════
+
+// ── prenotazioni-autista.js ───────────────────────────────────────────────────
+// Gestione prenotazioni casse/container per autista (mobile)
+// Dipende da: firebase-config.js, shared-utils.js
+
+  from './firebase-config.js';
+
+let _unsubPren = null;
+let _prenotazioni = [];
+let _getUser;
+
+function initPrenotazioni({ getUser }) {
+  _getUser = getUser;
+
   const dtInput = document.getElementById('pren-data');
-  if(dtInput){
+  if (dtInput) {
     const now = new Date();
     now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
-    dtInput.min = now.toISOString().slice(0,16);
-    if(!dtInput.value) dtInput.value = now.toISOString().slice(0,16);
+    dtInput.min = now.toISOString().slice(0, 16);
+    if (!dtInput.value) dtInput.value = now.toISOString().slice(0, 16);
   }
-  if(unsubPren) unsubPren();
-  unsubPren = onSnapshot(
-    query(collection(db,'prenotazioni'), orderBy('dataOra','desc')),
+
+  if (_unsubPren) _unsubPren();
+  _unsubPren = onSnapshot(
+    query(collection(db, 'prenotazioni'), orderBy('dataOra', 'desc')),
     snap => {
       _prenotazioni = snap.docs.map(d => ({ id: d.id, ...d.data() }));
       renderPrenotazioni();
@@ -779,58 +770,57 @@ function initPrenotazioni(){
   );
 }
 
-function renderPrenotazioni(){
+function stopPrenotazioni() {
+  if (_unsubPren) { _unsubPren(); _unsubPren = null; }
+}
+
+function renderPrenotazioni() {
   let lista = [..._prenotazioni];
 
   // ordina: urgenti prima, poi per anzianità (data più vecchia = prima)
-  lista.sort((a,b) => {
-    if(a.urgente && !b.urgente) return -1;
-    if(!a.urgente && b.urgente) return 1;
-    const da = a.dataOra?.toDate ? a.dataOra.toDate() : new Date(a.dataOra||0);
-    const db2 = b.dataOra?.toDate ? b.dataOra.toDate() : new Date(b.dataOra||0);
+  lista.sort((a, b) => {
+    if (a.urgente && !b.urgente) return -1;
+    if (!a.urgente && b.urgente) return 1;
+    const da  = a.dataOra?.toDate ? a.dataOra.toDate() : new Date(a.dataOra || 0);
+    const db2 = b.dataOra?.toDate ? b.dataOra.toDate() : new Date(b.dataOra || 0);
     return da - db2;
   });
 
-  const pendenti = lista.filter(p => p.stato === 'creata');
+  const pendenti   = lista.filter(p => p.stato === 'creata');
   const completate = lista.filter(p => p.stato !== 'creata');
 
-  if(!pendenti.length && !completate.length){
+  if (!pendenti.length && !completate.length) {
     document.getElementById('prenList').innerHTML = '<div class="emptyState">Nessuna prenotazione trovata.</div>';
     return;
   }
 
-  // Determina quante casse del blocco corrente (prime 3) sono completate
-  // Le prime 3 pendenti sono il blocco attivo; le successive sono bloccate finché tutte le prime 3 non sono completate.
-  // Poiché pendenti sono già solo quelle non completate, il blocco attivo è sempre le prime min(3, pendenti.length).
-  // Le successive sono bloccate.
+  // Le prime 3 pendenti sono il blocco attivo; le successive sono bloccate.
   const bloccoAttivo = Math.min(3, pendenti.length);
-
   let html = '';
 
-  // Sezione pendenti
-  if(pendenti.length){
+  if (pendenti.length) {
     html += `<div class="prenGroupTitle">Da movimentare (${pendenti.length})</div>`;
     pendenti.forEach((p, idx) => {
-      const abilitato = idx < bloccoAttivo; // solo le prime 3 hanno il tasto attivo
-      html += prenCardSingolo(p, abilitato, idx);
+      const abilitato = idx < bloccoAttivo;
+      html += _prenCardSingolo(p, abilitato, idx);
     });
   }
 
-  // Sezione completate
-  if(completate.length){
+  if (completate.length) {
     html += `<div class="prenGroupTitle" style="margin-top:14px">Completate (${completate.length})</div>`;
-    completate.forEach(p => { html += prenCardSingolo(p, false, -1); });
+    completate.forEach(p => { html += _prenCardSingolo(p, false, -1); });
   }
 
   document.getElementById('prenList').innerHTML = html;
 }
 
-function prenCardSingolo(p, abilitato, idx){
+function _prenCardSingolo(p, abilitato, idx) {
   const d = p.dataOra?.toDate ? p.dataOra.toDate() : (p.dataOra ? new Date(p.dataOra) : null);
-  const dataStr = d ? d.toLocaleString('it-IT',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}) : '—';
+  const dataStr = d
+    ? d.toLocaleString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+    : '—';
   const completata = p.stato !== 'creata';
 
-  // Badge blocco per le non-abilitate in attesa
   const bloccatoNote = (!completata && !abilitato && idx >= 3)
     ? `<div style="font-size:11px;color:var(--muted);margin-top:6px;font-style:italic">🔒 Disponibile dopo il completamento delle prime 3</div>`
     : '';
@@ -841,96 +831,307 @@ function prenCardSingolo(p, abilitato, idx){
       ? `<button class="btnCompleta" onclick="completaSingola('${p.id}')" style="margin-top:8px;width:100%;padding:11px 0;">✅ Completa</button>`
       : `<button disabled style="width:100%;margin-top:8px;padding:11px 0;background:var(--surface2);border:1px solid var(--border);border-radius:9px;color:var(--muted);font-family:inherit;font-size:13px;font-weight:700;cursor:not-allowed;opacity:.6">🔒 In attesa</button>`;
 
-  return `<div class="prenCard${p.urgente?' urgente':''}">
+  return `<div class="prenCard${p.urgente ? ' urgente' : ''}">
     <div class="prenHeader">
-      <span class="prenPlate">${_esc(p.plate||'—')}</span>
-      ${p.stato==='creata' ? '<span class="prenBadge creata">In attesa</span>' : '<span class="prenBadge completata">Completata</span>'}
+      <span class="prenPlate">${_esc(p.plate || '—')}</span>
+      ${p.stato === 'creata'
+        ? '<span class="prenBadge creata">In attesa</span>'
+        : '<span class="prenBadge completata">Completata</span>'}
     </div>
     ${p.urgente ? '<span class="urgBadge">🚨 URGENTE</span>' : ''}
-    <div class="prenDest">→ ${_esc(p.destinazione||'—')}</div>
-    <div class="prenMeta">Posto: ${_esc(p.spotId||'—')} · ${dataStr}</div>
+    <div class="prenDest">→ ${_esc(p.destinazione || '—')}</div>
+    <div class="prenMeta">Posto: ${_esc(p.spotId || '—')} · ${dataStr}</div>
     ${bloccatoNote}
     ${btnHTML}
   </div>`;
 }
 
-async function completaSingola(id){
+async function completaSingola(id) {
   try {
-    await cambiaStato(id, 'completata');
+    await updateDoc(doc(db, 'prenotazioni', id), {
+      stato: 'completata',
+      completataAt: serverTimestamp()
+    });
     showToast('Cassa completata', 'success');
-  } catch(e){ showToast('Errore: '+e.message, 'error'); }
+  } catch (e) {
+    showToast('Errore: ' + e.message, 'error');
+  }
 }
 
 
+// ════════════════════════════════════════
+// ribalte-operativo.js
+// ════════════════════════════════════════
+
+// ── ribalte-operativo.js ──────────────────────────────────────────────────────
+// Stato ribalte e logica "da liberare" per il ruolo portineria
+// Dipende da: firebase-config.js, shared-utils.js, spots-data.js
+
+
+/**
+ * Aggiorna il box suggerimenti ribalta visibile nella pagina Check-in
+ * per il ruolo portineria. Riceve la lista posti liberi come argomento.
+ *
+ * @param {Array} freeSpots - array di oggetti spot liberi
+ */
+function updateRibalteBox(freeSpots) {
+  const el = document.getElementById('sugList');
+  if (!el) return;
+
+  el.innerHTML = freeSpots.length
+    ? freeSpots.map(s =>
+        `<div class="sugItem">
+          <span>${_esc(s.id)}</span>
+          <span style="color:var(--accent2);font-weight:700;font-size:12px">LIBERO</span>
+        </div>`
+      ).join('')
+    : '<div class="emptyState">Nessun posto libero</div>';
+}
+
+/**
+ * Verifica se una destinazione ribalta è valida
+ * @param {string} dest
+ * @returns {boolean}
+ */
+function isDestinazioneValida(dest) {
+  return DESTINAZIONI_VALIDE.includes((dest || '').toUpperCase());
+}
+
+
+// ════════════════════════════════════════
+// mobile.html — script principale
+// ════════════════════════════════════════
+
+         doc, getDoc, collection, query, orderBy, limit, onSnapshot }
+  from './firebase-config.js';
+
+
+  initCheckin, updateCheckinUI, doCheckinRapido,
+  renderPosti, openSpotDrawer, closeDrawer,
+  assignFromDrawer, freeFromDrawer, toggleFullDrawer,
+  addDamagedDrawer, removeDamagedDrawer
+} from './checkin.js';
+
+
+// ── STATO ─────────────────────────────────────────────────────────────────────
+let currentUser = null;
+let currentMode = 'container';
+let spots       = {};
+let historyCache = [];
+let _prenotazioni = [];
+let unsubSpots = null, unsubHistory = null, unsubPren = null;
+
+// Inizializza spots da SPOT_DEFS
+SPOT_DEFS.forEach(([id, zone]) => {
+  spots[id] = { id, zone, occupied: false, plate: null, since: null, user: null, damaged: false, full: false };
+});
+
+// Inizializza moduli con accesso allo stato
+initCheckin({
+  getSpots: () => spots,
+  getUser:  () => currentUser,
+  getMode:  () => currentMode
+});
+
+// ── AUTH ──────────────────────────────────────────────────────────────────────
+onAuthStateChanged(auth, async fbUser => {
+  if (fbUser) {
+    try {
+      const snap = await getDoc(doc(db, 'users', fbUser.uid));
+      const role = snap.exists() ? (snap.data().role || 'autista') : 'autista';
+      const name = snap.exists() ? (snap.data().name || fbUser.email) : fbUser.email;
+      currentUser = { uid: fbUser.uid, email: fbUser.email, role, name };
+      showApp();
+    } catch (e) {
+      console.error('Errore caricamento utente:', e);
+      currentUser = { uid: fbUser.uid, email: fbUser.email, role: 'autista', name: fbUser.email };
+      showApp();
+    }
+  } else {
+    currentUser = null;
+    showLogin();
+    stopListeners();
+  }
+});
+
+async function doLogin() {
+  const email = document.getElementById('loginEmail').value.trim();
+  const pass  = document.getElementById('loginPass').value;
+  const errEl = document.getElementById('loginError');
+  const btn   = document.getElementById('loginBtn');
+  errEl.style.display = 'none';
+  if (!email || !pass) { errEl.textContent = 'Inserisci email e password.'; errEl.style.display = 'block'; return; }
+  btn.textContent = 'Accesso…'; btn.disabled = true;
+  try {
+    await signInWithEmailAndPassword(auth, email, pass);
+  } catch (e) {
+    let msg = 'Credenziali non valide.';
+    if (e.code === 'auth/invalid-credential' || e.code === 'auth/wrong-password') msg = 'Email o password errata.';
+    if (e.code === 'auth/user-not-found')       msg = 'Utente non trovato.';
+    if (e.code === 'auth/invalid-email')        msg = 'Email non valida.';
+    if (e.code === 'auth/too-many-requests')    msg = 'Troppi tentativi. Riprova più tardi.';
+    if (e.code === 'auth/network-request-failed') msg = 'Errore di rete. Controlla la connessione.';
+    errEl.textContent = msg; errEl.style.display = 'block';
+  } finally {
+    btn.textContent = 'Accedi'; btn.disabled = false;
+  }
+}
+
+async function doLogout() {
+  await signOut(auth);
+}
+
+function showLogin() {
+  document.getElementById('loginScreen').style.display = 'flex';
+  document.getElementById('app').style.display = 'none';
+}
+
+function showApp() {
+  document.getElementById('loginScreen').style.display = 'none';
+  document.getElementById('app').style.display = 'flex';
+
+  const rb = document.getElementById('topRole');
+  rb.textContent = currentUser.role;
+  rb.className   = 'roleBadge ' + currentUser.role;
+  document.getElementById('topBarUser').textContent = currentUser.name || currentUser.email;
+
+  loadMode();
+
+  const role      = currentUser.role;
+  const isAdmin   = role === 'amministratore' || role === 'amministrativo';
+  const isPortineria = role === 'portineria';
+
+  document.getElementById('navAdmin').classList.toggle('hidden', !isAdmin);
+  document.getElementById('ribalteBox').style.display = isPortineria ? 'block' : 'none';
+
+  startListeners();
+
+  if (isAdmin) {
+    showPage('Admin', document.getElementById('navAdmin'));
+  } else {
+    showPage('Checkin', document.getElementById('navCheckin'));
+  }
+}
+
+// ── MODE ──────────────────────────────────────────────────────────────────────
+function loadMode() {
+  const uid   = currentUser ? currentUser.uid : 'guest';
+  const saved = localStorage.getItem('parkMode_' + uid);
+  currentMode = saved === 'cassa' ? 'cassa' : 'container';
+  applyModeUI();
+}
+
+function setMode(mode) {
+  currentMode = mode;
+  const uid = currentUser ? currentUser.uid : 'guest';
+  localStorage.setItem('parkMode_' + uid, mode);
+  applyModeUI();
+  updateCheckinUI();
+  renderPosti();
+}
+
+function applyModeUI() {
+  document.getElementById('btnContainer').classList.toggle('active', currentMode === 'container');
+  document.getElementById('btnCassa').classList.toggle('active',     currentMode === 'cassa');
+  document.getElementById('modeBarLabel').textContent =
+    currentMode === 'cassa' ? '📦 Modalità Cassa' : '🚛 Modalità Container';
+
+  const showPren = currentMode === 'cassa';
+  document.getElementById('navPrenotazioni').classList.toggle('hidden', !showPren);
+  if (showPren && currentUser) initPrenotazioni({ getUser: () => currentUser });
+}
+
+// ── LISTENERS ─────────────────────────────────────────────────────────────────
+function startListeners() {
+  unsubSpots = onSnapshot(collection(db, 'spots'), snap => {
+    snap.docChanges().forEach(ch => {
+      const data = ch.doc.data(), id = ch.doc.id;
+      if (spots[id]) {
+        if (ch.type === 'removed') {
+          spots[id] = { ...spots[id], occupied: false, plate: null, since: null, user: null, full: false };
+        } else {
+          spots[id] = { ...spots[id],
+            occupied: data.occupied || false, plate: data.plate || null,
+            since:    data.since?.toDate() || null, user: data.user || null,
+            damaged:  data.damaged || false, full: data.full || false
+          };
+        }
+      }
+    });
+    updateCheckinUI();
+    renderPosti();
+    updateAdminStats();
+  });
+
+  const hq = query(collection(db, 'history'), orderBy('ts', 'desc'), limit(100));
+  unsubHistory = onSnapshot(hq, snap => {
+    historyCache = snap.docs.map(d => ({ ...d.data(), ts: d.data().ts?.toDate() }));
+    renderStorico();
+    updateAdminStats();
+  });
+}
+
+function stopListeners() {
+  if (unsubSpots)   { unsubSpots();   unsubSpots   = null; }
+  if (unsubHistory) { unsubHistory(); unsubHistory = null; }
+  if (unsubPren)    { unsubPren();    unsubPren    = null; }
+}
+
+// ── PAGES ─────────────────────────────────────────────────────────────────────
+function showPage(id, btn) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.navBtn').forEach(b => b.classList.remove('active'));
+  document.getElementById('page' + id).classList.add('active');
+  if (btn) btn.classList.add('active');
+  if (id === 'Prenotazioni') initPrenotazioni({ getUser: () => currentUser });
+}
+
 // ── ADMIN ─────────────────────────────────────────────────────────────────────
-function updateAdminStats(){
-  if(currentUser?.role !== 'amministratore' && currentUser?.role !== 'amministrativo') return;
+function updateAdminStats() {
+  if (currentUser?.role !== 'amministratore' && currentUser?.role !== 'amministrativo') return;
   const all = Object.values(spots);
   const occ = all.filter(s => s.occupied).length;
   document.getElementById('adminStats').innerHTML = `
     <div class="statCard blue"><div class="val">${all.length}</div><div class="lbl">Totali</div></div>
-    <div class="statCard green"><div class="val">${all.length-occ}</div><div class="lbl">Liberi</div></div>
+    <div class="statCard green"><div class="val">${all.length - occ}</div><div class="lbl">Liberi</div></div>
     <div class="statCard red"><div class="val">${occ}</div><div class="lbl">Occupati</div></div>
     <div class="statCard orange"><div class="val">${historyCache.length}</div><div class="lbl">Movimenti</div></div>`;
 }
 
-function renderStorico(){
-  if(currentUser?.role !== 'amministratore' && currentUser?.role !== 'amministrativo') return;
-  document.getElementById('storicoList').innerHTML = historyCache.slice(0,50).map(h => `
+function renderStorico() {
+  if (currentUser?.role !== 'amministratore' && currentUser?.role !== 'amministrativo') return;
+  document.getElementById('storicoList').innerHTML = historyCache.slice(0, 50).map(h => `
     <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)">
       <div style="flex:1">
-        <div style="font-size:13px;font-weight:700">${h.spot} · ${h.plate||'—'}</div>
-        <div style="font-size:11px;color:var(--muted)">${fmtDate(h.ts)} · ${h.user||'—'}</div>
+        <div style="font-size:13px;font-weight:700">${h.spot} · ${h.plate || '—'}</div>
+        <div style="font-size:11px;color:var(--muted)">${fmtDate(h.ts)} · ${h.user || '—'}</div>
       </div>
-      <span style="font-size:11px;font-weight:700;padding:3px 8px;border-radius:20px;${h.action==='Assegnato'?'background:#f59e0b13;color:#d97706':'background:#A4D20013;color:var(--accent2)'}">${h.action}</span>
+      <span style="font-size:11px;font-weight:700;padding:3px 8px;border-radius:20px;${
+        h.action === 'Assegnato'
+          ? 'background:#f59e0b13;color:#d97706'
+          : 'background:#A4D20013;color:var(--accent2)'
+      }">${h.action}</span>
     </div>`).join('') || '<div class="emptyState">Nessun movimento</div>';
 }
 
-// ── HELPERS ───────────────────────────────────────────────────────────────────
-function fmtDate(d){
-  if(!d) return '—';
-  return new Date(d).toLocaleString('it-IT',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
-}
-function fmtDur(since){
-  if(!since) return '';
-  const m = Math.floor((Date.now()-new Date(since))/60000);
-  return m<60 ? `${m}m` : `${Math.floor(m/60)}h${m%60?` ${m%60}m`:''}`;
-}
-function showToast(msg, type='success'){
-  const t = document.getElementById('toast');
-  t.textContent = (type==='success'?'✓ ':'⚠ ') + msg;
-  t.className = 'toast ' + type + ' show';
-  clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => t.classList.remove('show'), 3000);
-}
-function _esc(str){ return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
-
-// expose globals
-window.doLogin = doLogin;
-window.doLogout = doLogout;
-window.setMode = setMode;
-window.showPage = showPage;
-window.renderPosti = renderPosti;
-window.openSpotDrawer = openSpotDrawer;
-window.closeDrawer = closeDrawer;
-window.assignFromDrawer = assignFromDrawer;
-window.freeFromDrawer = freeFromDrawer;
-window.toggleFullDrawer = toggleFullDrawer;
-window.addDamagedDrawer = addDamagedDrawer;
+// ── EXPOSE GLOBALS (usati da onclick HTML) ────────────────────────────────────
+window.doLogin           = doLogin;
+window.doLogout          = doLogout;
+window.setMode           = setMode;
+window.showPage          = showPage;
+window.renderPosti       = renderPosti;
+window.openSpotDrawer    = openSpotDrawer;
+window.closeDrawer       = closeDrawer;
+window.assignFromDrawer  = assignFromDrawer;
+window.freeFromDrawer    = freeFromDrawer;
+window.toggleFullDrawer  = toggleFullDrawer;
+window.addDamagedDrawer  = addDamagedDrawer;
 window.removeDamagedDrawer = removeDamagedDrawer;
-window.doCheckinRapido = doCheckinRapido;
-window.cambiaStato = cambiaStato;
-window.completaSingola = completaSingola;
+window.doCheckinRapido   = doCheckinRapido;
+window.completaSingola   = completaSingola;
 window.renderPrenotazioni = renderPrenotazioni;
+
 </script>
 
-<!-- Redirect automatico da index.html su mobile -->
-<script>
-// Questo snippet va inserito in index.html per il routing automatico
-// (copiare le righe seguenti nell'head di index.html)
-// if((window.innerWidth <= 768 || navigator.maxTouchPoints > 0) && !location.href.includes('mobile.html')){
-//   location.replace('mobile.html');
-// }
-</script>
 </body>
 </html>
