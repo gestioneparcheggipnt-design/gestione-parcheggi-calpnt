@@ -58,6 +58,7 @@ if((window.innerWidth<=768||navigator.maxTouchPoints>0)&&!location.href.includes
   .roleBadge.operativo{color:#a78bfa;border-color:#a78bfa44;background:#a78bfa11;}
   .roleBadge.amministrativo{color:#f59e0b;border-color:#f59e0b44;background:#f59e0b11;}
   .roleBadge.amministratore{color:#A4D200;border-color:#A4D20044;background:#A4D20011;}
+  .roleBadge.portineria{color:#38bdf8;border-color:#38bdf844;background:#38bdf811;}
   .btnLogout{background:transparent;border:1px solid var(--border);border-radius:8px;padding:5px 11px;color:var(--muted);font-family:inherit;font-size:12px;cursor:pointer;}
   .btnLogout:hover{border-color:var(--red);color:var(--red);}
   .page{display:none;padding:18px;flex:1;}
@@ -385,6 +386,51 @@ if((window.innerWidth<=768||navigator.maxTouchPoints>0)&&!location.href.includes
   color: var(--muted);
   padding: 2rem !important;
   font-style: italic;
+}
+
+/* ── Vista Casse ── */
+.casse-list { display: flex; flex-direction: column; gap: .6rem; }
+.cassa-row {
+  display: flex; align-items: center; gap: 1rem;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 10px; padding: .7rem 1rem;
+  transition: background .15s;
+}
+.cassa-row:hover { background: var(--surface2); }
+.cassa-row.urgente { border-left: 3px solid var(--red); }
+.cassa-rank {
+  width: 28px; height: 28px; border-radius: 50%;
+  background: var(--surface2); border: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: center;
+  font-size: .8rem; font-weight: 700; color: var(--muted); flex-shrink: 0;
+}
+.cassa-rank.top { background: var(--accent); color: #1C1F26; border-color: var(--accent); }
+.cassa-id {
+  font-family: 'DM Mono', monospace; font-size: 1rem; font-weight: 700;
+  color: var(--text); min-width: 60px;
+}
+.cassa-posto { font-size: .82rem; color: var(--muted); min-width: 60px; }
+.cassa-anzianita { font-size: .8rem; color: var(--muted); flex: 1; }
+.cassa-badges { display: flex; gap: .4rem; align-items: center; flex-wrap: wrap; }
+.badge-urgente {
+  background: #ef444418; color: var(--red); border: 1px solid #ef444440;
+  border-radius: 20px; padding: 2px 9px; font-size: .72rem; font-weight: 700;
+}
+.badge-pieno {
+  background: #f59e0b18; color: var(--orange); border: 1px solid #f59e0b40;
+  border-radius: 20px; padding: 2px 9px; font-size: .72rem; font-weight: 600;
+}
+.pren-view-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 1rem; flex-wrap: wrap; gap: .5rem;
+}
+.pren-mode-badge {
+  background: var(--surface2); border: 1px solid var(--border);
+  border-radius: 8px; padding: .3rem .85rem; font-size: .8rem; color: var(--muted);
+}
+.casse-empty {
+  text-align: center; color: var(--muted); padding: 2rem;
+  font-style: italic; font-size: .9rem;
 }
 
 /* ââ Badge stato ââ */
@@ -949,6 +995,8 @@ function loadMode(){
   const saved = localStorage.getItem('parkMode_'+uid);
   currentMode = saved === 'cassa' ? 'cassa' : 'container';
   _applyModeUI();
+  // Aggiorna la vista tab prenotazioni se già inizializzata
+  if (typeof _aggiornaVistaPrenotazioni === 'function') _aggiornaVistaPrenotazioni();
 }
 
 function setMode(mode){
@@ -957,7 +1005,9 @@ function setMode(mode){
   localStorage.setItem('parkMode_'+uid, mode);
   _applyModeUI();
   renderMap();
-  selectSpot(selectedSpotId); // aggiorna pannello se c'Ã¨ un posto selezionato
+  selectSpot(selectedSpotId); // aggiorna pannello se c'è un posto selezionato
+  // Aggiorna la vista tab prenotazioni se visibile
+  if (typeof _aggiornaVistaPrenotazioni === 'function') _aggiornaVistaPrenotazioni();
 }
 
 function _applyModeUI(){
@@ -1212,13 +1262,21 @@ function showLogin(){
 }
 
 function showApp(){
+  // Desktop accessibile solo ad amministratore e amministrativo
+  const rolesDesktop = ["amministratore","amministrativo"];
+  if(!rolesDesktop.includes(currentUser.role)){
+    // Redirect a mobile.html per tutti gli altri ruoli
+    location.replace('mobile.html');
+    return;
+  }
   document.getElementById("loginScreen").style.display="none";
   document.getElementById("app").style.display="flex";
   const rb=document.getElementById("navRole");
   rb.textContent=currentUser.role; rb.className="roleBadge "+currentUser.role;
   const un=document.getElementById("navUserName");
   if(un) un.textContent=currentUser.name||currentUser.email;
-  if(currentUser.role!=="autista" && currentUser.role!=="operativo") document.getElementById("tabStats").classList.remove("hidden");
+  // Statistiche visibili a tutti i ruoli desktop
+  document.getElementById("tabStats").classList.remove("hidden");
   if(currentUser.role==="amministratore") document.getElementById("tabUtenti").classList.remove("hidden");
   document.getElementById("tabPrenotazioni").classList.remove("hidden");
   loadMode();
@@ -1697,7 +1755,16 @@ function showToast(msg,type="success"){
 }
 window.addEventListener("resize",()=>{ applyT(); });
 
-// ââ Stato locale prenotazioni ââââââââââââââââââââââââââââââââââ
+const RE_CASSA     = /^\d{3}$/;           // 3 cifre  → cassa
+const RE_CONTAINER = /^[A-Z]{4}\d{7}$/;  // 4 lettere + 7 cifre → container
+
+function riconosciTipoMezzo(id) {
+  if (RE_CASSA.test(id))     return 'cassa';
+  if (RE_CONTAINER.test(id)) return 'container';
+  return null;
+}
+
+// ── Stato locale prenotazioni ─────────────────────────────────────────────
 const DESTINAZIONI_VALIDE = [
   'PNT1-01','PNT1-02','PNT1-03','PNT1-04','PNT1-05','PNT1-06','PNT1-07','PNT1-08','PNT1-09','PNT1-10',
   'PNT1-11','PNT1-12','PNT1-13','PNT1-14','PNT1-15','PNT1-16','PNT1-17','PNT1-18','PNT1-19','PNT1-20',
@@ -1720,6 +1787,82 @@ let _mezzoCorrente = null;
 let _prenListener = null;
 let _destinazioneValida = false;
 
+// ── Aggiorna vista tab in base alla modalità corrente ─────────────────────
+function _aggiornaVistaPrenotazioni() {
+  const isCassa = (currentMode === 'cassa');
+  document.getElementById('pren-view-container').style.display = isCassa ? 'none' : 'block';
+  document.getElementById('pren-view-casse').style.display     = isCassa ? 'block' : 'none';
+  if (isCassa) renderCasse();
+  else renderPrenotazioni();
+}
+
+// ── Vista CASSE: lista posti occupati da casse ────────────────────────────
+function renderCasse() {
+  const container = document.getElementById('casse-list-container');
+  if (!container) return;
+
+  // Filtra i posti occupati da casse (plate = 3 cifre)
+  const casseOccupate = Object.values(spots).filter(s =>
+    s.occupied && s.plate && RE_CASSA.test(s.plate.trim())
+  );
+
+  if (!casseOccupate.length) {
+    container.innerHTML = '<div class="casse-empty">Nessuna cassa attualmente parcheggiata.</div>';
+    return;
+  }
+
+  // Controlla se ci sono prenotazioni urgenti attive per ciascuna cassa
+  const idUrgenti = new Set(
+    _prenotazioni
+      .filter(p => p.urgente && p.stato === 'creata')
+      .map(p => p.plate)
+  );
+
+  // Ordine: prima urgenti, poi per anzianità (since crescente = più vecchie prima)
+  casseOccupate.sort((a, b) => {
+    const aUrg = idUrgenti.has(a.plate) ? 0 : 1;
+    const bUrg = idUrgenti.has(b.plate) ? 0 : 1;
+    if (aUrg !== bUrg) return aUrg - bUrg;
+    // Stessa priorità → più vecchie prima
+    const aTs = a.since ? (a.since.toDate ? a.since.toDate().getTime() : new Date(a.since).getTime()) : 0;
+    const bTs = b.since ? (b.since.toDate ? b.since.toDate().getTime() : new Date(b.since).getTime()) : 0;
+    return aTs - bTs;
+  });
+
+  container.innerHTML = casseOccupate.map((s, idx) => {
+    const urgente = idUrgenti.has(s.plate);
+    const rankClass = idx < 3 ? 'cassa-rank top' : 'cassa-rank';
+    const rowClass = urgente ? 'cassa-row urgente' : 'cassa-row';
+    const sinceTs = s.since ? (s.since.toDate ? s.since.toDate() : new Date(s.since)) : null;
+    const anzianita = sinceTs ? _fmtAnzianita(sinceTs) : '—';
+    const sinceStr  = sinceTs ? sinceTs.toLocaleDateString('it-IT', {day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}) : '—';
+    return `
+      <div class="${rowClass}">
+        <div class="${rankClass}">${idx + 1}</div>
+        <div class="cassa-id">${_esc(s.plate)}</div>
+        <div class="cassa-posto">${_esc(s.id)}</div>
+        <div class="cassa-anzianita">
+          <span title="Entrata: ${sinceStr}">⏱ ${anzianita}</span>
+        </div>
+        <div class="cassa-badges">
+          ${urgente ? '<span class="badge-urgente">🚨 Urgente</span>' : ''}
+          ${s.full ? '<span class="badge-pieno">📦 Piena</span>' : ''}
+        </div>
+      </div>`;
+  }).join('');
+}
+
+function _fmtAnzianita(date) {
+  const ms = Date.now() - date.getTime();
+  const m = Math.floor(ms / 60000);
+  if (m < 60) return m + ' min';
+  const h = Math.floor(m / 60);
+  if (h < 24) return h + 'h ' + (m % 60) + 'min';
+  const d = Math.floor(h / 24);
+  return d + 'g ' + (h % 24) + 'h';
+}
+
+// ── Vista CONTAINER: validazione e form ──────────────────────────────────
 function validaDestinazione() {
   const val = document.getElementById('pren-destinazione').value.trim().toUpperCase();
   const feedback = document.getElementById('pren-dest-feedback');
@@ -1728,11 +1871,11 @@ function validaDestinazione() {
     feedback.className = 'pren-feedback';
     _destinazioneValida = false;
   } else if (DESTINAZIONI_VALIDE.includes(val)) {
-    feedback.textContent = 'â Destinazione valida';
+    feedback.textContent = '✔ Destinazione valida';
     feedback.className = 'pren-feedback ok';
     _destinazioneValida = true;
   } else {
-    feedback.textContent = 'â ï¸ Destinazione non trovata nell\'elenco';
+    feedback.textContent = '⚠️ Destinazione non trovata nell\'elenco';
     feedback.className = 'pren-feedback err';
     _destinazioneValida = false;
   }
@@ -1757,7 +1900,7 @@ function initPrenotazioni() {
     query(collection(db, 'prenotazioni'), orderBy('dataOra', 'desc')),
     snap => {
       _prenotazioni = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-      renderPrenotazioni();
+      _aggiornaVistaPrenotazioni();
     },
     err => console.error('Errore listener prenotazioni:', err)
   );
@@ -1772,28 +1915,37 @@ async function cercaMezzo() {
   infoBox.style.display = 'none';
   btnSalva.disabled = true;
   if (!targa) {
-    feedback.textContent = 'Inserisci una targa.';
+    feedback.textContent = 'Inserisci un identificativo.';
     feedback.className = 'pren-feedback err';
     return;
   }
-  feedback.textContent = 'Ricerca in corsoâ¦';
+  // Validazione formato: deve essere un container
+  const tipo = riconosciTipoMezzo(targa);
+  if (tipo !== 'container') {
+    feedback.textContent = tipo === 'cassa'
+      ? '⚠️ Questo è un numero di cassa. Le prenotazioni riguardano solo container.'
+      : '⚠️ Formato non valido. Container: 4 lettere + 7 cifre (es. ABCD1234567)';
+    feedback.className = 'pren-feedback err';
+    return;
+  }
+  feedback.textContent = 'Ricerca in corso…';
   feedback.className = 'pren-feedback';
   try {
     const snap = await getDocs(query(collection(db, 'spots'), where('plate', '==', targa), limit(1)));
     if (snap.empty) {
-      feedback.textContent = 'â ï¸ Nessun mezzo trovato con targa "' + targa + '".';
+      feedback.textContent = '⚠️ Nessun container trovato con ID "' + targa + '".';
       feedback.className = 'pren-feedback err';
       return;
     }
     const docSnap = snap.docs[0];
     const data = docSnap.data();
     _mezzoCorrente = { spotId: docSnap.id, plate: data.plate, occupied: data.occupied };
-    feedback.textContent = 'â Mezzo trovato!';
+    feedback.textContent = '✔ Container trovato!';
     feedback.className = 'pren-feedback ok';
     document.getElementById('pren-spot-id').textContent = docSnap.id;
     document.getElementById('pren-spot-plate').textContent = data.plate;
     const occEl = document.getElementById('pren-spot-occupied');
-    occEl.textContent = data.occupied ? 'ð´ Occupato' : 'ð¢ Libero';
+    occEl.textContent = data.occupied ? '🔴 Occupato' : '🟢 Libero';
     occEl.style.display = 'inline-block';
     infoBox.style.display = 'flex';
     _aggiornaBtnSalva();
@@ -1814,11 +1966,12 @@ async function salvaPrenotazione() {
   const user = auth.currentUser;
   const btnSalva = document.getElementById('pren-btn-salva');
   btnSalva.disabled = true;
-  btnSalva.textContent = 'â³ Salvataggioâ¦';
+  btnSalva.textContent = '⏳ Salvataggio…';
   try {
     await addDoc(collection(db, 'prenotazioni'), {
       spotId: _mezzoCorrente.spotId,
       plate: _mezzoCorrente.plate,
+      tipoMezzo: 'container',
       destinazione: destinazione,
       dataOra: new Date(dataOra),
       stato: 'creata',
@@ -1832,7 +1985,7 @@ async function salvaPrenotazione() {
     console.error('Errore salvataggio:', err);
     alert('Errore durante il salvataggio. Controlla la console.');
     btnSalva.disabled = false;
-    btnSalva.textContent = 'ð¾ Salva Prenotazione';
+    btnSalva.textContent = '💾 Salva Prenotazione';
   }
 }
 
@@ -1848,7 +2001,7 @@ async function cambiaStatoPrenotazione(id, nuovoStato) {
 }
 
 async function eliminaPrenotazione(id) {
-  if (!confirm('Eliminare questa prenotazione? L\'operazione non Ã¨ reversibile.')) return;
+  if (!confirm('Eliminare questa prenotazione? L\'operazione non è reversibile.')) return;
   try {
     await deleteDoc(doc(db, 'prenotazioni', id));
   } catch (err) {
@@ -1857,12 +2010,16 @@ async function eliminaPrenotazione(id) {
   }
 }
 
+// ── Render tabella container ──────────────────────────────────────────────
 function renderPrenotazioni() {
   const tbody = document.getElementById('pren-table-body');
+  if (!tbody) return;
   const filtroStato = document.getElementById('pren-filter-stato')?.value || '';
-  const filtroData = document.getElementById('pren-filter-data')?.value || '';
+  const filtroData  = document.getElementById('pren-filter-data')?.value || '';
   const filtroTarga = (document.getElementById('pren-filter-targa')?.value || '').toUpperCase().trim();
-  let lista = [..._prenotazioni];
+
+  // Solo prenotazioni container (esclude casse)
+  let lista = _prenotazioni.filter(p => !p.tipoMezzo || p.tipoMezzo === 'container');
   if (filtroStato) lista = lista.filter(p => p.stato === filtroStato);
   if (filtroTarga) lista = lista.filter(p => (p.plate || '').toUpperCase().includes(filtroTarga));
   if (filtroData) lista = lista.filter(p => {
@@ -1870,21 +2027,36 @@ function renderPrenotazioni() {
     const d = p.dataOra.toDate ? p.dataOra.toDate() : new Date(p.dataOra);
     return d.toISOString().slice(0, 10) === filtroData;
   });
+
+  // Ordine: urgenti prima, poi per dataOra crescente (più imminenti in cima)
+  lista.sort((a, b) => {
+    if (a.urgente !== b.urgente) return a.urgente ? -1 : 1;
+    const aTs = a.dataOra?.toDate ? a.dataOra.toDate().getTime() : new Date(a.dataOra).getTime();
+    const bTs = b.dataOra?.toDate ? b.dataOra.toDate().getTime() : new Date(b.dataOra).getTime();
+    // Per stato creata: prima quelli con dataOra più imminente
+    // Poi timestamp di creazione per inserimento
+    const aCreated = a.createdAt?.toDate ? a.createdAt.toDate().getTime() : 0;
+    const bCreated = b.createdAt?.toDate ? b.createdAt.toDate().getTime() : 0;
+    if (a.stato === 'creata' && b.stato === 'creata') return (aTs - bTs) || (aCreated - bCreated);
+    return aCreated - bCreated;
+  });
+
   if (!lista.length) {
     tbody.innerHTML = '<tr><td colspan="8" class="pren-empty">Nessuna prenotazione trovata.</td></tr>';
     return;
   }
   tbody.innerHTML = lista.map(p => {
     const d = p.dataOra?.toDate ? p.dataOra.toDate() : (p.dataOra ? new Date(p.dataOra) : null);
-    const dataStr = d ? d.toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'â';
-    const badgeStato = '<span class="stato-badge stato-' + p.stato + '">' + _statoLabel(p.stato) + '</span>';
-    const badgeUrgente = p.urgente ? '<span style="color:#ef4444;font-weight:700;font-size:13px">ð¨ SÃ¬</span>' : '<span style="color:var(--muted);font-size:12px">â</span>';
+    const dataStr = d ? d.toLocaleDateString('it-IT', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' }) : '—';
+    const badgeStato   = '<span class="stato-badge stato-' + p.stato + '">' + _statoLabel(p.stato) + '</span>';
+    const badgeUrgente = p.urgente
+      ? '<span style="color:#ef4444;font-weight:700;font-size:13px">🚨 Sì</span>'
+      : '<span style="color:var(--muted);font-size:12px">—</span>';
     let azioni = '';
-    const isAutista = currentUser && currentUser.role === 'autista';
     const isOwn = currentUser && p.operatoreUid === currentUser.uid;
-    if (p.stato === 'creata' && isAutista) azioni += '<button class="pren-action-btn btn-completa" onclick="cambiaStatoPrenotazione(\'' + p.id + '\',\'completata\')">â Completa</button>';
-    if (isOwn && p.stato !== 'completata') azioni += '<button class="pren-action-btn btn-elimina" onclick="eliminaPrenotazione(\'' + p.id + '\')">ð</button>';
-    return '<tr><td><strong>' + _esc(p.plate || 'â') + '</strong></td><td>' + _esc(p.spotId || 'â') + '</td><td>' + _esc(p.destinazione || 'â') + '</td><td style="white-space:nowrap">' + dataStr + '</td><td>' + badgeStato + '</td><td style="text-align:center">' + badgeUrgente + '</td><td style="font-size:.8rem">' + _esc(p.operatoreEmail || 'â') + '</td><td><div class="pren-actions">' + azioni + '</div></td></tr>';
+    if (p.stato === 'creata') azioni += '<button class="pren-action-btn btn-completa" onclick="cambiaStatoPrenotazione(\'' + p.id + '\',\'completata\')">✔ Completa</button>';
+    if (isOwn && p.stato !== 'completata') azioni += '<button class="pren-action-btn btn-elimina" onclick="eliminaPrenotazione(\'' + p.id + '\')">🗑</button>';
+    return '<tr><td><strong>' + _esc(p.plate || '—') + '</strong></td><td>' + _esc(p.spotId || '—') + '</td><td>' + _esc(p.destinazione || '—') + '</td><td style="white-space:nowrap">' + dataStr + '</td><td>' + badgeStato + '</td><td style="text-align:center">' + badgeUrgente + '</td><td style="font-size:.8rem">' + _esc(p.operatoreEmail || '—') + '</td><td><div class="pren-actions">' + azioni + '</div></td></tr>';
   }).join('');
 }
 
@@ -1893,7 +2065,7 @@ function _statoLabel(stato) {
 }
 
 function _esc(str) {
-  return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
 function resetFormPrenotazione() {
@@ -1906,7 +2078,7 @@ function resetFormPrenotazione() {
   document.getElementById('pren-dest-feedback').className = 'pren-feedback';
   document.getElementById('pren-mezzo-trovato').style.display = 'none';
   document.getElementById('pren-btn-salva').disabled = true;
-  document.getElementById('pren-btn-salva').textContent = 'ð¾ Salva Prenotazione';
+  document.getElementById('pren-btn-salva').textContent = '💾 Salva Prenotazione';
   _mezzoCorrente = null;
   _destinazioneValida = false;
   const now = new Date();
@@ -1921,16 +2093,17 @@ function resetFiltri() {
   renderPrenotazioni();
 }
 
-window.cercaMezzo = cercaMezzo;
-window.salvaPrenotazione = salvaPrenotazione;
-window.resetFormPrenotazione = resetFormPrenotazione;
+window.cercaMezzo              = cercaMezzo;
+window.salvaPrenotazione       = salvaPrenotazione;
+window.resetFormPrenotazione   = resetFormPrenotazione;
 window.cambiaStatoPrenotazione = cambiaStatoPrenotazione;
-window.eliminaPrenotazione = eliminaPrenotazione;
-window.renderPrenotazioni = renderPrenotazioni;
-window.resetFiltri = resetFiltri;
-window.validaDestinazione = validaDestinazione;
+window.eliminaPrenotazione     = eliminaPrenotazione;
+window.renderPrenotazioni      = renderPrenotazioni;
+window.renderCasse             = renderCasse;
+window.resetFiltri             = resetFiltri;
+window.validaDestinazione      = validaDestinazione;
+window.riconosciTipoMezzo      = riconosciTipoMezzo;
 
-</script>
 </script>
 </body>
 </html>
