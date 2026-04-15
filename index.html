@@ -1280,7 +1280,7 @@ function getModeLabel(){
 }
 
 function getModeIcon(){
-  return currentMode === 'cassa' ? 'ð¦' : 'ð';
+  return currentMode === 'cassa' ? '&#x1F4E6;' : '&#x1F69B;';
 }
 
 window.setMode = setMode;
@@ -1362,6 +1362,21 @@ function initPanZoom(){
 
 
 // ââ MAPPA âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+
+// Riconosce tipo mezzo dal plate
+function _tipoMezzo(plate) {
+  if (!plate) return null;
+  if (/^\d{3}$/.test(plate)) return 'cassa';
+  if (/^[A-Z]{4}\d{7}$/.test(plate)) return 'container';
+  return null;
+}
+function _labelMezzo(plate) {
+  const t = _tipoMezzo(plate);
+  if (t === 'cassa')     return { label: 'Cassa',     icon: '&#x1F4E6;' };
+  if (t === 'container') return { label: 'Container', icon: '&#x1F69B;' };
+  return { label: 'Mezzo', icon: '&#x1F697;' };
+}
+
 function initMap(){
   const img=document.getElementById("mapImg"),vp=document.getElementById("mapViewport");
   img.onload=()=>requestAnimationFrame(()=>requestAnimationFrame(()=>{
@@ -1392,14 +1407,14 @@ function selectSpot(id){
   const sp=spots[id], panel=document.getElementById("spotPanel");
   if(!sp){ return; }
   const puoGestire = currentUser && (currentUser.role === 'autista' || currentUser.role === 'amministratore');
-  const modeLabel = getModeLabel();
-  const modeIcon = getModeIcon();
-  const placeholderTarga = currentMode === 'cassa' ? 'Es. CAX-001' : 'AB123CD';
+  const ml = _labelMezzo(sp.plate);   // { label, icon } basato sul plate attuale
+  const placeholderInput = currentMode === 'cassa' ? 'Es. 001' : 'Es. ABCD1234567';
+  const inputLabel = currentMode === 'cassa' ? 'Numero cassa' : 'ID Container';
 
   if(!sp.occupied){
     if(!puoGestire){
       panel.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:11px">
-        <h3 style="margin:0">${id}</h3>
+        <h3 style="margin:0;color:var(--text)">${id}</h3>
         <button onclick="window._cancelSelect()" style="background:transparent;border:none;color:var(--muted);font-size:18px;cursor:pointer;line-height:1">&#10005;</button>
       </div>
       <span class="statusBadge free">&#9679; Libero</span>
@@ -1407,51 +1422,50 @@ function selectSpot(id){
       return;
     }
     panel.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:11px">
-      <h3 style="margin:0">${id}</h3>
+      <h3 style="margin:0;color:var(--text)">${id}</h3>
       <button onclick="window._cancelSelect()" style="background:transparent;border:none;color:var(--muted);font-size:18px;cursor:pointer;line-height:1">&#10005;</button>
       </div>
       <span class="statusBadge free">&#9679; Libero</span>
-      <div style="font-size:11px;color:var(--accent);margin-bottom:9px;font-weight:600">${modeIcon} ModalitÃ : ${modeLabel}</div>
-      <div class="formGroup" style="margin-bottom:9px">
-        <label style="font-size:11px;color:var(--muted);display:block;margin-bottom:5px;text-transform:uppercase;letter-spacing:.5px">${modeLabel} / Identificativo</label>
-        <input class="plateInput" id="inlineplate" type="text" placeholder="${placeholderTarga}" maxlength="15"
+      <div class="formGroup" style="margin-bottom:9px;margin-top:10px">
+        <label style="font-size:11px;color:var(--muted);display:block;margin-bottom:5px;text-transform:uppercase;letter-spacing:.5px">${inputLabel}</label>
+        <input class="plateInput" id="inlineplate" type="text" placeholder="${placeholderInput}" maxlength="15"
+          oninput="this.value=this.value.toUpperCase()"
           onkeydown="if(event.key==='Enter')window._inlineAssign('${id}')">
       </div>
-      <label style="display:flex;align-items:center;gap:9px;font-size:13px;color:var(--muted);margin-bottom:9px;cursor:pointer;user-select:none;">
+      <label style="display:flex;align-items:center;gap:9px;font-size:13px;color:var(--text);margin-bottom:9px;cursor:pointer;user-select:none;">
         <input type="checkbox" id="inlineDamaged" style="width:16px;height:16px;accent-color:#ef4444;cursor:pointer;">
         <span>&#9888;&#65039; Veicolo danneggiato</span>
       </label>
-      <label style="display:flex;align-items:center;gap:9px;font-size:13px;color:var(--muted);margin-bottom:13px;cursor:pointer;user-select:none;">
+      <label style="display:flex;align-items:center;gap:9px;font-size:13px;color:var(--text);margin-bottom:13px;cursor:pointer;user-select:none;">
         <input type="checkbox" id="inlineFull" style="width:16px;height:16px;accent-color:#f59e0b;cursor:pointer;">
-        <span>ð¡ ${modeLabel} piena/o (carico completo)</span>
+        <span>&#x1F7E1; Piena/o (carico completo)</span>
       </label>
-      <button class="btnAssign" onclick="window._inlineAssign('${id}')">&#10003; Assegna ${modeLabel}</button>`;
+      <button class="btnAssign" onclick="window._inlineAssign('${id}')">&#10003; Assegna</button>`;
     setTimeout(()=>document.getElementById("inlineplate")?.focus(),50);
   }else{
     const fullBadge = sp.full
-      ? '<span style="color:#f59e0b;font-weight:600">ð¡ Piena/o (carico completo)</span>'
-      : '<span style="color:#22c55e;font-size:12px">ð¢ Vuota/o</span>';
+      ? '<span style="color:#f59e0b;font-weight:600">&#x1F7E1; Piena/o (carico completo)</span>'
+      : '<span style="color:#22c55e;font-weight:500">&#x1F7E2; Vuota/o</span>';
     panel.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:11px">
-      <h3 style="margin:0">${id}</h3>
+      <h3 style="margin:0;color:var(--text)">${id}</h3>
       <button onclick="window._cancelSelect()" style="background:transparent;border:none;color:var(--muted);font-size:18px;cursor:pointer;line-height:1">&#10005;</button>
       </div>
       <span class="statusBadge occupied">&#9679; Occupato</span>
-      <div style="font-size:11px;color:var(--accent);margin-bottom:9px;font-weight:600">${modeIcon} ModalitÃ : ${modeLabel}</div>
-      <div class="occupiedInfo">
-        <div>${modeLabel}: <strong>${sp.plate}</strong></div>
-        ${sp.damaged ? '<div style="color:#ef4444;font-weight:600">&#9888;&#65039; Veicolo danneggiato</div>' : ''}
-        <div>Stato: ${fullBadge}</div>
-        <div>Da: <strong>${fmtDate(sp.since)}</strong></div>
-        <div>Durata: <strong>${fmtDur(sp.since)}</strong></div>
-        <div>Utente: <strong>${sp.user}</strong></div>
+      <div class="occupiedInfo" style="margin-top:10px">
+        <div style="color:var(--text)">${ml.icon} ${ml.label}: <strong style="color:var(--text);font-family:'DM Mono',monospace">${sp.plate}</strong></div>
+        ${sp.damaged ? '<div style="color:#ef4444;font-weight:600;margin-top:4px">&#9888;&#65039; Veicolo danneggiato</div>' : ''}
+        <div style="margin-top:4px;color:var(--text)">Stato: ${fullBadge}</div>
+        <div style="margin-top:4px;color:var(--text)">Da: <strong style="color:var(--text)">${fmtDate(sp.since)}</strong></div>
+        <div style="margin-top:4px;color:var(--text)">Durata: <strong style="color:var(--accent)">${fmtDur(sp.since)}</strong></div>
+        <div style="margin-top:4px;color:var(--text)">Utente: <strong style="color:var(--text);font-size:12px">${sp.user}</strong></div>
       </div>
       ${sp.full
-        ? `<button class="fullToggleBtn pieno" onclick="window._toggleFull('${id}',false)">ð¢ Segna come Vuota/o</button>`
-        : `<button class="fullToggleBtn vuoto" onclick="window._toggleFull('${id}',true)">ð¡ Segna come Piena/o</button>`}
+        ? `<button class="fullToggleBtn pieno" style="margin-top:10px" onclick="window._toggleFull('${id}',false)">&#x1F7E2; Segna come Vuota/o</button>`
+        : `<button class="fullToggleBtn vuoto" style="margin-top:10px" onclick="window._toggleFull('${id}',true)">&#x1F7E1; Segna come Piena/o</button>`}
       ${puoGestire ? `
       ${sp.damaged
-        ? `<button onclick="window._removeDamaged('${id}')" style="width:100%;background:linear-gradient(135deg,#f59e0b,#d97706);border:none;border-radius:8px;padding:9px;color:#fff;font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;margin-bottom:7px">&#10003; Rimuovi segnalazione danno</button>`
-        : `<button onclick="window._addDamaged('${id}')" style="width:100%;background:linear-gradient(135deg,#ef4444,#dc2626);border:none;border-radius:8px;padding:9px;color:#fff;font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;margin-bottom:7px">&#9888;&#65039; Segnala veicolo danneggiato</button>`}
+        ? `<button onclick="window._removeDamaged('${id}')" style="width:100%;background:linear-gradient(135deg,#f59e0b,#d97706);border:none;border-radius:8px;padding:9px;color:#fff;font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;margin-bottom:7px;margin-top:6px">&#10003; Rimuovi segnalazione danno</button>`
+        : `<button onclick="window._addDamaged('${id}')" style="width:100%;background:linear-gradient(135deg,#ef4444,#dc2626);border:none;border-radius:8px;padding:9px;color:#fff;font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;margin-bottom:7px;margin-top:6px">&#9888;&#65039; Segnala veicolo danneggiato</button>`}
       <button class="btnFreeInline" onclick="window._freeSpot('${id}')">&#10005; Libera Posto</button>` : ''}`;
   }
 }
