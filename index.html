@@ -22,7 +22,9 @@
 </script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <script>
-if((window.innerWidth<=768||navigator.maxTouchPoints>0)&&!location.href.includes('mobile.html')){
+// Redirect mobile: salta se si è già su mobile.html o se è forzato desktop (?desktop=1)
+const _forceDesktop = new URLSearchParams(location.search).get('desktop') === '1';
+if(!_forceDesktop && (window.innerWidth<=768||navigator.maxTouchPoints>0) && !location.href.includes('mobile.html')){
   location.replace('mobile.html');
 }
 </script>
@@ -1515,8 +1517,13 @@ function showApp(){
   // Desktop accessibile solo ad amministratore e amministrativo
   const rolesDesktop = ["amministratore","amministrativo"];
   if(!rolesDesktop.includes(currentUser.role)){
-    // Redirect a mobile.html per tutti gli altri ruoli
-    location.replace('mobile.html');
+    // Ruolo non autorizzato su desktop: logout silenzioso + messaggio errore
+    signOut(auth);
+    const errEl = document.getElementById("loginError");
+    if(errEl){
+      errEl.textContent = 'Accesso non consentito da desktop per il ruolo "' + currentUser.role + '"\.';
+      errEl.style.display = "block";
+    }
     return;
   }
   document.getElementById("loginScreen").style.display="none";
