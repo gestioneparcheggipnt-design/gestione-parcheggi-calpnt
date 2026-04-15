@@ -943,8 +943,9 @@ if(!_forceDesktop && (window.innerWidth<=768||navigator.maxTouchPoints>0) && !lo
         <tr>
           <th class="sortable" onclick="sortTable('id')">Posto <span class="sortIndicator"></span></th>
           <th class="sortable" onclick="sortTable('stato')">Stato <span class="sortIndicator"></span></th>
-          <th class="sortable" onclick="sortTable('plate')">Targa <span class="sortIndicator"></span></th>
-          <th class="sortable" onclick="sortTable('since')">Da <span class="sortIndicator"></span></th>
+          <th class="sortable" onclick="sortTable('plate')">Veicolo <span class="sortIndicator"></span></th>
+          <th>Tipo</th>
+	  <th class="sortable" onclick="sortTable('since')">Da <span class="sortIndicator"></span></th>
           <th class="sortable" onclick="sortTable('damaged')">Danneggiato <span class="sortIndicator"></span></th>
           <th class="sortable" onclick="sortTable('full')">Pieno/Vuoto <span class="sortIndicator"></span></th>
           <th>Utente</th>
@@ -977,7 +978,7 @@ if(!_forceDesktop && (window.innerWidth<=768||navigator.maxTouchPoints>0) && !lo
   <div class="page" id="pageStorico">
     <div class="pageHeader">Storico Movimenti</div><div class="pageSubtitle">Registro completo assegnazioni e liberazioni</div>
     <div class="tableWrap"><table>
-      <thead><tr><th>Data/Ora</th><th>Posto</th><th>Azione</th><th>Targa</th><th>Utente</th></tr></thead>
+      <thead><tr><th>Data/Ora</th><th>Posto</th><th>Azione</th><th>Veicolo</th><th>Tipo</th><th>Utente</th></tr></thead>
       <tbody id="storicoBody"></tbody>
     </table></div>
   </div>
