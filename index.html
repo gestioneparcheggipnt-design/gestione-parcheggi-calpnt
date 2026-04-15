@@ -1685,7 +1685,9 @@ async function toggleFull(id, newFull){
     await addDoc(collection(db,"history"),{
       ts: serverTimestamp(), spot:id,
       action: newFull ? "Segnato Pieno" : "Segnato Vuoto",
-      plate: spots[id].plate, user: currentUser.email
+      plate: spots[id].plate,
+      user: currentUser.name || currentUser.email,
+      userName: currentUser.name || currentUser.email
     });
     showToast(`Posto ${id} ${newFull?"segnato come pieno":"segnato come vuoto"}`,"success");
     selectSpot(id);
@@ -1765,16 +1767,23 @@ function doSearch(){
     if(va>vb) return sortDir==='asc'?1:-1;
     return 0;
   });
-  document.getElementById("searchResults").innerHTML=res.map(s=>`
+  document.getElementById("searchResults").innerHTML=res.map(s=>{
+    const tipoMezzo = s.plate
+      ? (/^\d{3}$/.test(s.plate.trim()) ? '<span style="color:#f59e0b;font-size:11px;font-weight:600">📦 Cassa</span>'
+        : (/^[A-Z]{4}\d{7}$/.test(s.plate.trim()) ? '<span style="color:#60a5fa;font-size:11px;font-weight:600">🚢 Container</span>' : '<span style="color:var(--muted);font-size:11px">&mdash;</span>'))
+      : '<span style="color:var(--muted);font-size:11px">&mdash;</span>';
+    const nomeUtente = s.userName || s.user || '&mdash;';
+    return `
     <tr onclick="window._goToSpot('${s.id}')" style="cursor:pointer">
       <td class="mono">${s.id}</td>
       <td>${s.occupied ? '<span class="tagOcc">Occupato</span>' : '<span class="tagFree">Libero</span>'}</td>
       <td class="mono">${s.plate||"&mdash;"}</td>
+      <td>${tipoMezzo}</td>
       <td>${s.since?fmtDate(s.since):"&mdash;"}</td>
-      <td style="text-align:center">${s.damaged ? '<span style="color:#ef4444;font-weight:600;font-size:13px">â ï¸ SÃ¬</span>' : '<span style="color:var(--muted);font-size:12px">â</span>'}</td>
-      <td style="text-align:center">${s.occupied ? (s.full ? '<span class="tagPieno">ð¡ Piena/o</span>' : '<span class="tagVuoto">ð¢ Vuota/o</span>') : '<span style="color:var(--muted);font-size:12px">â</span>'}</td>
-      <td style="color:var(--muted);font-size:11px">${s.user||"&mdash;"}</td>
-    </tr>`).join("");
+      <td style="text-align:center">${s.damaged ? '<span style="color:#ef4444;font-weight:600;font-size:13px">⚠️ Sì</span>' : '<span style="color:var(--muted);font-size:12px">&mdash;</span>'}</td>
+      <td style="text-align:center">${s.occupied ? (s.full ? '<span class="tagPieno">🔴 Piena/o</span>' : '<span class="tagVuoto">🟢 Vuota/o</span>') : '<span style="color:var(--muted);font-size:12px">&mdash;</span>'}</td>
+      <td style="color:var(--muted);font-size:11px">${nomeUtente}</td>
+    </tr>`;}).join("");
 }
 window.doSearch=doSearch;
 window.clearSearch=()=>{document.getElementById("searchInput").value="";doSearch();};
@@ -1791,18 +1800,25 @@ function renderStorico(){
   const actionBadge = (action) => {
     if(action==="Assegnato") return '<span class="tagAss">Assegnato</span>';
     if(action==="Liberato")  return '<span class="tagLib">Liberato</span>';
-    if(action==="Segnato Pieno") return '<span style="color:#f59e0b;font-size:11px;font-weight:600;background:#f59e0b13;padding:2px 8px;border-radius:20px">ð¡ Pieno</span>';
-    if(action==="Segnato Vuoto") return '<span style="color:#22c55e;font-size:11px;font-weight:600;background:#22c55e13;padding:2px 8px;border-radius:20px">ð¢ Vuoto</span>';
+    if(action==="Segnato Pieno") return '<span style="color:#f59e0b;font-size:11px;font-weight:600;background:#f59e0b13;padding:2px 8px;border-radius:20px">🔴 Pieno</span>';
+    if(action==="Segnato Vuoto") return '<span style="color:#22c55e;font-size:11px;font-weight:600;background:#22c55e13;padding:2px 8px;border-radius:20px">🟢 Vuoto</span>';
     return `<span style="color:var(--muted);font-size:11px">${action}</span>`;
   };
-  document.getElementById("storicoBody").innerHTML=historyCache.map(h=>`
+  document.getElementById("storicoBody").innerHTML=historyCache.map(h=>{
+    const tipoMezzo = h.plate
+      ? (/^\d{3}$/.test(String(h.plate).trim()) ? '<span style="color:#f59e0b;font-size:11px;font-weight:600">📦 Cassa</span>'
+        : (/^[A-Z]{4}\d{7}$/.test(String(h.plate).trim()) ? '<span style="color:#60a5fa;font-size:11px;font-weight:600">🚢 Container</span>' : '<span style="color:var(--muted);font-size:11px">&mdash;</span>'))
+      : '<span style="color:var(--muted);font-size:11px">&mdash;</span>';
+    const nomeUtente = h.userName || h.user || '&mdash;';
+    return `
     <tr>
       <td class="mono" style="font-size:11px">${fmtDate(h.ts)}</td>
       <td class="mono">${h.spot}</td>
       <td>${actionBadge(h.action)}</td>
       <td class="mono">${h.plate||"&mdash;"}</td>
-      <td style="color:var(--muted);font-size:11px">${h.user}</td>
-    </tr>`).join("");
+      <td>${tipoMezzo}</td>
+      <td style="color:var(--muted);font-size:11px">${nomeUtente}</td>
+    </tr>`;}).join("");
 }
 
 function renderStatistiche(){
@@ -1998,7 +2014,9 @@ async function removeDamaged(id){
     await updateDoc(doc(db,"spots",id),{ damaged: false });
     await addDoc(collection(db,"history"),{
       ts: serverTimestamp(), spot:id,
-      action:"Danno rimosso", plate:spots[id].plate, user: currentUser.email
+      action:"Danno rimosso", plate:spots[id].plate,
+      user: currentUser.name || currentUser.email,
+      userName: currentUser.name || currentUser.email
     });
     selectSpot(id);
     showToast(`Segnalazione danno rimossa per posto ${id}`,"success");
@@ -2013,7 +2031,9 @@ async function addDamaged(id){
     await updateDoc(doc(db,"spots",id),{ damaged: true });
     await addDoc(collection(db,"history"),{
       ts: serverTimestamp(), spot:id,
-      action:"Danno segnalato", plate:spots[id].plate, user: currentUser.email
+      action:"Danno segnalato", plate:spots[id].plate,
+      user: currentUser.name || currentUser.email,
+      userName: currentUser.name || currentUser.email
     });
     selectSpot(id);
     showToast(`Veicolo danneggiato segnalato per posto ${id}`,"success");
@@ -2133,15 +2153,15 @@ function renderCasse() {
     const sinceStr  = sinceTs ? sinceTs.toLocaleDateString('it-IT', {day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}) : '—';
     return `
       <div class="${rowClass}">
-        <div class="${rankClass}">${idx + 1}</div>
-        <div class="cassa-id">${_esc(s.plate)}</div>
-        <div class="cassa-posto">${_esc(s.id)}</div>
-        <div class="cassa-anzianita">
+        <div class="${rankClass}" style="font-size:1.1rem">${idx + 1}</div>
+        <div class="cassa-id" style="font-size:1.2rem;font-weight:700">${_esc(s.plate)}</div>
+        <div class="cassa-posto" style="font-size:1rem">${_esc(s.id)}</div>
+        <div class="cassa-anzianita" style="font-size:1rem">
           <span title="Entrata: ${sinceStr}">⏱ ${anzianita}</span>
         </div>
         <div class="cassa-badges">
-          ${urgente ? '<span class="badge-urgente">🚨 Urgente</span>' : ''}
-          ${s.full ? '<span class="badge-pieno">📦 Piena</span>' : ''}
+          ${urgente ? '<span class="badge-urgente" style="font-size:1rem">🚨 Urgente</span>' : ''}
+          ${s.full ? '<span class="badge-pieno" style="font-size:1rem">📦 Piena</span>' : ''}
         </div>
       </div>`;
   }).join('');
@@ -2263,6 +2283,10 @@ async function salvaPrenotazione() {
   btnSalva.disabled = true;
   btnSalva.textContent = '⏳ Salvataggio…';
   try {
+    // Recupera nome completo dall'utente corrente
+    const operatoreNome = (typeof currentUser !== 'undefined' && currentUser && currentUser.name)
+      ? currentUser.name
+      : (user ? user.email : null);
     await addDoc(collection(db, 'prenotazioni'), {
       spotId: _mezzoCorrente.spotId,
       plate: _mezzoCorrente.plate,
@@ -2273,6 +2297,7 @@ async function salvaPrenotazione() {
       urgente: urgente,
       operatoreUid: user ? user.uid : null,
       operatoreEmail: user ? user.email : null,
+      operatoreNome: operatoreNome,
       createdAt: serverTimestamp()
     });
     resetFormPrenotazione();
@@ -2343,15 +2368,16 @@ function renderPrenotazioni() {
   tbody.innerHTML = lista.map(p => {
     const d = p.dataOra?.toDate ? p.dataOra.toDate() : (p.dataOra ? new Date(p.dataOra) : null);
     const dataStr = d ? d.toLocaleDateString('it-IT', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' }) : '—';
-    const badgeStato   = '<span class="stato-badge stato-' + p.stato + '">' + _statoLabel(p.stato) + '</span>';
+    const badgeStato   = '<span class="stato-badge stato-' + p.stato + '" style="font-size:.95rem">' + _statoLabel(p.stato) + '</span>';
     const badgeUrgente = p.urgente
-      ? '<span style="color:#ef4444;font-weight:700;font-size:13px">🚨 Sì</span>'
-      : '<span style="color:var(--muted);font-size:12px">—</span>';
+      ? '<span style="color:#ef4444;font-weight:700;font-size:1rem">🚨 Sì</span>'
+      : '<span style="color:var(--muted);font-size:.9rem">—</span>';
     let azioni = '';
     const isOwn = currentUser && p.operatoreUid === currentUser.uid;
     if (p.stato === 'creata') azioni += '<button class="pren-action-btn btn-completa" onclick="cambiaStatoPrenotazione(\'' + p.id + '\',\'completata\')">✔ Completa</button>';
     if (isOwn && p.stato !== 'completata') azioni += '<button class="pren-action-btn btn-elimina" onclick="eliminaPrenotazione(\'' + p.id + '\')">🗑</button>';
-    return '<tr><td><strong>' + _esc(p.plate || '—') + '</strong></td><td>' + _esc(p.spotId || '—') + '</td><td>' + _esc(p.destinazione || '—') + '</td><td style="white-space:nowrap">' + dataStr + '</td><td>' + badgeStato + '</td><td style="text-align:center">' + badgeUrgente + '</td><td style="font-size:.8rem">' + _esc(p.operatoreEmail || '—') + '</td><td><div class="pren-actions">' + azioni + '</div></td></tr>';
+    const operatoreDisplay = _esc(p.operatoreNome || p.operatoreEmail || '—');
+    return '<tr><td><strong>' + _esc(p.plate || '—') + '</strong></td><td>' + _esc(p.spotId || '—') + '</td><td>' + _esc(p.destinazione || '—') + '</td><td style="white-space:nowrap">' + dataStr + '</td><td>' + badgeStato + '</td><td style="text-align:center">' + badgeUrgente + '</td><td style="font-size:.9rem">' + operatoreDisplay + '</td><td><div class="pren-actions">' + azioni + '</div></td></tr>';
   }).join('');
 }
 
