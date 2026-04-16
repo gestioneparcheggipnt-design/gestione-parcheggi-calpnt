@@ -5,195 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <title>Gestione Parcheggi Mobile</title>
-<style>
-/* ── mobile-styles.css ──────────────────────────────────────────────────────── */
-/* Layout touch, drawer, toast — CalPnt Mobile                                  */
-
-@import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;500;600;700;800&display=swap');
-
-:root {
-  --bg: #f5f7fa;
-  --surface: #fff;
-  --surface2: #eef1f6;
-  --border: #dde2ec;
-  --accent: #A4D200;
-  --accent2: #7fa000;
-  --text: #1C1F26;
-  --muted: #6b7280;
-  --red: #ef4444;
-  --orange: #f59e0b;
-  --green: #A4D200;
-  --card: #fff;
-  --shadow: 0 2px 12px rgba(28,31,38,.08);
-}
-
-* { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-body { font-family: 'Barlow Condensed', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; overflow-x: hidden; }
-
-/* ── LOGIN ─────────────────────────────── */
-#loginScreen { min-height: 100vh; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, #1C1F26 0%, #2e333d 100%); padding: 16px; }
-.loginBox { background: #fff; border-radius: 20px; padding: 36px 28px; width: 100%; max-width: 380px; box-shadow: 0 20px 60px rgba(0,0,0,.35); }
-.loginLogo { text-align: center; margin-bottom: 28px; }
-.loginLogo .icon { font-size: 44px; display: block; margin-bottom: 10px; }
-.loginLogo h1 { font-size: 26px; font-weight: 800; color: var(--text); }
-.loginLogo p { color: var(--muted); font-size: 14px; margin-top: 4px; }
-.formGroup { margin-bottom: 16px; }
-.formGroup label { display: block; font-size: 12px; font-weight: 600; color: var(--muted); margin-bottom: 5px; text-transform: uppercase; letter-spacing: .5px; }
-.formGroup input { width: 100%; background: var(--bg); border: 1.5px solid var(--border); border-radius: 10px; padding: 12px 14px; color: var(--text); font-family: inherit; font-size: 16px; outline: none; transition: border-color .2s; }
-.formGroup input:focus { border-color: var(--accent); }
-.btnPrimary { width: 100%; background: linear-gradient(135deg, var(--accent), var(--accent2)); border: none; border-radius: 10px; padding: 14px; color: #1C1F26; font-family: inherit; font-size: 16px; font-weight: 700; cursor: pointer; letter-spacing: .5px; }
-.loginError { color: var(--red); font-size: 13px; margin-top: 10px; text-align: center; display: none; }
-
-/* ── APP SHELL ─────────────────────────── */
-#app { display: none; flex-direction: column; min-height: 100vh; }
-
-/* top bar */
-.topBar { background: #1C1F26; padding: 10px 16px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 100; box-shadow: 0 2px 8px rgba(0,0,0,.3); }
-.topBarLeft { display: flex; align-items: center; gap: 10px; }
-.topBarLogo { font-weight: 800; font-size: 14px; color: #A4D200; letter-spacing: .5px; }
-.topBarUser { font-size: 12px; color: rgba(255,255,255,.6); }
-.topBarRight { display: flex; align-items: center; gap: 8px; }
-.roleBadge { border-radius: 20px; padding: 3px 10px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; border: 1px solid; }
-.roleBadge.autista      { color: #A4D200; border-color: #A4D20044; background: #A4D20011; }
-.roleBadge.portineria   { color: #60a5fa; border-color: #60a5fa44; background: #60a5fa11; }
-.roleBadge.amministrativo { color: #f59e0b; border-color: #f59e0b44; background: #f59e0b11; }
-.roleBadge.amministratore { color: #A4D200; border-color: #A4D20044; background: #A4D20011; }
-.roleBadge.operativo    { color: #a78bfa; border-color: #a78bfa44; background: #a78bfa11; }
-.btnLogout { background: transparent; border: 1px solid rgba(255,255,255,.2); border-radius: 8px; padding: 5px 10px; color: rgba(255,255,255,.6); font-family: inherit; font-size: 12px; cursor: pointer; }
-
-/* mode toggle */
-.modeBar { background: #252930; padding: 8px 16px; display: flex; align-items: center; gap: 8px; }
-.modeToggle { display: flex; background: rgba(255,255,255,.08); border-radius: 8px; overflow: hidden; border: 1px solid rgba(255,255,255,.1); }
-.modeToggle button { padding: 6px 14px; border: none; background: transparent; color: rgba(255,255,255,.5); font-family: inherit; font-size: 13px; font-weight: 600; cursor: pointer; transition: all .15s; }
-.modeToggle button.active { background: var(--accent); color: #1C1F26; }
-.modeBarLabel { font-size: 12px; color: rgba(255,255,255,.4); margin-left: auto; }
-
-/* bottom nav */
-.bottomNav { position: fixed; bottom: 0; left: 0; right: 0; background: #1C1F26; border-top: 1px solid #2e333d; display: flex; z-index: 100; padding-bottom: env(safe-area-inset-bottom); }
-.navBtn { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 10px 4px; border: none; background: transparent; color: rgba(255,255,255,.45); font-family: inherit; font-size: 10px; font-weight: 600; letter-spacing: .3px; cursor: pointer; text-transform: uppercase; transition: color .15s; }
-.navBtn .navIcon { font-size: 20px; line-height: 1; }
-.navBtn.active { color: var(--accent); }
-.navBtn.hidden { display: none; }
-
-/* pages */
-.page { display: none; flex: 1; padding: 16px 14px 80px; overflow-y: auto; }
-.page.active { display: block; }
-.pageHeader { font-size: 20px; font-weight: 800; color: var(--text); margin-bottom: 3px; }
-.pageSubtitle { font-size: 13px; color: var(--muted); margin-bottom: 14px; }
-
-/* ── CARDS ─────────────────────────────── */
-.card { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 16px; margin-bottom: 12px; box-shadow: var(--shadow); }
-.cardTitle { font-size: 13px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 12px; }
-
-/* stats row */
-.statsRow { display: grid; grid-template-columns: repeat(2,1fr); gap: 8px; margin-bottom: 14px; }
-.statCard { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; box-shadow: var(--shadow); }
-.statCard .val { font-size: 28px; font-weight: 800; line-height: 1; margin-bottom: 2px; }
-.statCard .lbl { font-size: 11px; color: var(--muted); font-weight: 600; }
-.statCard.green  .val { color: var(--accent); }
-.statCard.red    .val { color: var(--red); }
-.statCard.orange .val { color: var(--orange); }
-.statCard.blue   .val { color: #60a5fa; }
-
-/* ── CHECKIN RAPIDO ─────────────────────── */
-.checkinInput { width: 100%; background: var(--bg); border: 2px solid var(--border); border-radius: 12px; padding: 14px 16px; color: var(--text); font-family: 'Barlow Condensed', sans-serif; font-size: 18px; font-weight: 700; text-transform: uppercase; letter-spacing: 2px; outline: none; text-align: center; }
-.checkinInput:focus { border-color: var(--accent); }
-.btnCheckin { width: 100%; background: linear-gradient(135deg, var(--accent), var(--accent2)); border: none; border-radius: 12px; padding: 15px; color: #1C1F26; font-family: inherit; font-size: 16px; font-weight: 700; cursor: pointer; margin-top: 10px; letter-spacing: .5px; }
-.btnFree { width: 100%; background: linear-gradient(135deg, #ef4444, #dc2626); border: none; border-radius: 12px; padding: 15px; color: #fff; font-family: inherit; font-size: 16px; font-weight: 700; cursor: pointer; margin-top: 8px; }
-.checkinResult { margin-top: 10px; padding: 12px 14px; border-radius: 10px; font-size: 14px; font-weight: 600; display: none; }
-.checkinResult.ok   { background: #A4D20015; border: 1px solid #A4D20040; color: #5a7800; }
-.checkinResult.warn { background: #ef444415; border: 1px solid #ef444440; color: #dc2626; }
-
-/* ── LISTA POSTI ─────────────────────────── */
-.spotList { display: flex; flex-direction: column; gap: 8px; }
-.spotItem { background: var(--card); border: 1.5px solid var(--border); border-radius: 12px; padding: 12px 14px; display: flex; align-items: center; gap: 12px; cursor: pointer; box-shadow: var(--shadow); transition: border-color .15s; }
-.spotItem:active { border-color: var(--accent); }
-.spotItem.occupied { border-left: 4px solid var(--red); }
-.spotItem.free     { border-left: 4px solid var(--accent); }
-.spotId   { font-size: 18px; font-weight: 800; min-width: 52px; color: var(--text); }
-.spotInfo { flex: 1; }
-.spotPlate { font-size: 14px; font-weight: 700; color: var(--text); font-variant-numeric: tabular-nums; }
-.spotMeta  { font-size: 11px; color: var(--muted); margin-top: 2px; }
-.spotBadge { font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 20px; }
-.spotBadge.free { background: #A4D20013; color: var(--accent2); }
-.spotBadge.occ  { background: #ef444413; color: var(--red); }
-
-/* search */
-.searchBar { display: flex; gap: 8px; margin-bottom: 12px; }
-.searchBar input { flex: 1; background: var(--card); border: 1.5px solid var(--border); border-radius: 10px; padding: 10px 14px; color: var(--text); font-family: inherit; font-size: 14px; outline: none; }
-.searchBar input:focus { border-color: var(--accent); }
-.btnSearch { background: var(--accent); border: none; border-radius: 10px; padding: 10px 16px; color: #1C1F26; font-family: inherit; font-size: 14px; font-weight: 700; cursor: pointer; }
-
-/* spot detail drawer */
-.drawer { position: fixed; bottom: 0; left: 0; right: 0; z-index: 200; background: var(--card); border-radius: 20px 20px 0 0; padding: 20px 18px 30px; box-shadow: 0 -8px 40px rgba(0,0,0,.18); transform: translateY(110%); transition: transform .3s ease; max-height: 85vh; overflow-y: auto; }
-.drawer.open { transform: translateY(0); }
-.drawerHandle { width: 40px; height: 4px; background: var(--border); border-radius: 4px; margin: 0 auto 16px; }
-.drawerTitle { font-size: 20px; font-weight: 800; margin-bottom: 4px; }
-.drawerOverlay { position: fixed; inset: 0; background: rgba(0,0,0,.4); z-index: 199; display: none; }
-.drawerOverlay.open { display: block; }
-.inputField { width: 100%; background: var(--bg); border: 1.5px solid var(--border); border-radius: 10px; padding: 12px 14px; color: var(--text); font-family: 'Barlow Condensed', sans-serif; font-size: 16px; font-weight: 700; text-transform: uppercase; letter-spacing: 2px; outline: none; text-align: center; margin-bottom: 10px; }
-.inputField:focus { border-color: var(--accent); }
-.checkLabel { display: flex; align-items: center; gap: 10px; font-size: 14px; color: var(--muted); margin-bottom: 10px; cursor: pointer; user-select: none; }
-.checkLabel input { width: 18px; height: 18px; cursor: pointer; }
-.btnGreen  { width: 100%; background: linear-gradient(135deg, var(--accent), var(--accent2)); border: none; border-radius: 11px; padding: 14px; color: #1C1F26; font-family: inherit; font-size: 15px; font-weight: 700; cursor: pointer; margin-bottom: 8px; }
-.btnRed    { width: 100%; background: linear-gradient(135deg, #ef4444, #dc2626); border: none; border-radius: 11px; padding: 14px; color: #fff; font-family: inherit; font-size: 15px; font-weight: 700; cursor: pointer; margin-bottom: 8px; }
-.btnOrange { width: 100%; background: linear-gradient(135deg, #f59e0b, #d97706); border: none; border-radius: 11px; padding: 14px; color: #fff; font-family: inherit; font-size: 15px; font-weight: 700; cursor: pointer; margin-bottom: 8px; }
-.btnGray   { width: 100%; background: var(--surface2); border: 1px solid var(--border); border-radius: 11px; padding: 12px; color: var(--muted); font-family: inherit; font-size: 14px; cursor: pointer; }
-.infoRow { display: flex; justify-content: space-between; padding: 7px 0; border-bottom: 1px solid var(--border); font-size: 14px; }
-.infoRow:last-child { border-bottom: none; }
-.infoKey { color: var(--muted); }
-.infoVal { font-weight: 700; }
-
-/* ── PRENOTAZIONI ───────────────────────── */
-.prenCard { background: var(--card); border: 1.5px solid var(--border); border-radius: 14px; padding: 14px; margin-bottom: 10px; box-shadow: var(--shadow); }
-.prenCard.urgente { border-left: 4px solid var(--red); }
-.prenHeader { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
-.prenPlate { font-size: 17px; font-weight: 800; }
-.prenBadge { font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 20px; }
-.prenBadge.creata     { background: #60a5fa13; color: #2563eb; }
-.prenBadge.completata { background: #A4D20013; color: var(--accent2); }
-.prenMeta { font-size: 12px; color: var(--muted); margin-bottom: 4px; }
-.prenDest { font-size: 13px; font-weight: 700; margin-bottom: 6px; }
-.urgBadge { font-size: 11px; font-weight: 700; color: var(--red); background: #ef444413; border: 1px solid #ef444430; border-radius: 20px; padding: 2px 8px; display: inline-block; margin-bottom: 6px; }
-.btnCompleta { background: linear-gradient(135deg, var(--accent), var(--accent2)); border: none; border-radius: 9px; padding: 9px 18px; color: #1C1F26; font-family: inherit; font-size: 13px; font-weight: 700; cursor: pointer; margin-top: 6px; }
-.prenGroup { margin-bottom: 16px; }
-.prenGroupTitle { font-size: 12px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 8px; padding: 6px 0; border-bottom: 1px solid var(--border); }
-.btnCompletaGruppo { width: 100%; background: linear-gradient(135deg, var(--accent), var(--accent2)); border: none; border-radius: 10px; padding: 13px; color: #1C1F26; font-family: inherit; font-size: 15px; font-weight: 700; cursor: pointer; margin-top: 8px; }
-.filterRow { display: flex; gap: 8px; margin-bottom: 12px; }
-.filterSelect { flex: 1; background: var(--card); border: 1.5px solid var(--border); border-radius: 10px; padding: 9px 12px; color: var(--text); font-family: inherit; font-size: 14px; outline: none; cursor: pointer; }
-.emptyState { text-align: center; padding: 30px 16px; color: var(--muted); font-size: 14px; }
-
-/* ── FORM PRENOTAZIONE ───────────────────── */
-.prenForm .formGroup { margin-bottom: 12px; }
-.prenForm .formGroup label { display: block; font-size: 12px; font-weight: 600; color: var(--muted); margin-bottom: 5px; text-transform: uppercase; letter-spacing: .4px; }
-.prenForm .formGroup input,
-.prenForm .formGroup select { width: 100%; background: var(--bg); border: 1.5px solid var(--border); border-radius: 10px; padding: 12px 14px; color: var(--text); font-family: inherit; font-size: 15px; outline: none; }
-.prenForm .formGroup input:focus,
-.prenForm .formGroup select:focus { border-color: var(--accent); }
-.prenFeedback { font-size: 12px; margin-top: 4px; display: block; }
-.prenFeedback.ok  { color: #5a7800; }
-.prenFeedback.err { color: var(--red); }
-.mezzoTrovato { background: #A4D20010; border: 1px solid #A4D20030; border-radius: 10px; padding: 12px; margin-bottom: 10px; display: none; }
-.mezzoTrovato .mrow { display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 3px; }
-
-/* ── TOAST ─────────────────────────────── */
-.toast { position: fixed; top: 70px; left: 50%; transform: translateX(-50%) translateY(-80px); background: #1C1F26; color: #fff; border-radius: 12px; padding: 12px 20px; font-size: 14px; font-weight: 600; z-index: 999; opacity: 0; transition: all .3s; white-space: nowrap; max-width: 90vw; box-shadow: 0 8px 30px rgba(0,0,0,.3); }
-.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
-.toast.success { border-left: 4px solid var(--green); }
-.toast.error   { border-left: 4px solid var(--red); }
-
-/* ── RIBALTA (portineria) ───────────────── */
-.sugBox { background: linear-gradient(135deg, #A4D20018, #A4D20008); border: 1px solid #A4D20040; border-radius: 12px; padding: 14px; margin-bottom: 12px; }
-.sugTitle { font-size: 13px; font-weight: 700; color: var(--accent2); margin-bottom: 6px; }
-.sugList { display: flex; flex-direction: column; gap: 6px; }
-.sugItem { background: var(--card); border: 1px solid var(--border); border-radius: 9px; padding: 10px 12px; font-size: 13px; font-weight: 600; display: flex; justify-content: space-between; align-items: center; }
-
-/* scrollbar sottile */
-::-webkit-scrollbar { width: 4px; }
-::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
-
-</style>
+<link rel="stylesheet" href="mobile-styles.css">
 </head>
 <body>
 
@@ -201,12 +13,20 @@ body { font-family: 'Barlow Condensed', sans-serif; background: var(--bg); color
 <div id="loginScreen">
   <div class="loginBox">
     <div class="loginLogo">
-      <svg viewBox="0 0 120 40" xmlns="http://www.w3.org/2000/svg" style="width:140px;height:47px;margin-bottom:8px">
-        <rect width="120" height="40" rx="6" fill="#1C1F26"/>
-        <text x="10" y="28" font-family="'Barlow Condensed',sans-serif" font-size="22" font-weight="800" fill="#A4D200" letter-spacing="1">GESTIONE</text>
-        <text x="10" y="38" font-family="'Barlow Condensed',sans-serif" font-size="10" font-weight="600" fill="rgba(255,255,255,0.55)" letter-spacing="2">PARCHEGGI</text>
-      </svg>
-      <h1>Gestione Parcheggi</h1>
+      <!-- Logo identico al desktop -->
+      <div class="logoWrap">
+        <div class="logoMark">
+          <svg viewBox="0 0 32 32" width="28" height="28" xmlns="http://www.w3.org/2000/svg">
+            <rect width="32" height="32" rx="4" fill="#1C1F26"/>
+            <text x="16" y="21" font-family="'Barlow Condensed',sans-serif" font-size="16" font-weight="800"
+                  fill="#A4D200" text-anchor="middle" letter-spacing=".5">P</text>
+          </svg>
+        </div>
+        <div class="logoText">
+          <div class="line1">GESTIONE</div>
+          <div class="line2">PARCHEGGI</div>
+        </div>
+      </div>
       <p>Accesso Mobile</p>
     </div>
     <div class="formGroup">
@@ -238,7 +58,7 @@ body { font-family: 'Barlow Condensed', sans-serif; background: var(--bg); color
     </div>
   </div>
 
-  <!-- Mode toggle (visibile in modalità cassa) -->
+  <!-- Mode toggle (nascosta per operativo) -->
   <div class="modeBar" id="modeBar">
     <div class="modeToggle">
       <button id="btnContainer" onclick="setMode('container')">🚛 Container</button>
@@ -247,7 +67,7 @@ body { font-family: 'Barlow Condensed', sans-serif; background: var(--bg); color
     <span class="modeBarLabel" id="modeBarLabel"></span>
   </div>
 
-  <!-- ── PAGINA 1: CHECK-IN RAPIDO ───────────────────────────────────────── -->
+  <!-- ── PAGINA: CHECK-IN RAPIDO ─────────────────────────────────────────────── -->
   <div class="page active" id="pageCheckin">
     <div class="pageHeader">Check-in Rapido</div>
     <div class="pageSubtitle" id="checkinSubtitle">Assegna un veicolo a un posto libero</div>
@@ -276,20 +96,24 @@ body { font-family: 'Barlow Condensed', sans-serif; background: var(--bg); color
     </div>
   </div>
 
-  <!-- ── PAGINA 2: LISTA POSTI ────────────────────────────────────────────── -->
+  <!-- ── PAGINA: RICERCA POSTI (autista / portineria / admin) ───────────────── -->
   <div class="page" id="pagePosti">
-    <div class="pageHeader">Posti</div>
-    <div class="pageSubtitle">Cerca e gestisci i parcheggi</div>
+    <div class="pageHeader">Ricerca</div>
+    <div class="pageSubtitle" id="postiSubtitle">Cerca e gestisci i parcheggi</div>
+
     <div class="searchBar">
       <input type="text" id="searchPosto" placeholder="Cerca posto o targa…" oninput="renderPosti()">
-      <button class="btnSearch" onclick="document.getElementById('searchPosto').value='';renderPosti()">✕</button>
+      <button class="btnSearch" onclick="document.getElementById('searchPosto').value='';setFilterPill('');renderPosti()">✕</button>
     </div>
-    <div class="filterRow">
-      <select class="filterSelect" id="filterStato" onchange="renderPosti()">
-        <option value="">Tutti</option>
-        <option value="libero">Liberi</option>
-        <option value="occupato">Occupati</option>
-      </select>
+
+    <!-- Filtri rapidi preimpostati -->
+    <div class="filterPills">
+      <button class="filterPill" id="pillLiberi"   onclick="setFilterPill('libero')">🟢 Posti liberi</button>
+      <button class="filterPill" id="pillOccupati" onclick="setFilterPill('occupato')">🔴 <span id="pillOccLabel">Occupati</span></button>
+    </div>
+
+    <!-- Filtro zona (solo se non è una pill attiva) -->
+    <div class="filterRow" id="filterZonaRow">
       <select class="filterSelect" id="filterZona" onchange="renderPosti()">
         <option value="">Tutte le zone</option>
         <option value="P VERDE">P Verde</option>
@@ -298,17 +122,28 @@ body { font-family: 'Barlow Condensed', sans-serif; background: var(--bg); color
         <option value="ZONA D">Zona D</option>
       </select>
     </div>
+
     <div class="spotList" id="spotList"></div>
   </div>
 
-  <!-- ── PAGINA 3: PRENOTAZIONI (solo modalità CASSA) ─────────────────────── -->
+  <!-- ── PAGINA: PRENOTAZIONI ────────────────────────────────────────────────── -->
   <div class="page" id="pagePrenotazioni">
     <div class="pageHeader">Prenotazioni</div>
-    <div class="pageSubtitle">Ordinate per urgenza e anzianità</div>
+    <div class="pageSubtitle" id="prenSubtitle">Ordinate per urgenza e anzianità</div>
     <div id="prenList"></div>
   </div>
 
-  <!-- ── PAGINA 4: ADMIN (solo amministratore / amministrativo) ───────────── -->
+  <!-- ── PAGINA: RIBALTE (solo operativo) ───────────────────────────────────── -->
+  <div class="page" id="pageRibalte">
+    <div class="pageHeader">Ribalte</div>
+    <div class="pageSubtitle" id="ribalteSubtitle">Le tue ribalte di competenza</div>
+    <div class="statsRow" id="ribalteStats"></div>
+    <div class="ribaltaList" id="ribaltaList">
+      <div class="emptyState">Caricamento…</div>
+    </div>
+  </div>
+
+  <!-- ── PAGINA: ADMIN (solo amministratore / amministrativo) ───────────────── -->
   <div class="page" id="pageAdmin">
     <div class="pageHeader">Amministrazione</div>
     <div class="pageSubtitle">Statistiche e gestione</div>
@@ -324,11 +159,14 @@ body { font-family: 'Barlow Condensed', sans-serif; background: var(--bg); color
     <button class="navBtn active"  id="navCheckin"       onclick="showPage('Checkin',this)">
       <span class="navIcon">⚡</span>Check-in
     </button>
-    <button class="navBtn"         id="navPosti"         onclick="showPage('Posti',this)">
-      <span class="navIcon">🅿️</span>Posti
+    <button class="navBtn hidden"  id="navPosti"         onclick="showPage('Posti',this)">
+      <span class="navIcon">🔍</span>Ricerca
     </button>
     <button class="navBtn hidden"  id="navPrenotazioni"  onclick="showPage('Prenotazioni',this)">
       <span class="navIcon">📋</span>Prenotazioni
+    </button>
+    <button class="navBtn hidden"  id="navRibalte"       onclick="showPage('Ribalte',this)">
+      <span class="navIcon">🚚</span>Ribalte
     </button>
     <button class="navBtn hidden"  id="navAdmin"         onclick="showPage('Admin',this)">
       <span class="navIcon">⚙️</span>Admin
@@ -346,587 +184,37 @@ body { font-family: 'Barlow Condensed', sans-serif; background: var(--bg); color
 <div class="toast" id="toast"></div>
 
 <!-- ══ LOGICA APPLICAZIONE ════════════════════════════════════════════════════ -->
-<script>
-
-// ════════════════════════════════════════
-// spots-data.js
-// ════════════════════════════════════════
-
-// ── spots-data.js ─────────────────────────────────────────────────────────────
-// Definizioni posti parcheggio + costanti (DESTINAZIONI_VALIDE)
-// Condiviso tra mobile.html e index.html
-
-const SPOT_DEFS = [
-  ["A13","P VERDE"],["A01","P VERDE"],["A14","P VERDE"],["A02","P VERDE"],["A15","P VERDE"],["A03","P VERDE"],
-  ["A16","P VERDE"],["A04","P VERDE"],["A17","P VERDE"],["A05","P VERDE"],["A18","P VERDE"],["A06","P VERDE"],
-  ["A19","P VERDE"],["A07","P VERDE"],["A20","P VERDE"],["A08","P VERDE"],["A21","P VERDE"],["A09","P VERDE"],
-  ["A22","P VERDE"],["A10","P VERDE"],["A23","P VERDE"],["A11","P VERDE"],["A24","P VERDE"],["A12","P VERDE"],
-  ["B01","P BLU"],["B02","P BLU"],["B03","P BLU"],["B04","P BLU"],["B05","P BLU"],["B06","P BLU"],
-  ["B07","P BLU"],["B08","P BLU"],["B09","P BLU"],
-  ["C01","ZONA C"],["C02","ZONA C"],["C03","ZONA C"],["C04","ZONA C"],["C05","ZONA C"],["C06","ZONA C"],
-  ["C07","ZONA C"],["C08","ZONA C"],["C09","ZONA C"],["C10","ZONA C"],["C11","ZONA C"],["C12","ZONA C"],
-  ["C13","ZONA C"],["C14","ZONA C"],["C15","ZONA C"],
-  ["D01","ZONA D"],["D02","ZONA D"],["D03","ZONA D"],["D04","ZONA D"],["D05","ZONA D"],["D06","ZONA D"],
-  ["D07","ZONA D"],["D08","ZONA D"],["D09","ZONA D"],["D10","ZONA D"],["D11","ZONA D"],["D12","ZONA D"],
-  ["D13","ZONA D"],["D14","ZONA D"],["D15","ZONA D"]
-];
-
-const DESTINAZIONI_VALIDE = [
-  'PNT1-01','PNT1-02','PNT1-03','PNT1-04','PNT1-05','PNT1-06','PNT1-07','PNT1-08','PNT1-09','PNT1-10',
-  'PNT1-11','PNT1-12','PNT1-13','PNT1-14','PNT1-15','PNT1-16','PNT1-17','PNT1-18','PNT1-19','PNT1-20',
-  'PNT1-21','PNT1-22','PNT1-23','PNT1-24','PNT1-25','PNT1-26','PNT1-27','PNT1-28','PNT1-29','PNT1-30',
-  'PNT1-31','PNT1-32','PNT1-33','PNT1-34','PNT1-35','PNT1-36','PNT1-37','PNT1-38','PNT1-39','PNT1-40',
-  'PNT1-41','PNT1-42','PNT1-43','PNT1-44','PNT1-45','PNT1-46','PNT1-47','PNT1-48','PNT1-49','PNT1-50',
-  'PNT1-51','PNT1-52','PNT1-53','PNT1-54','PNT1-55','PNT1-56','PNT1-57','PNT1-58','PNT1-59','PNT1-60',
-  'PNT1-61','PNT1-62','PNT1-63','PNT1-64','PNT1-65','PNT1-66','PNT1-67','PNT1-68','PNT1-69','PNT1-70',
-  'PNT1-71','PNT1-72','PNT1-73','PNT1-74','PNT1-75','PNT1-76','PNT1-77','PNT1-78','PNT1-79','PNT1-80',
-  'PNT1-81','PNT1-82','PNT1-83','PNT1-84','PNT1-85','PNT1-86','PNT1-87','PNT1-88','PNT1-89','PNT1-90',
-  'PNT2-01','PNT2-02','PNT2-03','PNT2-04','PNT2-05','PNT2-06','PNT2-07','PNT2-08','PNT2-09','PNT2-10',
-  'PNT2-11','PNT2-12','PNT2-13','PNT2-14','PNT2-15','PNT2-16','PNT2-17','PNT2-18','PNT2-19','PNT2-20',
-  'PNT2-21','PNT2-22','PNT2-23','PNT2-24','PNT2-25','PNT2-26','PNT2-27','PNT2-28','PNT2-29','PNT2-30',
-  'PNT2-31','PNT2-32','PNT2-33','PNT2-34','PNT2-35','PNT2-36','PNT2-37','PNT2-38','PNT2-39','PNT2-40',
-  'PNT2-41','PNT2-42','PNT2-43','PNT2-44','PNT2-45','PNT2-46','PNT2-47','PNT2-48','PNT2-49'
-];
-
-
-// ════════════════════════════════════════
-// shared-utils.js
-// ════════════════════════════════════════
-
-// ── shared-utils.js ───────────────────────────────────────────────────────────
-// Utilities condivise: formattazione date, toast, escape HTML
-
-let _toastTimer = null;
-
-/**
- * Formatta una data in DD/MM HH:MM
- * @param {Date|string|null} d
- */
-function fmtDate(d) {
-  if (!d) return '—';
-  return new Date(d).toLocaleString('it-IT', {
-    day: '2-digit', month: '2-digit',
-    hour: '2-digit', minute: '2-digit'
-  });
-}
-
-/**
- * Formatta la durata da una data di inizio a oggi (es. "2h 15m")
- * @param {Date|string|null} since
- */
-function fmtDur(since) {
-  if (!since) return '';
-  const m = Math.floor((Date.now() - new Date(since)) / 60000);
-  return m < 60 ? `${m}m` : `${Math.floor(m / 60)}h${m % 60 ? ` ${m % 60}m` : ''}`;
-}
-
-/**
- * Mostra un toast in sovrimpressione
- * @param {string} msg
- * @param {'success'|'error'} type
- */
-function showToast(msg, type = 'success') {
-  const t = document.getElementById('toast');
-  t.textContent = (type === 'success' ? '✓ ' : '⚠ ') + msg;
-  t.className = 'toast ' + type + ' show';
-  clearTimeout(_toastTimer);
-  _toastTimer = setTimeout(() => t.classList.remove('show'), 3000);
-}
-
-/**
- * Escape HTML per prevenire XSS
- * @param {string} str
- */
-function _esc(str) {
-  return String(str)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
-}
-
-
-// ════════════════════════════════════════
-// firebase-config.js
-// ════════════════════════════════════════
-
-// ── firebase-config.js ────────────────────────────────────────────────────────
-// Inizializzazione Firebase + Auth + Firestore
-// Importato da mobile.html e index.html
-
-                                from "https://www.gstatic.com/firebasejs/11.6.0/firebase-auth.js";
-         query, orderBy, limit, where, onSnapshot, addDoc, serverTimestamp, getDocs, deleteDoc }
-                                from "https://www.gstatic.com/firebasejs/11.6.0/firebase-firestore.js";
-
-const firebaseConfig = {
-  apiKey: "AIzaSyCJK372CJBjsBoGRLiOjCcwpYxDJ5hpyls",
-  authDomain: "gestione-parcheggi-calpnt.firebaseapp.com",
-  projectId: "gestione-parcheggi-calpnt",
-  storageBucket: "gestione-parcheggi-calpnt.firebasestorage.app",
-  messagingSenderId: "977997780262",
-  appId: "1:977997780262:web:759e979e5af89832049de7"
-};
-
-const app  = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db   = getFirestore(app);
-
-  app, auth, db,
-  // re-export Firebase functions usate dagli altri moduli
-  signInWithEmailAndPassword, signOut, onAuthStateChanged,
-  doc, getDoc, setDoc, updateDoc, collection,
-  query, orderBy, limit, where, onSnapshot, addDoc, serverTimestamp, getDocs, deleteDoc
-};
-
-
-// ════════════════════════════════════════
-// checkin.js
-// ════════════════════════════════════════
-
-// ── checkin.js ────────────────────────────────────────────────────────────────
-// Check-in rapido + lista posti per la vista Mobile
-// Dipende da: firebase-config.js, shared-utils.js, stato globale (spots, currentUser, currentMode)
-
+<script type="module">
+import { auth, db, signInWithEmailAndPassword, signOut, onAuthStateChanged,
+         doc, getDoc, collection, query, orderBy, limit, onSnapshot, where }
   from './firebase-config.js';
 
-// Riferimento allo stato condiviso (definito in mobile.html e passato a questo modulo)
-// Usato tramite getters per evitare problemi di riferimento circolare
-let _getSpots, _getUser, _getMode;
+import { SPOT_DEFS } from './spots-data.js';
+import { fmtDate, fmtDur, showToast } from './shared-utils.js';
 
-function initCheckin({ getSpots, getUser, getMode }) {
-  _getSpots = getSpots;
-  _getUser  = getUser;
-  _getMode  = getMode;
-}
-
-// ── UI CHECK-IN ───────────────────────────────────────────────────────────────
-function updateCheckinUI() {
-  const spots = _getSpots();
-  const all   = Object.values(spots);
-  const occ   = all.filter(s => s.occupied).length;
-  const free  = all.length - occ;
-  const mode  = _getMode() === 'cassa' ? 'Cassa' : 'Container';
-  const user  = _getUser();
-
-  document.getElementById('checkinSubtitle').textContent =
-    `Modalità: ${mode} | ${free} posti liberi`;
-  document.getElementById('checkinCardTitle').textContent =
-    `Nuovo Check-in ${mode}`;
-
-  const lbl = document.getElementById('checkinPlaceholderLabel');
-  lbl.textContent = _getMode() === 'cassa' ? 'N. Cassa' : 'Targa';
-  document.getElementById('checkinInput').placeholder =
-    _getMode() === 'cassa' ? 'CAX-001' : 'AB123CD';
-
-  document.getElementById('checkinStats').innerHTML = `
-    <div class="statCard blue"><div class="val">${all.length}</div><div class="lbl">Totali</div></div>
-    <div class="statCard green"><div class="val">${free}</div><div class="lbl">Liberi</div></div>
-    <div class="statCard red"><div class="val">${occ}</div><div class="lbl">Occupati</div></div>
-    <div class="statCard orange"><div class="val">${Math.round(occ / all.length * 100) || 0}%</div><div class="lbl">Occupazione</div></div>`;
-
-  // portineria: mostra suggerimenti (prime 5 casse libere)
-  if (user?.role === 'portineria') {
-    const freeSpots = all.filter(s => !s.occupied).slice(0, 5);
-    document.getElementById('sugList').innerHTML = freeSpots.length
-      ? freeSpots.map(s =>
-          `<div class="sugItem"><span>${s.id}</span><span style="color:var(--accent2);font-weight:700;font-size:12px">LIBERO</span></div>`
-        ).join('')
-      : '<div class="emptyState">Nessun posto libero</div>';
-  }
-}
-
-async function doCheckinRapido() {
-  const input  = document.getElementById('checkinInput');
-  const plate  = input.value.trim().toUpperCase();
-  const res    = document.getElementById('checkinResult');
-  const spots  = _getSpots();
-  const user   = _getUser();
-  const mode   = _getMode();
-
-  if (!plate) {
-    showResult(res, '⚠️ Inserisci ' + (mode === 'cassa' ? 'n. cassa' : 'targa'), 'warn');
-    return;
-  }
-
-  const all = Object.values(spots);
-  const alreadySpot = all.find(s => s.occupied && s.plate === plate);
-  if (alreadySpot) {
-    showResult(res, `⚠️ ${plate} già al posto ${alreadySpot.id}`, 'warn');
-    return;
-  }
-
-  const freeSpot = all.find(s => !s.occupied);
-  if (!freeSpot) {
-    showResult(res, '⚠️ Nessun posto libero disponibile', 'warn');
-    return;
-  }
-
-  try {
-    await setDoc(doc(db, 'spots', freeSpot.id), {
-      occupied: true, plate, since: serverTimestamp(),
-      user: user.email, damaged: false, full: false
-    });
-    await addDoc(collection(db, 'history'), {
-      ts: serverTimestamp(), spot: freeSpot.id,
-      action: 'Assegnato', plate, user: user.email, mode
-    });
-    showResult(res, `✅ ${plate} → Posto ${freeSpot.id}`, 'ok');
-    input.value = '';
-    showToast(`Posto ${freeSpot.id} assegnato a ${plate}`, 'success');
-  } catch (e) {
-    showResult(res, '⚠️ Errore: ' + e.message, 'warn');
-  }
-}
-
-function showResult(el, msg, type) {
-  el.textContent = msg;
-  el.className = 'checkinResult ' + type;
-  el.style.display = 'block';
-  setTimeout(() => { el.style.display = 'none'; }, 4000);
-}
-
-// ── LISTA POSTI ───────────────────────────────────────────────────────────────
-function renderPosti() {
-  const spots = _getSpots();
-  const q      = (document.getElementById('searchPosto')?.value || '').trim().toUpperCase();
-  const fStato = document.getElementById('filterStato')?.value || '';
-  const fZona  = document.getElementById('filterZona')?.value  || '';
-
-  let res = Object.values(spots);
-  if (q)                res = res.filter(s => s.id.includes(q) || (s.plate && s.plate.includes(q)));
-  if (fStato === 'libero')   res = res.filter(s => !s.occupied);
-  if (fStato === 'occupato') res = res.filter(s => s.occupied);
-  if (fZona) res = res.filter(s => s.zone === fZona);
-
-  document.getElementById('spotList').innerHTML = res.map(s => `
-    <div class="spotItem ${s.occupied ? 'occupied' : 'free'}" onclick="openSpotDrawer('${s.id}')">
-      <div class="spotId">${s.id}</div>
-      <div class="spotInfo">
-        <div class="spotPlate">${s.plate || (s.occupied ? '—' : 'Libero')}</div>
-        <div class="spotMeta">${s.zone}${s.since ? ' · ' + fmtDur(s.since) : ''}${s.damaged ? ' · ⚠️ Danneggiato' : ''}${s.full ? ' · 🟡 Pieno' : ''}</div>
-      </div>
-      <span class="spotBadge ${s.occupied ? 'occ' : 'free'}">${s.occupied ? 'Occupato' : 'Libero'}</span>
-    </div>`).join('') || '<div class="emptyState">Nessun posto trovato</div>';
-}
-
-// ── DRAWER POSTO ──────────────────────────────────────────────────────────────
-function openSpotDrawer(id) {
-  const spots   = _getSpots();
-  const user    = _getUser();
-  const mode    = _getMode();
-  const sp      = spots[id];
-  if (!sp) return;
-
-  const canManage = user && (user.role === 'autista' || user.role === 'amministratore' || user.role === 'portineria');
-  const modeLabel = mode === 'cassa' ? 'Cassa' : 'Container';
-  const modeIcon  = mode === 'cassa' ? '📦' : '🚛';
-
-  let html = `<div class="drawerTitle">${modeIcon} Posto ${id}</div>
-    <div style="font-size:12px;color:var(--muted);margin-bottom:14px">${sp.zone}</div>`;
-
-  if (!sp.occupied) {
-    html += `<div style="background:#A4D20013;border:1px solid #A4D20030;border-radius:10px;padding:10px 14px;margin-bottom:14px;font-weight:700;color:var(--accent2)">🟢 Libero</div>`;
-    if (canManage) {
-      html += `<label style="font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;display:block;margin-bottom:6px">${modeLabel} / Identificativo</label>
-        <input class="inputField" id="drawerInput" type="text" placeholder="${mode === 'cassa' ? 'CAX-001' : 'AB123CD'}" maxlength="15" oninput="this.value=this.value.toUpperCase()" onkeydown="if(event.key==='Enter')assignFromDrawer('${id}')">
-        <label class="checkLabel"><input type="checkbox" id="drawerDamaged" style="accent-color:var(--red)"> ⚠️ Veicolo danneggiato</label>
-        <label class="checkLabel"><input type="checkbox" id="drawerFull" style="accent-color:var(--orange)"> 🟡 Piena/o (carico completo)</label>
-        <button class="btnGreen" onclick="assignFromDrawer('${id}')">✓ Assegna ${modeLabel}</button>`;
-    } else {
-      html += `<div style="color:var(--muted);font-size:13px">Solo gli autisti possono assegnare veicoli.</div>`;
-    }
-  } else {
-    html += `<div style="background:#ef444413;border:1px solid #ef444430;border-radius:10px;padding:10px 14px;margin-bottom:14px;font-weight:700;color:var(--red)">🔴 Occupato</div>
-      <div class="infoRow"><span class="infoKey">${modeLabel}</span><span class="infoVal">${sp.plate || '—'}</span></div>
-      <div class="infoRow"><span class="infoKey">Da</span><span class="infoVal">${fmtDate(sp.since)}</span></div>
-      <div class="infoRow"><span class="infoKey">Durata</span><span class="infoVal">${fmtDur(sp.since)}</span></div>
-      <div class="infoRow"><span class="infoKey">Utente</span><span class="infoVal" style="font-size:12px">${sp.user || '—'}</span></div>
-      <div class="infoRow"><span class="infoKey">Stato cassa</span><span class="infoVal">${sp.full ? '🟡 Piena' : '🟢 Vuota'}</span></div>
-      ${sp.damaged ? '<div class="infoRow"><span class="infoKey">Danno</span><span class="infoVal" style="color:var(--red)">⚠️ Segnalato</span></div>' : ''}
-      <div style="margin-top:14px"></div>
-      ${sp.full
-        ? `<button class="btnGreen" style="margin-bottom:8px" onclick="toggleFullDrawer('${id}',false)">🟢 Segna come Vuota</button>`
-        : `<button class="btnOrange" style="margin-bottom:8px" onclick="toggleFullDrawer('${id}',true)">🟡 Segna come Piena</button>`}`;
-    if (canManage) {
-      html += `${sp.damaged
-        ? `<button class="btnOrange" style="margin-bottom:8px" onclick="removeDamagedDrawer('${id}')">✓ Rimuovi segnalazione danno</button>`
-        : `<button class="btnOrange" style="margin-bottom:8px" onclick="addDamagedDrawer('${id}')">⚠️ Segnala veicolo danneggiato</button>`}
-        <button class="btnRed" onclick="freeFromDrawer('${id}')">✕ Libera Posto</button>`;
-    }
-  }
-  html += `<button class="btnGray" style="margin-top:8px" onclick="closeDrawer()">Chiudi</button>`;
-
-  document.getElementById('drawerContent').innerHTML = html;
-  document.getElementById('spotDrawer').classList.add('open');
-  document.getElementById('drawerOverlay').classList.add('open');
-  if (!sp.occupied && canManage) setTimeout(() => document.getElementById('drawerInput')?.focus(), 100);
-}
-
-function closeDrawer() {
-  document.getElementById('spotDrawer').classList.remove('open');
-  document.getElementById('drawerOverlay').classList.remove('open');
-}
-
-async function assignFromDrawer(id) {
-  const spots = _getSpots();
-  const user  = _getUser();
-  const mode  = _getMode();
-  const inp   = document.getElementById('drawerInput');
-  const plate = inp?.value.trim().toUpperCase();
-  if (!plate) { showToast('Inserisci identificativo', 'error'); return; }
-
-  const alreadySpot = Object.entries(spots).find(([sid, s]) => s.occupied && s.plate === plate && sid !== id);
-  if (alreadySpot) { showToast(`⚠️ ${plate} già al posto ${alreadySpot[0]}`, 'error'); return; }
-
-  const damaged = document.getElementById('drawerDamaged')?.checked || false;
-  const full    = document.getElementById('drawerFull')?.checked    || false;
-  try {
-    await setDoc(doc(db, 'spots', id), { occupied: true, plate, since: serverTimestamp(), user: user.email, damaged, full });
-    await addDoc(collection(db, 'history'), { ts: serverTimestamp(), spot: id, action: 'Assegnato', plate, user: user.email, mode });
-    showToast(`Posto ${id} → ${plate}`, 'success');
-    closeDrawer();
-  } catch (e) { showToast('Errore: ' + e.message, 'error'); }
-}
-
-async function freeFromDrawer(id) {
-  const spots = _getSpots();
-  const user  = _getUser();
-  const sp    = spots[id];
-  try {
-    await addDoc(collection(db, 'history'), { ts: serverTimestamp(), spot: id, action: 'Liberato', plate: sp.plate, user: user.email });
-    await setDoc(doc(db, 'spots', id), { occupied: false, plate: null, since: null, user: null, full: false });
-    showToast(`Posto ${id} liberato`, 'success');
-    closeDrawer();
-  } catch (e) { showToast('Errore: ' + e.message, 'error'); }
-}
-
-async function toggleFullDrawer(id, newFull) {
-  const spots = _getSpots();
-  const user  = _getUser();
-  try {
-    await updateDoc(doc(db, 'spots', id), { full: newFull });
-    await addDoc(collection(db, 'history'), { ts: serverTimestamp(), spot: id, action: newFull ? 'Segnato Pieno' : 'Segnato Vuoto', plate: spots[id].plate, user: user.email });
-    showToast(`Posto ${id} ${newFull ? 'segnato pieno' : 'segnato vuoto'}`, 'success');
-    openSpotDrawer(id);
-  } catch (e) { showToast('Errore: ' + e.message, 'error'); }
-}
-
-async function addDamagedDrawer(id) {
-  const spots = _getSpots();
-  const user  = _getUser();
-  try {
-    await updateDoc(doc(db, 'spots', id), { damaged: true });
-    await addDoc(collection(db, 'history'), { ts: serverTimestamp(), spot: id, action: 'Danno segnalato', plate: spots[id].plate, user: user.email });
-    showToast(`Danno segnalato per ${id}`, 'success');
-    openSpotDrawer(id);
-  } catch (e) { showToast('Errore: ' + e.message, 'error'); }
-}
-
-async function removeDamagedDrawer(id) {
-  const spots = _getSpots();
-  const user  = _getUser();
-  try {
-    await updateDoc(doc(db, 'spots', id), { damaged: false });
-    await addDoc(collection(db, 'history'), { ts: serverTimestamp(), spot: id, action: 'Danno rimosso', plate: spots[id].plate, user: user.email });
-    showToast(`Danno rimosso per ${id}`, 'success');
-    openSpotDrawer(id);
-  } catch (e) { showToast('Errore: ' + e.message, 'error'); }
-}
-
-
-// ════════════════════════════════════════
-// prenotazioni-autista.js
-// ════════════════════════════════════════
-
-// ── prenotazioni-autista.js ───────────────────────────────────────────────────
-// Gestione prenotazioni casse/container per autista (mobile)
-// Dipende da: firebase-config.js, shared-utils.js
-
-  from './firebase-config.js';
-
-let _unsubPren = null;
-let _prenotazioni = [];
-let _getUser;
-
-function initPrenotazioni({ getUser }) {
-  _getUser = getUser;
-
-  const dtInput = document.getElementById('pren-data');
-  if (dtInput) {
-    const now = new Date();
-    now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
-    dtInput.min = now.toISOString().slice(0, 16);
-    if (!dtInput.value) dtInput.value = now.toISOString().slice(0, 16);
-  }
-
-  if (_unsubPren) _unsubPren();
-  _unsubPren = onSnapshot(
-    query(collection(db, 'prenotazioni'), orderBy('dataOra', 'desc')),
-    snap => {
-      _prenotazioni = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-      renderPrenotazioni();
-    },
-    err => console.error('Errore prenotazioni:', err)
-  );
-}
-
-function stopPrenotazioni() {
-  if (_unsubPren) { _unsubPren(); _unsubPren = null; }
-}
-
-function renderPrenotazioni() {
-  let lista = [..._prenotazioni];
-
-  // ordina: urgenti prima, poi per anzianità (data più vecchia = prima)
-  lista.sort((a, b) => {
-    if (a.urgente && !b.urgente) return -1;
-    if (!a.urgente && b.urgente) return 1;
-    const da  = a.dataOra?.toDate ? a.dataOra.toDate() : new Date(a.dataOra || 0);
-    const db2 = b.dataOra?.toDate ? b.dataOra.toDate() : new Date(b.dataOra || 0);
-    return da - db2;
-  });
-
-  const pendenti   = lista.filter(p => p.stato === 'creata');
-  const completate = lista.filter(p => p.stato !== 'creata');
-
-  if (!pendenti.length && !completate.length) {
-    document.getElementById('prenList').innerHTML = '<div class="emptyState">Nessuna prenotazione trovata.</div>';
-    return;
-  }
-
-  // Le prime 3 pendenti sono il blocco attivo; le successive sono bloccate.
-  const bloccoAttivo = Math.min(3, pendenti.length);
-  let html = '';
-
-  if (pendenti.length) {
-    html += `<div class="prenGroupTitle">Da movimentare (${pendenti.length})</div>`;
-    pendenti.forEach((p, idx) => {
-      const abilitato = idx < bloccoAttivo;
-      html += _prenCardSingolo(p, abilitato, idx);
-    });
-  }
-
-  if (completate.length) {
-    html += `<div class="prenGroupTitle" style="margin-top:14px">Completate (${completate.length})</div>`;
-    completate.forEach(p => { html += _prenCardSingolo(p, false, -1); });
-  }
-
-  document.getElementById('prenList').innerHTML = html;
-}
-
-function _prenCardSingolo(p, abilitato, idx) {
-  const d = p.dataOra?.toDate ? p.dataOra.toDate() : (p.dataOra ? new Date(p.dataOra) : null);
-  const dataStr = d
-    ? d.toLocaleString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
-    : '—';
-  const completata = p.stato !== 'creata';
-
-  const bloccatoNote = (!completata && !abilitato && idx >= 3)
-    ? `<div style="font-size:11px;color:var(--muted);margin-top:6px;font-style:italic">🔒 Disponibile dopo il completamento delle prime 3</div>`
-    : '';
-
-  const btnHTML = completata
-    ? `<span class="prenBadge completata" style="margin-top:8px;display:inline-block">✅ Completata</span>`
-    : abilitato
-      ? `<button class="btnCompleta" onclick="completaSingola('${p.id}')" style="margin-top:8px;width:100%;padding:11px 0;">✅ Completa</button>`
-      : `<button disabled style="width:100%;margin-top:8px;padding:11px 0;background:var(--surface2);border:1px solid var(--border);border-radius:9px;color:var(--muted);font-family:inherit;font-size:13px;font-weight:700;cursor:not-allowed;opacity:.6">🔒 In attesa</button>`;
-
-  return `<div class="prenCard${p.urgente ? ' urgente' : ''}">
-    <div class="prenHeader">
-      <span class="prenPlate">${_esc(p.plate || '—')}</span>
-      ${p.stato === 'creata'
-        ? '<span class="prenBadge creata">In attesa</span>'
-        : '<span class="prenBadge completata">Completata</span>'}
-    </div>
-    ${p.urgente ? '<span class="urgBadge">🚨 URGENTE</span>' : ''}
-    <div class="prenDest">→ ${_esc(p.destinazione || '—')}</div>
-    <div class="prenMeta">Posto: ${_esc(p.spotId || '—')} · ${dataStr}</div>
-    ${bloccatoNote}
-    ${btnHTML}
-  </div>`;
-}
-
-async function completaSingola(id) {
-  try {
-    await updateDoc(doc(db, 'prenotazioni', id), {
-      stato: 'completata',
-      completataAt: serverTimestamp()
-    });
-    showToast('Cassa completata', 'success');
-  } catch (e) {
-    showToast('Errore: ' + e.message, 'error');
-  }
-}
-
-
-// ════════════════════════════════════════
-// ribalte-operativo.js
-// ════════════════════════════════════════
-
-// ── ribalte-operativo.js ──────────────────────────────────────────────────────
-// Stato ribalte e logica "da liberare" per il ruolo portineria
-// Dipende da: firebase-config.js, shared-utils.js, spots-data.js
-
-
-/**
- * Aggiorna il box suggerimenti ribalta visibile nella pagina Check-in
- * per il ruolo portineria. Riceve la lista posti liberi come argomento.
- *
- * @param {Array} freeSpots - array di oggetti spot liberi
- */
-function updateRibalteBox(freeSpots) {
-  const el = document.getElementById('sugList');
-  if (!el) return;
-
-  el.innerHTML = freeSpots.length
-    ? freeSpots.map(s =>
-        `<div class="sugItem">
-          <span>${_esc(s.id)}</span>
-          <span style="color:var(--accent2);font-weight:700;font-size:12px">LIBERO</span>
-        </div>`
-      ).join('')
-    : '<div class="emptyState">Nessun posto libero</div>';
-}
-
-/**
- * Verifica se una destinazione ribalta è valida
- * @param {string} dest
- * @returns {boolean}
- */
-function isDestinazioneValida(dest) {
-  return DESTINAZIONI_VALIDE.includes((dest || '').toUpperCase());
-}
-
-
-// ════════════════════════════════════════
-// mobile.html — script principale
-// ════════════════════════════════════════
-
-         doc, getDoc, collection, query, orderBy, limit, onSnapshot }
-  from './firebase-config.js';
-
-
+import {
   initCheckin, updateCheckinUI, doCheckinRapido,
   renderPosti, openSpotDrawer, closeDrawer,
   assignFromDrawer, freeFromDrawer, toggleFullDrawer,
   addDamagedDrawer, removeDamagedDrawer
 } from './checkin.js';
 
+import { initPrenotazioni, renderPrenotazioni, completaSingola } from './prenotazioni-autista.js';
+import { initRibalteOperativo, renderRibalte } from './ribalte-operativo.js';
 
 // ── STATO ─────────────────────────────────────────────────────────────────────
-let currentUser = null;
-let currentMode = 'container';
-let spots       = {};
+let currentUser  = null;
+let currentMode  = 'container';
+let spots        = {};
 let historyCache = [];
-let _prenotazioni = [];
-let unsubSpots = null, unsubHistory = null, unsubPren = null;
+let _filterPill  = ''; // '' | 'libero' | 'occupato'
+let unsubSpots = null, unsubHistory = null;
 
 // Inizializza spots da SPOT_DEFS
 SPOT_DEFS.forEach(([id, zone]) => {
   spots[id] = { id, zone, occupied: false, plate: null, since: null, user: null, damaged: false, full: false };
 });
 
-// Inizializza moduli con accesso allo stato
 initCheckin({
   getSpots: () => spots,
   getUser:  () => currentUser,
@@ -938,13 +226,13 @@ onAuthStateChanged(auth, async fbUser => {
   if (fbUser) {
     try {
       const snap = await getDoc(doc(db, 'users', fbUser.uid));
-      const role = snap.exists() ? (snap.data().role || 'autista') : 'autista';
-      const name = snap.exists() ? (snap.data().name || fbUser.email) : fbUser.email;
-      currentUser = { uid: fbUser.uid, email: fbUser.email, role, name };
+      const role  = snap.exists() ? (snap.data().role  || 'autista')    : 'autista';
+      const name  = snap.exists() ? (snap.data().name  || fbUser.email) : fbUser.email;
+      const reparto = snap.exists() ? (snap.data().reparto || null) : null;
+      currentUser = { uid: fbUser.uid, email: fbUser.email, role, name, reparto };
       showApp();
     } catch (e) {
-      console.error('Errore caricamento utente:', e);
-      currentUser = { uid: fbUser.uid, email: fbUser.email, role: 'autista', name: fbUser.email };
+      currentUser = { uid: fbUser.uid, email: fbUser.email, role: 'autista', name: fbUser.email, reparto: null };
       showApp();
     }
   } else {
@@ -967,19 +255,17 @@ async function doLogin() {
   } catch (e) {
     let msg = 'Credenziali non valide.';
     if (e.code === 'auth/invalid-credential' || e.code === 'auth/wrong-password') msg = 'Email o password errata.';
-    if (e.code === 'auth/user-not-found')       msg = 'Utente non trovato.';
-    if (e.code === 'auth/invalid-email')        msg = 'Email non valida.';
-    if (e.code === 'auth/too-many-requests')    msg = 'Troppi tentativi. Riprova più tardi.';
-    if (e.code === 'auth/network-request-failed') msg = 'Errore di rete. Controlla la connessione.';
+    if (e.code === 'auth/user-not-found')        msg = 'Utente non trovato.';
+    if (e.code === 'auth/invalid-email')         msg = 'Email non valida.';
+    if (e.code === 'auth/too-many-requests')     msg = 'Troppi tentativi. Riprova più tardi.';
+    if (e.code === 'auth/network-request-failed') msg = 'Errore di rete.';
     errEl.textContent = msg; errEl.style.display = 'block';
   } finally {
     btn.textContent = 'Accedi'; btn.disabled = false;
   }
 }
 
-async function doLogout() {
-  await signOut(auth);
-}
+async function doLogout() { await signOut(auth); }
 
 function showLogin() {
   document.getElementById('loginScreen').style.display = 'flex';
@@ -995,14 +281,53 @@ function showApp() {
   rb.className   = 'roleBadge ' + currentUser.role;
   document.getElementById('topBarUser').textContent = currentUser.name || currentUser.email;
 
+  const role       = currentUser.role;
+  const isAdmin    = role === 'amministratore' || role === 'amministrativo';
+  const isAutista  = role === 'autista';
+  const isPortineria = role === 'portineria';
+  const isOperativo  = role === 'operativo';
+
+  // modeBar: nascosta per operativo
+  document.getElementById('modeBar').style.display = isOperativo ? 'none' : 'flex';
+
+  // nav tabs
+  document.getElementById('navCheckin').classList.toggle('hidden', isOperativo);
+  document.getElementById('navAdmin').classList.toggle('hidden', !isAdmin);
+  document.getElementById('navRibalte').classList.toggle('hidden', !isOperativo);
+
+  // portineria: mostra ribalte box in check-in
+  document.getElementById('ribalteBox').style.display = isPortineria ? 'block' : 'none';
+
+  if (isOperativo) {
+    // Operativo: solo la pagina ribalte
+    document.getElementById('navPosti').classList.add('hidden');
+    document.getElementById('navPrenotazioni').classList.add('hidden');
+    initRibalteOperativo({
+      getUser: () => currentUser,
+      db, collection, query, orderBy, onSnapshot, doc, updateDoc: _updateDoc, addDoc: _addDoc, serverTimestamp: _serverTimestamp
+    });
+    startListeners();
+    showPage('Ribalte', document.getElementById('navRibalte'));
+    return;
+  }
+
   loadMode();
 
-  const role      = currentUser.role;
-  const isAdmin   = role === 'amministratore' || role === 'amministrativo';
-  const isPortineria = role === 'portineria';
+  if (isAutista) {
+    // Autista: Prenotazioni + Ricerca, no check-in standalone
+    document.getElementById('navCheckin').classList.add('hidden');
+    document.getElementById('navPosti').classList.remove('hidden');
+    document.getElementById('navPrenotazioni').classList.remove('hidden');
+    // aggiorna label pillOcc in base alla modalità
+    _updatePillOccLabel();
+    startListeners();
+    showPage('Prenotazioni', document.getElementById('navPrenotazioni'));
+    initPrenotazioni({ getUser: () => currentUser, getMode: () => currentMode });
+    return;
+  }
 
-  document.getElementById('navAdmin').classList.toggle('hidden', !isAdmin);
-  document.getElementById('ribalteBox').style.display = isPortineria ? 'block' : 'none';
+  // portineria, amministrativo, amministratore
+  document.getElementById('navPosti').classList.remove('hidden');
 
   startListeners();
 
@@ -1027,7 +352,11 @@ function setMode(mode) {
   localStorage.setItem('parkMode_' + uid, mode);
   applyModeUI();
   updateCheckinUI();
+  _updatePillOccLabel();
   renderPosti();
+  if (currentUser?.role === 'autista') {
+    initPrenotazioni({ getUser: () => currentUser, getMode: () => currentMode });
+  }
 }
 
 function applyModeUI() {
@@ -1036,10 +365,42 @@ function applyModeUI() {
   document.getElementById('modeBarLabel').textContent =
     currentMode === 'cassa' ? '📦 Modalità Cassa' : '🚛 Modalità Container';
 
-  const showPren = currentMode === 'cassa';
+  const showPren = currentMode === 'cassa' || currentUser?.role === 'autista';
   document.getElementById('navPrenotazioni').classList.toggle('hidden', !showPren);
-  if (showPren && currentUser) initPrenotazioni({ getUser: () => currentUser });
+  if (showPren && currentUser) {
+    initPrenotazioni({ getUser: () => currentUser, getMode: () => currentMode });
+  }
+
+  // aggiorna subtitle prenotazioni
+  const prenSub = document.getElementById('prenSubtitle');
+  if (prenSub) {
+    prenSub.textContent = currentMode === 'cassa'
+      ? 'Casse · ordinate per urgenza e anzianità'
+      : 'Container · ordinati per urgenza e anzianità';
+  }
 }
+
+function _updatePillOccLabel() {
+  const el = document.getElementById('pillOccLabel');
+  if (!el) return;
+  if (currentMode === 'cassa') el.textContent = 'Occupati da casse';
+  else el.textContent = 'Occupati da container';
+}
+
+// ── FILTRI RICERCA ─────────────────────────────────────────────────────────────
+function setFilterPill(val) {
+  _filterPill = val;
+  const btnL = document.getElementById('pillLiberi');
+  const btnO = document.getElementById('pillOccupati');
+  if (btnL) { btnL.classList.toggle('activeFree', val === 'libero'); }
+  if (btnO) { btnO.classList.toggle('activeOcc',  val === 'occupato'); }
+  // reset select zona quando si usa la pill
+  if (val) document.getElementById('filterZona').value = '';
+  renderPosti();
+}
+
+// override renderPosti per applicare il filtro pill
+window._getFilterPill = () => _filterPill;
 
 // ── LISTENERS ─────────────────────────────────────────────────────────────────
 function startListeners() {
@@ -1061,6 +422,8 @@ function startListeners() {
     updateCheckinUI();
     renderPosti();
     updateAdminStats();
+    // aggiorna ribalte se operativo
+    if (currentUser?.role === 'operativo') renderRibalte();
   });
 
   const hq = query(collection(db, 'history'), orderBy('ts', 'desc'), limit(100));
@@ -1074,7 +437,6 @@ function startListeners() {
 function stopListeners() {
   if (unsubSpots)   { unsubSpots();   unsubSpots   = null; }
   if (unsubHistory) { unsubHistory(); unsubHistory = null; }
-  if (unsubPren)    { unsubPren();    unsubPren    = null; }
 }
 
 // ── PAGES ─────────────────────────────────────────────────────────────────────
@@ -1083,7 +445,10 @@ function showPage(id, btn) {
   document.querySelectorAll('.navBtn').forEach(b => b.classList.remove('active'));
   document.getElementById('page' + id).classList.add('active');
   if (btn) btn.classList.add('active');
-  if (id === 'Prenotazioni') initPrenotazioni({ getUser: () => currentUser });
+  if (id === 'Prenotazioni') {
+    initPrenotazioni({ getUser: () => currentUser, getMode: () => currentMode });
+  }
+  if (id === 'Ribalte') renderRibalte();
 }
 
 // ── ADMIN ─────────────────────────────────────────────────────────────────────
@@ -1103,7 +468,7 @@ function renderStorico() {
   document.getElementById('storicoList').innerHTML = historyCache.slice(0, 50).map(h => `
     <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)">
       <div style="flex:1">
-        <div style="font-size:13px;font-weight:700">${h.spot} · ${h.plate || '—'}</div>
+        <div style="font-size:13px;font-weight:700;color:var(--text)">${h.spot} · ${h.plate || '—'}</div>
         <div style="font-size:11px;color:var(--muted)">${fmtDate(h.ts)} · ${h.user || '—'}</div>
       </div>
       <span style="font-size:11px;font-weight:700;padding:3px 8px;border-radius:20px;${
@@ -1114,23 +479,28 @@ function renderStorico() {
     </div>`).join('') || '<div class="emptyState">Nessun movimento</div>';
 }
 
-// ── EXPOSE GLOBALS (usati da onclick HTML) ────────────────────────────────────
-window.doLogin           = doLogin;
-window.doLogout          = doLogout;
-window.setMode           = setMode;
-window.showPage          = showPage;
-window.renderPosti       = renderPosti;
-window.openSpotDrawer    = openSpotDrawer;
-window.closeDrawer       = closeDrawer;
-window.assignFromDrawer  = assignFromDrawer;
-window.freeFromDrawer    = freeFromDrawer;
-window.toggleFullDrawer  = toggleFullDrawer;
-window.addDamagedDrawer  = addDamagedDrawer;
-window.removeDamagedDrawer = removeDamagedDrawer;
-window.doCheckinRapido   = doCheckinRapido;
-window.completaSingola   = completaSingola;
-window.renderPrenotazioni = renderPrenotazioni;
+// ── IMPORT DINAMICO per updateDoc/addDoc/serverTimestamp usati da ribalte-operativo ──
+import { updateDoc as _updateDoc, addDoc as _addDoc, serverTimestamp as _serverTimestamp }
+  from './firebase-config.js';
 
+// ── EXPOSE GLOBALS ────────────────────────────────────────────────────────────
+window.doLogin              = doLogin;
+window.doLogout             = doLogout;
+window.setMode              = setMode;
+window.showPage             = showPage;
+window.renderPosti          = renderPosti;
+window.openSpotDrawer       = openSpotDrawer;
+window.closeDrawer          = closeDrawer;
+window.assignFromDrawer     = assignFromDrawer;
+window.freeFromDrawer       = freeFromDrawer;
+window.toggleFullDrawer     = toggleFullDrawer;
+window.addDamagedDrawer     = addDamagedDrawer;
+window.removeDamagedDrawer  = removeDamagedDrawer;
+window.doCheckinRapido      = doCheckinRapido;
+window.completaSingola      = completaSingola;
+window.renderPrenotazioni   = renderPrenotazioni;
+window.setFilterPill        = setFilterPill;
+window.renderRibalte        = renderRibalte;
 </script>
 
 </body>
