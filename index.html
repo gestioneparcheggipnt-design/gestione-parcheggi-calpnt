@@ -2260,13 +2260,13 @@ function renderCasse() {
   const container = document.getElementById('casse-list-container');
   if (!container) return;
 
-  // Filtra i posti occupati da casse (plate = 3 cifre)
+  // Filtra i posti occupati da casse piene (plate = 3 cifre + flag full)
   const casseOccupate = Object.values(spots).filter(s =>
-    s.occupied && s.plate && RE_CASSA.test(s.plate.trim())
+    s.occupied && s.full && s.plate && RE_CASSA.test(s.plate.trim())
   );
 
   if (!casseOccupate.length) {
-    container.innerHTML = '<div class="casse-empty">Nessuna cassa attualmente parcheggiata.</div>';
+    container.innerHTML = '<div class="casse-empty">Nessuna cassa piena al momento.</div>';
     return;
   }
 
