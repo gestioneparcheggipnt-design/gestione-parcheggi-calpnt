@@ -171,6 +171,46 @@
 
 <div class="toast" id="toast"></div>
 
+<!-- ══ DEBUG VISIVO (rimuovere dopo risoluzione) ══════════════════════════════ -->
+<div id="debugBox" style="display:none;position:fixed;top:0;left:0;right:0;z-index:99999;
+  background:#1a0000;color:#ff6b6b;font-family:monospace;font-size:13px;
+  padding:12px;max-height:50vh;overflow-y:auto;border-bottom:2px solid #ff0000;">
+  <strong>⚠️ ERRORE JS:</strong><br>
+  <span id="debugMsg"></span>
+  <br><button onclick="document.getElementById('debugBox').style.display='none'"
+    style="margin-top:8px;background:#333;color:#fff;border:none;padding:4px 10px;border-radius:4px">
+    Chiudi
+  </button>
+</div>
+<script>
+  // Cattura errori globali prima che il modulo ES carichi
+  window.addEventListener('error', function(e) {
+    var box = document.getElementById('debugBox');
+    var msg = document.getElementById('debugMsg');
+    if (box && msg) {
+      msg.textContent = (e.message || 'Errore sconosciuto') + '\nFile: ' + (e.filename || '') + '\nRiga: ' + (e.lineno || '');
+      box.style.display = 'block';
+    }
+  });
+  window.addEventListener('unhandledrejection', function(e) {
+    var box = document.getElementById('debugBox');
+    var msg = document.getElementById('debugMsg');
+    if (box && msg) {
+      msg.textContent = 'Promise rifiutata: ' + (e.reason?.message || e.reason || 'Errore sconosciuto');
+      box.style.display = 'block';
+    }
+  });
+  // Fallback doLogin nel caso il modulo non carichi
+  window.doLogin = function() {
+    var box = document.getElementById('debugBox');
+    var msg = document.getElementById('debugMsg');
+    if (box && msg) {
+      msg.textContent = 'Il modulo ES non è stato caricato correttamente.\nVerifica che tutti i file JS siano presenti sul server:\n- firebase-config.js\n- spots-data.js\n- shared-utils.js\n- checkin.js\n- prenotazioni-autista.js\n- ribalte-operativo.js';
+      box.style.display = 'block';
+    }
+  };
+</script>
+
 <!-- ══ LOGICA APPLICAZIONE ════════════════════════════════════════════════════ -->
 <script type="module">
 import { auth, db, signInWithEmailAndPassword, signOut, onAuthStateChanged,
