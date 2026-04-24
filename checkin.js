@@ -115,12 +115,15 @@ export function renderPosti() {
   let res = Object.values(spots);
   if (q)               res = res.filter(s => s.id.includes(q) || (s.plate && s.plate.includes(q)));
 
+  const RE_CASSA = /^\d{3}$/;
   if (pill === 'libero') {
     res = res.filter(s => !s.occupied);
   } else if (pill === 'occupato') {
-    // Filtra per modalità: se cassa mostra solo occupati con casse, se container solo container
-    // Attualmente il campo 'mode' non è su spots, ma possiamo filtrare semplicemente gli occupati
-    res = res.filter(s => s.occupied);
+    if (mode === 'cassa') {
+      res = res.filter(s => s.occupied && s.plate && RE_CASSA.test(s.plate.trim()) && s.full);
+    } else {
+      res = res.filter(s => s.occupied && s.plate && !RE_CASSA.test(s.plate.trim()));
+    }
   }
 
   if (fZona) res = res.filter(s => s.zone === fZona);
