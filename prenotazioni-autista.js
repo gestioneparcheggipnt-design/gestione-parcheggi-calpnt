@@ -2,17 +2,21 @@
 // Gestione prenotazioni casse/container + missioni ribalta per autista (mobile)
 // Dipende da: firebase-config.js, shared-utils.js
 
-import { db, collection, query, orderBy, onSnapshot, doc, updateDoc, serverTimestamp }
+import { db, collection, query, orderBy, onSnapshot, doc, updateDoc, serverTimestamp, where }
   from './firebase-config.js';
-import { showToast, _esc } from './shared-utils.js';
+import { showToast, _esc, fmtDur } from './shared-utils.js';
 
 let _unsubPren   = null;
+let _unsubSpots  = null;
 let _prenotazioni = [];
+let _spots        = {};  // cache posti per vista casse
 let _getUser;
 let _getMode;
 
 // Tiene traccia di quale card ha il form di completamento aperto
 let _openCompletaId = null;
+
+const RE_CASSA = /^\d{3}$/;
 
 export function initPrenotazioni({ getUser, getMode }) {
   _getUser = getUser;
@@ -27,25 +31,42 @@ export function initPrenotazioni({ getUser, getMode }) {
     },
     err => console.error('Errore prenotazioni:', err)
   );
+
+  // Listener posti per la vista casse
+  if (_unsubSpots) _unsubSpots();
+  _unsubSpots = onSnapshot(
+    collection(db, 'spots'),
+    snap => {
+      _spots = {};
+      snap.docs.forEach(d => { _spots[d.id] = { id: d.id, ...d.data() }; });
+      renderPrenotazioni();
+    },
+    err => console.error('Errore spots:', err)
+  );
 }
 
 export function stopPrenotazioni() {
-  if (_unsubPren) { _unsubPren(); _unsubPren = null; }
+  if (_unsubPren)  { _unsubPren();  _unsubPren  = null; }
+  if (_unsubSpots) { _unsubSpots(); _unsubSpots = null; }
 }
 
 export function renderPrenotazioni() {
   const mode = _getMode ? _getMode() : 'container';
-  let lista  = [..._prenotazioni];
+  const el   = document.getElementById('prenList');
+  if (!el) return;
 
-  // Filtra per modalità:
-  // - Modalità cassa:     mostra solo prenotazioni ordinarie (non missioni ribalta)
-  //                       oppure mostra anche le missioni ribalta? → mostra le ordinarie
-  // - Modalità container: stesso comportamento
-  // Le missioni ribalta (tipoMissione === 'ribalta') vengono mostrate separatamente
-  const missioni   = lista.filter(p => p.tipoMissione === 'ribalta' && p.stato === 'creata');
-  const ordinarie  = lista.filter(p => p.tipoMissione !== 'ribalta');
+  // ── MODALITÀ CASSA: mostra posti occupati da casse piene ─────────────────
+  if (mode === 'cassa') {
+    _renderCasse(el);
+    return;
+  }
 
-  // Ordina: urgenti prima, poi anzianità
+  // ── MODALITÀ CONTAINER: mostra prenotazioni container ────────────────────
+  let lista = [..._prenotazioni];
+
+  const missioni  = lista.filter(p => p.tipoMissione === 'ribalta' && p.stato === 'creata');
+  const ordinarie = lista.filter(p => p.tipoMissione !== 'ribalta' && p.tipoMezzo === 'container');
+
   const sortFn = (a, b) => {
     if (a.urgente && !b.urgente) return -1;
     if (!a.urgente && b.urgente) return 1;
@@ -60,9 +81,6 @@ export function renderPrenotazioni() {
   const pendenti   = ordinarie.filter(p => p.stato === 'creata');
   const completate = ordinarie.filter(p => p.stato !== 'creata');
 
-  const el = document.getElementById('prenList');
-  if (!el) return;
-
   if (!pendenti.length && !completate.length && !missioni.length) {
     el.innerHTML = '<div class="emptyState">Nessuna prenotazione trovata.</div>';
     return;
@@ -71,22 +89,16 @@ export function renderPrenotazioni() {
   const bloccoAttivo = Math.min(3, pendenti.length);
   let html = '';
 
-  // ── Missioni ribalta (notifiche speciali in cima) ──────────────────────────
   if (missioni.length) {
     html += `<div class="prenGroupTitle" style="color:var(--orange)">🚛 Missioni ribalta (${missioni.length})</div>`;
     missioni.forEach(p => { html += _missioneCard(p); });
   }
 
-  // ── Prenotazioni ordinarie pendenti ───────────────────────────────────────
   if (pendenti.length) {
     html += `<div class="prenGroupTitle">Da movimentare (${pendenti.length})</div>`;
-    pendenti.forEach((p, idx) => {
-      const abilitato = idx < bloccoAttivo;
-      html += _prenCard(p, abilitato, idx);
-    });
+    pendenti.forEach((p, idx) => { html += _prenCard(p, idx < bloccoAttivo, idx); });
   }
 
-  // ── Completate ────────────────────────────────────────────────────────────
   if (completate.length) {
     html += `<div class="prenGroupTitle" style="margin-top:14px">Completate (${completate.length})</div>`;
     completate.forEach(p => { html += _prenCard(p, false, -1); });
@@ -94,11 +106,66 @@ export function renderPrenotazioni() {
 
   el.innerHTML = html;
 
-  // Ripristina form aperto se ancora presente
   if (_openCompletaId) {
     const form = document.getElementById('completaForm_' + _openCompletaId);
     if (form) form.style.display = 'block';
   }
+}
+
+// ── VISTA CASSE ──────────────────────────────────────────────────────────────
+function _renderCasse(el) {
+  const casseOccupate = Object.values(_spots).filter(s =>
+    s.occupied && s.full && s.plate && RE_CASSA.test(s.plate.trim())
+  );
+
+  if (!casseOccupate.length) {
+    el.innerHTML = '<div class="emptyState">Nessuna cassa piena al momento.</div>';
+    return;
+  }
+
+  // Prenotazioni urgenti attive → set di plate
+  const idUrgenti = new Set(
+    _prenotazioni
+      .filter(p => p.urgente && p.stato === 'creata')
+      .map(p => p.plate)
+  );
+
+  // Ordine: urgenti prima, poi anzianità crescente
+  casseOccupate.sort((a, b) => {
+    const aUrg = idUrgenti.has(a.plate) ? 0 : 1;
+    const bUrg = idUrgenti.has(b.plate) ? 0 : 1;
+    if (aUrg !== bUrg) return aUrg - bUrg;
+    const aTs = a.since ? (a.since.toDate ? a.since.toDate().getTime() : new Date(a.since).getTime()) : 0;
+    const bTs = b.since ? (b.since.toDate ? b.since.toDate().getTime() : new Date(b.since).getTime()) : 0;
+    return aTs - bTs;
+  });
+
+  let html = `<div class="prenGroupTitle">Casse piene (${casseOccupate.length})</div>`;
+
+  casseOccupate.forEach((s, idx) => {
+    const urgente  = idUrgenti.has(s.plate);
+    const sinceTs  = s.since ? (s.since.toDate ? s.since.toDate() : new Date(s.since)) : null;
+    const anzianita = sinceTs ? fmtDur(sinceTs) : '—';
+    const sinceStr  = sinceTs
+      ? sinceTs.toLocaleString('it-IT', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' })
+      : '—';
+
+    html += `
+      <div class="prenCard${urgente ? ' urgente' : ''}">
+        <div class="prenHeader">
+          <span class="prenPlate">${_esc(s.plate)}</span>
+          <span style="font-size:12px;color:var(--muted);font-weight:600">#${idx + 1}</span>
+        </div>
+        ${urgente ? '<span class="urgBadge">🚨 URGENTE</span>' : ''}
+        <div class="prenMeta">Posto: <strong>${_esc(s.id)}</strong> · ⏱ ${anzianita}</div>
+        <div style="font-size:12px;color:var(--muted);margin-top:2px">Entrata: ${sinceStr}</div>
+        <div style="margin-top:6px">
+          <span class="prenBadge creata">📦 Piena</span>
+        </div>
+      </div>`;
+  });
+
+  el.innerHTML = html;
 }
 
 // ── CARD MISSIONE RIBALTA ────────────────────────────────────────────────────
