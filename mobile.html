@@ -382,9 +382,7 @@ function setMode(mode) {
   updateCheckinUI();
   _updatePillOccLabel();
   renderPosti();
-  if (currentUser?.role === 'autista') {
-    initPrenotazioni({ getUser: () => currentUser, getMode: () => currentMode });
-  }
+  renderPrenotazioni();
 }
 
 function applyModeUI() {
@@ -395,9 +393,6 @@ function applyModeUI() {
 
   const showPren = currentMode === 'cassa' || currentUser?.role === 'autista';
   document.getElementById('navPrenotazioni').classList.toggle('hidden', !showPren);
-  if (showPren && currentUser) {
-    initPrenotazioni({ getUser: () => currentUser, getMode: () => currentMode });
-  }
 
   // aggiorna subtitle prenotazioni
   const prenSub = document.getElementById('prenSubtitle');
@@ -474,7 +469,7 @@ function showPage(id, btn) {
   document.getElementById('page' + id).classList.add('active');
   if (btn) btn.classList.add('active');
   if (id === 'Prenotazioni') {
-    initPrenotazioni({ getUser: () => currentUser, getMode: () => currentMode });
+    renderPrenotazioni();
   }
   if (id === 'Ribalte') renderRibalte();
 }
