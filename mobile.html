@@ -349,8 +349,11 @@ function showApp() {
     // aggiorna label pillOcc in base alla modalità
     _updatePillOccLabel();
     startListeners();
-    showPage('Prenotazioni', document.getElementById('navPrenotazioni'));
     initPrenotazioni({ getUser: () => currentUser, getMode: () => currentMode });
+    const savedPageA = localStorage.getItem('parkPage_' + currentUser.uid);
+    const validPagesA = ['Prenotazioni', 'Posti'];
+    const targetA = validPagesA.includes(savedPageA) ? savedPageA : 'Prenotazioni';
+    showPage(targetA, document.getElementById('nav' + targetA));
     return;
   }
 
@@ -359,11 +362,11 @@ function showApp() {
 
   startListeners();
 
-  if (isAdmin) {
-    showPage('Admin', document.getElementById('navAdmin'));
-  } else {
-    showPage('Checkin', document.getElementById('navCheckin'));
-  }
+  const savedPage = localStorage.getItem('parkPage_' + currentUser.uid);
+  const validPages = ['Checkin', 'Posti', 'Admin', 'Prenotazioni'];
+  let defaultPage = isAdmin ? 'Admin' : 'Checkin';
+  const targetPage = validPages.includes(savedPage) ? savedPage : defaultPage;
+  showPage(targetPage, document.getElementById('nav' + targetPage));
 }
 
 // ── MODE ──────────────────────────────────────────────────────────────────────
@@ -468,10 +471,10 @@ function showPage(id, btn) {
   document.querySelectorAll('.navBtn').forEach(b => b.classList.remove('active'));
   document.getElementById('page' + id).classList.add('active');
   if (btn) btn.classList.add('active');
-  if (id === 'Prenotazioni') {
-    renderPrenotazioni();
-  }
+  if (id === 'Prenotazioni') renderPrenotazioni();
   if (id === 'Ribalte') renderRibalte();
+  // Persisti la pagina attiva per il refresh
+  if (currentUser) localStorage.setItem('parkPage_' + currentUser.uid, id);
 }
 
 // ── ADMIN ─────────────────────────────────────────────────────────────────────

@@ -60,8 +60,19 @@ export async function doCheckinRapido() {
   const user   = _getUser();
   const mode   = _getMode();
 
+  const RE_VAL_CASSA     = /^\d{3}$/;
+  const RE_VAL_CONTAINER = /^[A-Z]{4}\d{7}$/;
+
   if (!plate) {
-    showResult(res, '⚠️ Inserisci ' + (mode === 'cassa' ? 'n. cassa' : 'targa'), 'warn');
+    showResult(res, '⚠️ Inserisci ' + (mode === 'cassa' ? 'n. cassa (3 cifre)' : 'targa (4 lettere + 7 cifre)'), 'warn');
+    return;
+  }
+  if (mode === 'cassa' && !RE_VAL_CASSA.test(plate)) {
+    showResult(res, '⚠️ Formato non valido. Inserisci 3 cifre (es. 001)', 'warn');
+    return;
+  }
+  if (mode !== 'cassa' && !RE_VAL_CONTAINER.test(plate)) {
+    showResult(res, '⚠️ Formato non valido. Inserisci 4 lettere + 7 cifre (es. ABCD1234567)', 'warn');
     return;
   }
 
@@ -116,12 +127,15 @@ export function renderPosti() {
   if (q)               res = res.filter(s => s.id.includes(q) || (s.plate && s.plate.includes(q)));
 
   const RE_CASSA = /^\d{3}$/;
+  const RE_CONTAINER = /^[A-Z]{4}\d{7}$/;
   if (pill === 'libero') {
     res = res.filter(s => !s.occupied);
   } else if (pill === 'occupato') {
     if (mode === 'cassa') {
-      res = res.filter(s => s.occupied && s.plate && RE_CASSA.test(s.plate.trim()) && s.full);
+      // Casse: plate a 3 cifre
+      res = res.filter(s => s.occupied && s.plate && RE_CASSA.test(s.plate.trim()));
     } else {
+      // Container: plate con 4 lettere + 7 cifre, o comunque NON a 3 cifre
       res = res.filter(s => s.occupied && s.plate && !RE_CASSA.test(s.plate.trim()));
     }
   }
@@ -204,6 +218,15 @@ export async function assignFromDrawer(id) {
   const inp   = document.getElementById('drawerInput');
   const plate = inp?.value.trim().toUpperCase();
   if (!plate) { showToast('Inserisci identificativo', 'error'); return; }
+
+  const _RE_CASSA_D     = /^\d{3}$/;
+  const _RE_CONTAINER_D = /^[A-Z]{4}\d{7}$/;
+  if (mode === 'cassa' && !_RE_CASSA_D.test(plate)) {
+    showToast('⚠️ Formato cassa non valido. Usa 3 cifre (es. 001)', 'error'); return;
+  }
+  if (mode !== 'cassa' && !_RE_CONTAINER_D.test(plate)) {
+    showToast('⚠️ Formato container non valido. Usa 4 lettere + 7 cifre (es. ABCD1234567)', 'error'); return;
+  }
 
   const alreadySpot = Object.entries(spots).find(([sid, s]) => s.occupied && s.plate === plate && sid !== id);
   if (alreadySpot) { showToast(`⚠️ ${plate} già al posto ${alreadySpot[0]}`, 'error'); return; }

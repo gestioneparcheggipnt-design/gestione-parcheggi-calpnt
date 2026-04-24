@@ -2,7 +2,7 @@
 // Gestione prenotazioni casse/container + missioni ribalta per autista (mobile)
 // Dipende da: firebase-config.js, shared-utils.js
 
-import { db, collection, query, orderBy, onSnapshot, doc, updateDoc, serverTimestamp, where }
+import { db, collection, query, orderBy, onSnapshot, doc, updateDoc, setDoc, getDocs, serverTimestamp, where }
   from './firebase-config.js';
 import { showToast, _esc, fmtDur } from './shared-utils.js';
 
@@ -288,13 +288,25 @@ window.confermaMissione = window.confermaCompletamento;
 
 async function _completaConPosto(id, postoFine) {
   try {
+    // Recupera la prenotazione per sapere il posto di origine
+    const pren = _prenotazioni.find(p => p.id === id);
+
+    // Aggiorna la prenotazione come completata
     await updateDoc(doc(db, 'prenotazioni', id), {
       stato:        'completata',
       completataAt: serverTimestamp(),
       postoFine
     });
+
+    // Libera il posto di origine se presente
+    if (pren?.spotId) {
+      await setDoc(doc(db, 'spots', pren.spotId), {
+        occupied: false, plate: null, since: null, user: null, full: false, damaged: false
+      });
+    }
+
     _openCompletaId = null;
-    showToast(`Completato → ${postoFine}`, 'success');
+    showToast(`Completato → ${postoFine}${pren?.spotId ? ' · Posto ' + pren.spotId + ' liberato' : ''}`, 'success');
   } catch (e) {
     showToast('Errore: ' + e.message, 'error');
   }
