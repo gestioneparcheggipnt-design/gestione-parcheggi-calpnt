@@ -65,7 +65,7 @@ export function renderPrenotazioni() {
   let lista = [..._prenotazioni];
 
   const missioni  = lista.filter(p => p.tipoMissione === 'ribalta' && p.stato === 'creata');
-  const ordinarie = lista.filter(p => p.tipoMissione !== 'ribalta' && p.tipoMezzo === 'container');
+  const ordinarie = lista.filter(p => p.tipoMissione !== 'ribalta');
 
   const sortFn = (a, b) => {
     if (a.urgente && !b.urgente) return -1;
