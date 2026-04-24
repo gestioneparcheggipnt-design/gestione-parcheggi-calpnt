@@ -150,22 +150,44 @@ function _renderCasse(el) {
       ? sinceTs.toLocaleString('it-IT', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' })
       : '—';
 
+    // Trova prenotazione attiva per questa cassa (per abilitare il tasto Completa)
+    const prenCassa = _prenotazioni.find(p =>
+      p.plate === s.plate && p.stato === 'creata' && p.tipoMissione !== 'ribalta'
+    );
+    const btnCassaHTML = prenCassa
+      ? `<button class="btnCompleta" onclick="aprirCompletaForm('${prenCassa.id}')" style="margin-top:10px;width:100%">✅ Completa missione</button>
+         <div class="completaForm" id="completaForm_${prenCassa.id}" style="display:none">
+           <div class="cfTitle">Dove hai posizionato la cassa?</div>
+           <input class="cfInput" id="cfInput_${prenCassa.id}" type="text"
+                  placeholder="Es. A01 oppure R04"
+                  oninput="this.value=this.value.toUpperCase()"
+                  onkeydown="if(event.key==='Enter')confermaCompletamento('${prenCassa.id}')">
+           <div class="cfActions">
+             <button class="btnCfConfirm" onclick="confermaCompletamento('${prenCassa.id}')">✓ Conferma</button>
+             <button class="btnCfCancel"  onclick="chiudiCompletaForm('${prenCassa.id}')">Annulla</button>
+           </div>
+         </div>`
+      : '';
+
     html += `
       <div class="prenCard${urgente ? ' urgente' : ''}">
         <div class="prenHeader">
           <span class="prenPlate">${_esc(s.plate)}</span>
-          <span style="font-size:12px;color:var(--muted);font-weight:600">#${idx + 1}</span>
+          ${urgente ? '<span class="urgBadge">🚨 URGENTE</span>' : '<span class="prenBadge creata">📦 Piena</span>'}
         </div>
-        ${urgente ? '<span class="urgBadge">🚨 URGENTE</span>' : ''}
-        <div class="prenMeta">Posto: <strong>${_esc(s.id)}</strong> · ⏱ ${anzianita}</div>
-        <div style="font-size:12px;color:var(--muted);margin-top:2px">Entrata: ${sinceStr}</div>
-        <div style="margin-top:6px">
-          <span class="prenBadge creata">📦 Piena</span>
-        </div>
+        <div style="font-size:22px;font-weight:800;color:var(--text);margin:8px 0 4px;letter-spacing:1px">${_esc(s.id)}</div>
+        ${prenCassa?.destinazione ? `<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px"><span style="font-size:18px;color:var(--accent2)">→</span><span style="font-size:18px;font-weight:700;color:var(--accent)">${_esc(prenCassa.destinazione)}</span></div>` : ''}
+        ${btnCassaHTML}
       </div>`;
   });
 
   el.innerHTML = html;
+
+  // Ripristina form aperto se ancora presente
+  if (_openCompletaId) {
+    const form = document.getElementById('completaForm_' + _openCompletaId);
+    if (form) form.style.display = 'block';
+  }
 }
 
 // ── CARD MISSIONE RIBALTA ────────────────────────────────────────────────────
@@ -248,8 +270,12 @@ function _prenCard(p, abilitato, idx) {
           : '<span class="prenBadge completata">Completata</span>'}
       </div>
       ${p.urgente ? '<span class="urgBadge">🚨 URGENTE</span>' : ''}
-      <div class="prenDest">→ ${_esc(p.destinazione || '—')}</div>
-      <div class="prenMeta">Posto: ${_esc(p.spotId || '—')} · ${dataStr}</div>
+      <div style="display:flex;align-items:center;gap:10px;margin:10px 0 4px;flex-wrap:wrap">
+        <span style="font-size:22px;font-weight:800;color:var(--text);letter-spacing:1px">${_esc(p.spotId || '—')}</span>
+        <span style="font-size:22px;color:var(--accent2)">→</span>
+        <span style="font-size:22px;font-weight:800;color:var(--accent);letter-spacing:1px">${_esc(p.destinazione || '—')}</span>
+      </div>
+      <div class="prenMeta" style="margin-top:2px">${dataStr}</div>
       ${bloccatoNote}
       ${btnHTML}
     </div>`;
