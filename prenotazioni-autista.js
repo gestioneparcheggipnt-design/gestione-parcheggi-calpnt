@@ -150,24 +150,21 @@ function _renderCasse(el) {
       ? sinceTs.toLocaleString('it-IT', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' })
       : '—';
 
-    // Trova prenotazione attiva per questa cassa (per abilitare il tasto Completa)
-    const prenCassa = _prenotazioni.find(p =>
-      p.plate === s.plate && p.stato === 'creata' && p.tipoMissione !== 'ribalta'
-    );
-    const btnCassaHTML = prenCassa
-      ? `<button class="btnCompleta" onclick="aprirCompletaForm('${prenCassa.id}')" style="margin-top:10px;width:100%">✅ Completa missione</button>
-         <div class="completaForm" id="completaForm_${prenCassa.id}" style="display:none">
-           <div class="cfTitle">Dove hai posizionato la cassa?</div>
-           <input class="cfInput" id="cfInput_${prenCassa.id}" type="text"
-                  placeholder="Es. A01 oppure R04"
-                  oninput="this.value=this.value.toUpperCase()"
-                  onkeydown="if(event.key==='Enter')confermaCompletamento('${prenCassa.id}')">
-           <div class="cfActions">
-             <button class="btnCfConfirm" onclick="confermaCompletamento('${prenCassa.id}')">✓ Conferma</button>
-             <button class="btnCfCancel"  onclick="chiudiCompletaForm('${prenCassa.id}')">Annulla</button>
-           </div>
-         </div>`
-      : '';
+    // Il tasto Completa libera direttamente il posto (le casse non hanno prenotazione collegata)
+    const spotKey = s.id;
+    const btnCassaHTML = `
+      <button class="btnCompleta" onclick="aprirCompletaCassa('${spotKey}')" style="margin-top:10px;width:100%">✅ Completa missione</button>
+      <div class="completaForm" id="completaForm_cassa_${spotKey}" style="display:none">
+        <div class="cfTitle">Dove hai spostato la cassa?</div>
+        <input class="cfInput" id="cfInput_cassa_${spotKey}" type="text"
+               placeholder="Es. A01 oppure R04"
+               oninput="this.value=this.value.toUpperCase()"
+               onkeydown="if(event.key==='Enter')confermaCassa('${spotKey}')">
+        <div class="cfActions">
+          <button class="btnCfConfirm" onclick="confermaCassa('${spotKey}')">✓ Conferma</button>
+          <button class="btnCfCancel"  onclick="chiudiCompletaCassa('${spotKey}')">Annulla</button>
+        </div>
+      </div>`;
 
     html += `
       <div class="prenCard${urgente ? ' urgente' : ''}">
@@ -176,7 +173,6 @@ function _renderCasse(el) {
           ${urgente ? '<span class="urgBadge">🚨 URGENTE</span>' : '<span class="prenBadge creata">📦 Piena</span>'}
         </div>
         <div style="font-size:22px;font-weight:800;color:var(--text);margin:8px 0 4px;letter-spacing:1px">${_esc(s.id)}</div>
-        ${prenCassa?.destinazione ? `<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px"><span style="font-size:18px;color:var(--accent2)">→</span><span style="font-size:18px;font-weight:700;color:var(--accent)">${_esc(prenCassa.destinazione)}</span></div>` : ''}
         ${btnCassaHTML}
       </div>`;
   });
@@ -282,6 +278,39 @@ function _prenCard(p, abilitato, idx) {
 }
 
 // ── LOGICA FORM COMPLETAMENTO ─────────────────────────────────────────────────
+window.aprirCompletaCassa = function(spotId) {
+  // Chiudi eventuali form già aperti
+  if (_openCompletaId) chiudiCompletaForm(_openCompletaId);
+  _openCompletaId = 'cassa_' + spotId;
+  const form = document.getElementById('completaForm_cassa_' + spotId);
+  if (form) {
+    form.style.display = 'block';
+    setTimeout(() => document.getElementById('cfInput_cassa_' + spotId)?.focus(), 80);
+  }
+};
+
+window.chiudiCompletaCassa = function(spotId) {
+  const form = document.getElementById('completaForm_cassa_' + spotId);
+  if (form) form.style.display = 'none';
+  if (_openCompletaId === 'cassa_' + spotId) _openCompletaId = null;
+};
+
+window.confermaCassa = async function(spotId) {
+  const input = document.getElementById('cfInput_cassa_' + spotId);
+  const dest  = input?.value.trim().toUpperCase();
+  if (!dest) { showToast('Inserisci la destinazione', 'error'); return; }
+  try {
+    const user = _getUser();
+    await setDoc(doc(db, 'spots', spotId), {
+      occupied: false, plate: null, since: null, user: null, full: false, damaged: false
+    });
+    _openCompletaId = null;
+    showToast(`Cassa spostata → ${dest} · Posto ${spotId} liberato`, 'success');
+  } catch (e) {
+    showToast('Errore: ' + e.message, 'error');
+  }
+};
+
 window.aprirCompletaForm = function(id) {
   // Chiudi eventuale form già aperto
   if (_openCompletaId && _openCompletaId !== id) {
