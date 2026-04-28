@@ -133,6 +133,16 @@
              maxlength="15"
              oninput="this.value=this.value.toUpperCase();aggiornaPickerPosti()"
              onkeydown="if(event.key==='Enter')aggiornaPickerPosti()">
+      <div style="display:flex;gap:8px;margin-top:12px">
+        <button id="assegnaBtnVuoto" onclick="setAssegnaFull(false)"
+                style="flex:1;padding:10px;border-radius:8px;border:2px solid var(--accent);background:var(--accent);color:#1C1F26;font-family:inherit;font-size:14px;font-weight:700;cursor:pointer">
+          🟢 Vuoto
+        </button>
+        <button id="assegnaBtnPieno" onclick="setAssegnaFull(true)"
+                style="flex:1;padding:10px;border-radius:8px;border:1.5px solid var(--border);background:var(--surface2);color:var(--text);font-family:inherit;font-size:14px;font-weight:700;cursor:pointer">
+          🟡 Pieno
+        </button>
+      </div>
       <div class="checkinResult" id="assegnaResult" style="display:none"></div>
     </div>
 
@@ -542,6 +552,21 @@ import { updateDoc as _updateDoc, addDoc as _addDoc, setDoc as _setDoc,
 
 // ── EXPOSE GLOBALS ────────────────────────────────────────────────────────────
 // ── PAGINA ASSEGNA VEICOLO ───────────────────────────────────────────────────
+let _assegnaFull = false;
+
+window.setAssegnaFull = function(full) {
+  _assegnaFull = full;
+  const btnV = document.getElementById('assegnaBtnVuoto');
+  const btnP = document.getElementById('assegnaBtnPieno');
+  const base = 'flex:1;padding:10px;border-radius:8px;font-family:inherit;font-size:14px;font-weight:700;cursor:pointer';
+  if (btnV) btnV.style.cssText = base + (!full
+    ? ';border:2px solid var(--accent);background:var(--accent);color:#1C1F26'
+    : ';border:1.5px solid var(--border);background:var(--surface2);color:var(--text)');
+  if (btnP) btnP.style.cssText = base + (full
+    ? ';border:2px solid orange;background:orange;color:#1C1F26'
+    : ';border:1.5px solid var(--border);background:var(--surface2);color:var(--text)');
+};
+
 function initAssegnaPagina() {
   const mode = currentMode === 'cassa' ? 'cassa' : 'container';
   const lbl  = document.getElementById('assegnaInputLabel');
@@ -551,6 +576,8 @@ function initAssegnaPagina() {
   if (inp) inp.placeholder = mode === 'cassa' ? 'Es. 001' : 'Es. ABCD1234567';
   if (sub) sub.textContent = mode === 'cassa' ? 'Assegna cassa a parcheggio libero' : 'Assegna container a parcheggio libero';
   // Resetta
+  _assegnaFull = false;
+  window.setAssegnaFull(false);
   if (inp) inp.value = '';
   const wrap = document.getElementById('assegnaPickerWrap');
   if (wrap) wrap.style.display = 'none';
@@ -644,7 +671,7 @@ window.assegnaVeicoloPosto = async function(plate, spotId) {
   try {
     await _setDoc(_doc(db, 'spots', spotId), {
       occupied: true, plate, since: _serverTimestamp(),
-      user: user.email, damaged: false, full: false
+      user: user.email, damaged: false, full: _assegnaFull
     });
     await _addDoc(_collection(db, 'history'), {
       ts: _serverTimestamp(), spot: spotId,
