@@ -850,8 +850,12 @@ if(!_forceDesktop && (window.innerWidth<=768||navigator.maxTouchPoints>0) && !lo
   letter-spacing: .03em;
   text-transform: uppercase;
 }
-.stato-creata     { background:#4f8ef718; color:var(--accent); border:1px solid #4f8ef740; }
-.stato-completata { background:#22c55e18; color:var(--green);  border:1px solid #22c55e40; }
+.stato-creata     { background:#f59e0b1a; color:#f59e0b; border:1px solid #f59e0b40; }
+.stato-completata { background:#22c55e12; color:#6b7280;  border:1px solid #22c55e25; }
+
+/* ── Riga completata spenta ── */
+.pren-row-completata td { opacity: .45; }
+.pren-table tr.pren-row-completata:hover td { opacity: .65; background: var(--surface2); }
 
 /* ââ Azioni tabella ââ */
 .pren-actions {
@@ -2553,16 +2557,14 @@ function renderPrenotazioni() {
     return d.toISOString().slice(0, 10) === filtroData;
   });
 
-  // Ordine: urgenti prima, poi per dataOra crescente (più imminenti in cima)
+  // Ordine: completate in fondo, poi urgenti prima, poi per createdAt crescente (prima inserite)
   lista.sort((a, b) => {
+    const aCompletata = a.stato === 'completata' ? 1 : 0;
+    const bCompletata = b.stato === 'completata' ? 1 : 0;
+    if (aCompletata !== bCompletata) return aCompletata - bCompletata;
     if (a.urgente !== b.urgente) return a.urgente ? -1 : 1;
-    const aTs = a.dataOra?.toDate ? a.dataOra.toDate().getTime() : new Date(a.dataOra).getTime();
-    const bTs = b.dataOra?.toDate ? b.dataOra.toDate().getTime() : new Date(b.dataOra).getTime();
-    // Per stato creata: prima quelli con dataOra più imminente
-    // Poi timestamp di creazione per inserimento
     const aCreated = a.createdAt?.toDate ? a.createdAt.toDate().getTime() : 0;
     const bCreated = b.createdAt?.toDate ? b.createdAt.toDate().getTime() : 0;
-    if (a.stato === 'creata' && b.stato === 'creata') return (aTs - bTs) || (aCreated - bCreated);
     return aCreated - bCreated;
   });
 
@@ -2579,7 +2581,9 @@ function renderPrenotazioni() {
       : '<span style="color:var(--muted);font-size:.9rem">—</span>';
     let azioni = '';
     const isOwn = currentUser && p.operatoreUid === currentUser.uid;
-    if (p.stato === 'creata') {
+    const isAmministratore = currentUser && currentUser.role === 'amministratore';
+    const canDelete = isAmministratore || (currentUser && currentUser.role === 'amministrativo' && isOwn);
+    if (p.stato === 'creata' && isAmministratore) {
       const destConf = p.destinazione && p.destinazione !== '—' ? p.destinazione : null;
       const picker   = _ribaltaPickerHTMLDesk('desk_' + p.id);
       const confirmBtnLabel = destConf
@@ -2621,9 +2625,10 @@ function renderPrenotazioni() {
           </button>
         </div>`;
     }
-    if (isOwn && p.stato !== 'completata') azioni += '<button class="pren-action-btn btn-elimina" onclick="eliminaPrenotazione(\'' + p.id + '\')">🗑</button>';
+    if (canDelete && p.stato !== 'completata') azioni += '<button class="pren-action-btn btn-elimina" onclick="eliminaPrenotazione(\'' + p.id + '\')">🗑</button>';
+    const rowClass = p.stato === 'completata' ? ' class="pren-row-completata"' : '';
     const operatoreDisplay = _esc(p.operatoreNome || p.operatoreEmail || '—');
-    return '<tr><td><strong>' + _esc(p.plate || '—') + '</strong></td><td>' + _esc(p.spotId || '—') + '</td><td>' + _esc(p.destinazione || '—') + '</td><td style="white-space:nowrap">' + dataStr + '</td><td>' + badgeStato + '</td><td style="text-align:center">' + badgeUrgente + '</td><td style="font-size:.9rem">' + operatoreDisplay + '</td><td><div class="pren-actions">' + azioni + '</div></td></tr>';
+    return '<tr' + rowClass + '><td><strong>' + _esc(p.plate || '—') + '</strong></td><td>' + _esc(p.spotId || '—') + '</td><td>' + _esc(p.destinazione || '—') + '</td><td style="white-space:nowrap">' + dataStr + '</td><td>' + badgeStato + '</td><td style="text-align:center">' + badgeUrgente + '</td><td style="font-size:.9rem">' + operatoreDisplay + '</td><td><div class="pren-actions">' + azioni + '</div></td></tr>';
   }).join('');
 }
 
