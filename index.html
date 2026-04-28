@@ -2245,6 +2245,57 @@ let _prenotazioni = [];
 let _mezzoCorrente = null;
 let _prenListener = null;
 let _destinazioneValida = false;
+let _ribalteListener = null;
+let _ribalteData = {}; // { [id]: { occupied, plate } }
+const _gruppoPickerDesk = {}; // { [formKey]: 'PNT1'|'PNT2' }
+
+function _getRibalteLibere() {
+  const occupate = new Set(Object.values(_ribalteData).filter(r => r.occupied).map(r => r.id));
+  return {
+    PNT1: DESTINAZIONI_VALIDE.filter(d => d.startsWith('PNT1') && !occupate.has(d)),
+    PNT2: DESTINAZIONI_VALIDE.filter(d => d.startsWith('PNT2') && !occupate.has(d))
+  };
+}
+
+function _ribaltaPickerHTMLDesk(formKey) {
+  const gruppo = _gruppoPickerDesk[formKey] || 'PNT1';
+  const { PNT1, PNT2 } = _getRibalteLibere();
+  const list = gruppo === 'PNT1' ? PNT1 : PNT2;
+  const btnSt = (a) => `padding:5px 14px;border-radius:6px;font-size:12px;cursor:pointer;` +
+    (a ? `border:2px solid #A4D200;background:#A4D200;color:#1C1F26;font-weight:700`
+       : `border:1px solid var(--border,#3a4050);background:var(--surface2,#2e333d);color:var(--text,#e8eaf0)`);
+  const items = list.length
+    ? list.map(d => `<button id="deskRibBtn_${formKey}_${d}" onclick="deskScegliRibalta('${formKey}','${d}')"
+        style="padding:5px 10px;border-radius:6px;border:1px solid var(--border,#3a4050);
+               background:var(--surface2,#2e333d);color:#A4D200;font-size:13px;font-weight:700;cursor:pointer;margin:2px">
+        ${d}</button>`).join('')
+    : `<span style="color:var(--text2);font-size:12px">Nessuna libera per ${gruppo}</span>`;
+  return `<div id="deskRibaltaPicker_${formKey}" style="margin-top:8px">
+    <div style="font-size:11px;color:var(--text2);margin-bottom:6px;text-transform:uppercase;letter-spacing:.4px">Ribalta disponibile:</div>
+    <div style="display:flex;gap:6px;margin-bottom:8px">
+      <button onclick="deskCambiaGruppo('${formKey}','PNT1')" style="${btnSt(gruppo==='PNT1')}">PNT1</button>
+      <button onclick="deskCambiaGruppo('${formKey}','PNT2')" style="${btnSt(gruppo==='PNT2')}">PNT2</button>
+    </div>
+    <div style="display:flex;flex-wrap:wrap;gap:4px">${items}</div>
+  </div>`;
+}
+
+window.deskCambiaGruppo = function(formKey, gruppo) {
+  _gruppoPickerDesk[formKey] = gruppo;
+  const el = document.getElementById('deskRibaltaPicker_' + formKey);
+  if (el) el.outerHTML = _ribaltaPickerHTMLDesk(formKey);
+};
+
+window.deskScegliRibalta = function(formKey, dest) {
+  document.querySelectorAll(`[id^="deskRibBtn_${formKey}_"]`).forEach(b => {
+    const sel = b.id === `deskRibBtn_${formKey}_${dest}`;
+    b.style.background = sel ? '#A4D200' : 'var(--surface2,#2e333d)';
+    b.style.color      = sel ? '#1C1F26' : '#A4D200';
+    b.style.border     = sel ? '2px solid #A4D200' : '1px solid var(--border,#3a4050)';
+  });
+  const inp = document.getElementById('deskRibInput_' + formKey);
+  if (inp) inp.value = dest;
+};
 
 // ── Aggiorna vista tab in base alla modalità corrente ─────────────────────
 function _aggiornaVistaPrenotazioni() {
@@ -2354,6 +2405,16 @@ function initPrenotazioni() {
     dtInput.min = now.toISOString().slice(0, 16);
     if (!dtInput.value) dtInput.value = now.toISOString().slice(0, 16);
   }
+  // Listener ribalte
+  if (_ribalteListener) _ribalteListener();
+  _ribalteListener = onSnapshot(
+    query(collection(db, 'ribalte'), orderBy('__name__')),
+    snap => {
+      _ribalteData = {};
+      snap.docs.forEach(d => { _ribalteData[d.id] = { id: d.id, ...d.data() }; });
+    },
+    err => console.error('Errore listener ribalte:', err)
+  );
   if (_prenListener) _prenListener();
   _prenListener = onSnapshot(
     query(collection(db, 'prenotazioni'), orderBy('dataOra', 'desc')),
@@ -2518,7 +2579,48 @@ function renderPrenotazioni() {
       : '<span style="color:var(--muted);font-size:.9rem">—</span>';
     let azioni = '';
     const isOwn = currentUser && p.operatoreUid === currentUser.uid;
-    if (p.stato === 'creata') azioni += '<button class="pren-action-btn btn-completa" onclick="cambiaStatoPrenotazione(\'' + p.id + '\',\'completata\')">✔ Completa</button>';
+    if (p.stato === 'creata') {
+      const destConf = p.destinazione && p.destinazione !== '—' ? p.destinazione : null;
+      const picker   = _ribaltaPickerHTMLDesk('desk_' + p.id);
+      const confirmBtnLabel = destConf
+        ? `✔ Conferma ${_esc(destConf)}`
+        : '✔ Conferma ribalta';
+      azioni += `<button class="pren-action-btn btn-completa"
+          onclick="toggleDeskCompletaForm('${p.id}')">✔ Completa</button>
+        <div id="deskCompletaForm_${p.id}" style="display:none;padding:8px;border:1px solid var(--border,#3a4050);border-radius:8px;margin-top:6px;background:var(--surface,#252930)">
+          <input id="deskRibInput_desk_${p.id}" type="text"
+                 value="${destConf ? _esc(destConf) : ''}"
+                 placeholder="Seleziona ribalta"
+                 readonly
+                 style="width:100%;padding:7px 10px;border-radius:6px;border:1px solid var(--border,#3a4050);background:var(--bg,#1C1F26);color:var(--text,#e8eaf0);font-size:13px;margin-bottom:6px">
+          ${destConf
+            ? `<div style="display:flex;gap:6px;margin-bottom:6px">
+                 <button onclick="confermaDeskCompleta('${p.id}')"
+                         style="flex:1;padding:7px;border-radius:6px;border:none;background:#A4D200;color:#1C1F26;font-size:13px;font-weight:700;cursor:pointer">
+                   ✓ ${_esc(destConf)}
+                 </button>
+                 <button onclick="toggleDeskPickerMod('${p.id}')"
+                         style="padding:7px 12px;border-radius:6px;border:1px solid var(--border,#3a4050);background:var(--surface2,#2e333d);color:var(--text,#e8eaf0);font-size:13px;cursor:pointer">
+                   ✏️
+                 </button>
+               </div>
+               <div id="deskPickerMod_${p.id}" style="display:none">${picker}
+                 <button onclick="confermaDeskCompleta('${p.id}')"
+                         style="width:100%;margin-top:6px;padding:7px;border-radius:6px;border:none;background:#A4D200;color:#1C1F26;font-size:13px;font-weight:700;cursor:pointer">
+                   ✓ Conferma ribalta selezionata
+                 </button>
+               </div>`
+            : `${picker}
+               <button onclick="confermaDeskCompleta('${p.id}')"
+                       style="width:100%;margin-top:6px;padding:7px;border-radius:6px;border:none;background:#A4D200;color:#1C1F26;font-size:13px;font-weight:700;cursor:pointer">
+                 ✓ Conferma ribalta selezionata
+               </button>`}
+          <button onclick="toggleDeskCompletaForm('${p.id}')"
+                  style="width:100%;margin-top:4px;padding:6px;border-radius:6px;border:1px solid var(--border,#3a4050);background:transparent;color:var(--text2);font-size:12px;cursor:pointer">
+            Annulla
+          </button>
+        </div>`;
+    }
     if (isOwn && p.stato !== 'completata') azioni += '<button class="pren-action-btn btn-elimina" onclick="eliminaPrenotazione(\'' + p.id + '\')">🗑</button>';
     const operatoreDisplay = _esc(p.operatoreNome || p.operatoreEmail || '—');
     return '<tr><td><strong>' + _esc(p.plate || '—') + '</strong></td><td>' + _esc(p.spotId || '—') + '</td><td>' + _esc(p.destinazione || '—') + '</td><td style="white-space:nowrap">' + dataStr + '</td><td>' + badgeStato + '</td><td style="text-align:center">' + badgeUrgente + '</td><td style="font-size:.9rem">' + operatoreDisplay + '</td><td><div class="pren-actions">' + azioni + '</div></td></tr>';
@@ -2557,6 +2659,45 @@ function resetFiltri() {
   document.getElementById('pren-filter-targa').value = '';
   renderPrenotazioni();
 }
+
+// ── Helpers completamento desktop ────────────────────────────────────────────
+window.toggleDeskCompletaForm = function(id) {
+  const el = document.getElementById('deskCompletaForm_' + id);
+  if (el) el.style.display = el.style.display === 'none' ? 'block' : 'none';
+};
+
+window.toggleDeskPickerMod = function(id) {
+  const el = document.getElementById('deskPickerMod_' + id);
+  if (el) el.style.display = el.style.display === 'none' ? 'block' : 'none';
+};
+
+window.confermaDeskCompleta = async function(id) {
+  const inp  = document.getElementById('deskRibInput_desk_' + id);
+  const dest = inp?.value.trim().toUpperCase();
+  if (!dest) { alert('Seleziona una ribalta prima di confermare.'); return; }
+  try {
+    const pren  = _prenotazioni.find(p => p.id === id);
+    const plate = pren?.plate || '—';
+    // Aggiorna prenotazione
+    await updateDoc(doc(db, 'prenotazioni', id), {
+      stato: 'completata', completedAt: serverTimestamp(), postoFine: dest
+    });
+    // Libera posto parcheggio origine
+    if (pren?.spotId && !pren.spotId.startsWith('PNT')) {
+      await setDoc(doc(db, 'spots', pren.spotId), {
+        occupied: false, plate: null, since: null, user: null, full: false
+      });
+    }
+    // Occupa ribalta destinazione
+    await setDoc(doc(db, 'ribalte', dest), {
+      occupied: true, plate, since: serverTimestamp(),
+      user: auth.currentUser?.email || '—', full: false
+    });
+  } catch(err) {
+    console.error('Errore completamento:', err);
+    alert('Errore durante il completamento. Controlla la console.');
+  }
+};
 
 window.cercaMezzo              = cercaMezzo;
 window.salvaPrenotazione       = salvaPrenotazione;

@@ -349,7 +349,7 @@ function showApp() {
     // aggiorna label pillOcc in base alla modalità
     _updatePillOccLabel();
     startListeners();
-    initPrenotazioni({ getUser: () => currentUser, getMode: () => currentMode });
+    initPrenotazioni({ getUser: () => currentUser, getMode: () => currentMode, getSpots: () => spots });
     const savedPageA = localStorage.getItem('parkPage_' + currentUser.uid);
     const validPagesA = ['Prenotazioni', 'Posti'];
     const targetA = validPagesA.includes(savedPageA) ? savedPageA : 'Prenotazioni';

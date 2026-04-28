@@ -2,9 +2,10 @@
 // Gestione prenotazioni casse/container + missioni ribalta per autista (mobile)
 // Dipende da: firebase-config.js, shared-utils.js
 
-import { db, collection, query, orderBy, onSnapshot, doc, updateDoc, setDoc, getDocs, serverTimestamp, where }
+import { db, collection, query, orderBy, onSnapshot, doc, updateDoc, setDoc, addDoc, getDocs, serverTimestamp, where }
   from './firebase-config.js';
 import { showToast, _esc, fmtDur } from './shared-utils.js';
+import { getRibalteLibere, ribaltaPickerHTML } from './ribalte-operativo.js';
 
 let _unsubPren   = null;
 let _unsubSpots  = null;
@@ -12,15 +13,18 @@ let _prenotazioni = [];
 let _spots        = {};  // cache posti per vista casse
 let _getUser;
 let _getMode;
+let _getSpots;
 
 // Tiene traccia di quale card ha il form di completamento aperto
 let _openCompletaId = null;
 
 const RE_CASSA = /^\d{3}$/;
 
-export function initPrenotazioni({ getUser, getMode }) {
-  _getUser = getUser;
-  _getMode = getMode || (() => 'container');
+export function initPrenotazioni(opts) {
+  const { getUser, getMode } = opts;
+  _getUser  = getUser;
+  _getMode  = getMode || (() => 'container');
+  _getSpots = opts.getSpots || (() => ({}));
 
   if (_unsubPren) _unsubPren();
   _unsubPren = onSnapshot(
@@ -150,17 +154,19 @@ function _renderCasse(el) {
       ? sinceTs.toLocaleString('it-IT', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' })
       : '—';
 
-    // Il tasto Completa libera direttamente il posto (le casse non hanno prenotazione collegata)
+    // Tasto Completa con picker ribalte diviso PNT1/PNT2
     const spotKey = s.id;
+    const pickerCassa = ribaltaPickerHTML('cassa_' + spotKey);
     const btnCassaHTML = `
       <button class="btnCompleta" onclick="aprirCompletaCassa('${spotKey}')" style="margin-top:10px;width:100%">✅ Completa missione</button>
-      <div class="completaForm" id="completaForm_cassa_${spotKey}" style="display:none">
-        <div class="cfTitle">Dove hai spostato la cassa?</div>
+      <div id="completaForm_cassa_${spotKey}" style="display:none;margin-top:10px">
+        <div class="cfTitle">Ribalta in cui hai posizionato la cassa:</div>
         <input class="cfInput" id="cfInput_cassa_${spotKey}" type="text"
-               placeholder="Es. A01 oppure R04"
+               placeholder="Seleziona dal picker o digita"
                oninput="this.value=this.value.toUpperCase()"
-               onkeydown="if(event.key==='Enter')confermaCassa('${spotKey}')">
-        <div class="cfActions">
+               readonly style="margin-bottom:10px">
+        <div data-picker-key="cassa_${spotKey}">${pickerCassa}</div>
+        <div class="cfActions" style="margin-top:10px">
           <button class="btnCfConfirm" onclick="confermaCassa('${spotKey}')">✓ Conferma</button>
           <button class="btnCfCancel"  onclick="chiudiCompletaCassa('${spotKey}')">Annulla</button>
         </div>
@@ -234,21 +240,47 @@ function _prenCard(p, abilitato, idx) {
     const dove = p.postoFine ? `<div style="font-size:12px;color:var(--accent2);margin-top:4px">📍 ${_esc(p.postoFine)}</div>` : '';
     btnHTML = `<span class="prenBadge completata" style="margin-top:8px;display:inline-block">✅ Completata</span>${dove}`;
   } else if (abilitato) {
+    const destConf  = p.destinazione && p.destinazione !== '—' ? _esc(p.destinazione) : null;
+    const pickerConf = ribaltaPickerHTML('completa_' + p.id);
+    // Input nascosto pre-impostato con la ribalta prenotata
+    const presetVal  = destConf || '';
     btnHTML = `
       <button class="btnCompleta" onclick="aprirCompletaForm('${p.id}')" style="margin-top:8px">
         ✅ Completa
       </button>
-      <div class="completaForm" id="completaForm_${p.id}" style="display:none">
-        <div class="cfTitle">Dove hai posizionato il veicolo?</div>
-        <label style="font-size:12px;font-weight:600;color:var(--muted);display:block;margin-bottom:5px">Posto parcheggio o ribalta</label>
+      <div id="completaForm_${p.id}" style="display:none;margin-top:10px">
         <input class="cfInput" id="cfInput_${p.id}" type="text"
-               placeholder="Es. A01 oppure R04"
+               value="${presetVal}"
+               placeholder="Ribalta destinazione"
                oninput="this.value=this.value.toUpperCase()"
-               onkeydown="if(event.key==='Enter')confermaCompletamento('${p.id}')">
-        <div class="cfActions">
-          <button class="btnCfConfirm" onclick="confermaCompletamento('${p.id}')">✓ Conferma</button>
-          <button class="btnCfCancel"  onclick="chiudiCompletaForm('${p.id}')">Annulla</button>
+               readonly style="margin-bottom:10px">
+        ${destConf ? `
+        <div style="display:flex;gap:8px;margin-bottom:10px">
+          <button onclick="confermaCompletamento('${p.id}')"
+                  style="flex:1;padding:11px;border-radius:8px;border:none;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#1C1F26;font-family:inherit;font-size:14px;font-weight:700;cursor:pointer">
+            ✓ Conferma ribalta ${destConf}
+          </button>
+          <button onclick="aprirModificaRibalta('${p.id}')"
+                  style="padding:11px 14px;border-radius:8px;border:1.5px solid var(--border);background:var(--surface2);color:var(--text);font-family:inherit;font-size:13px;cursor:pointer">
+            ✏️ Modifica
+          </button>
         </div>
+        <div id="pickerMod_${p.id}" style="display:none">
+          <div data-picker-key="completa_${p.id}">${pickerConf}</div>
+          <button onclick="confermaCompletamento('${p.id}')"
+                  style="width:100%;margin-top:8px;padding:11px;border-radius:8px;border:none;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#1C1F26;font-family:inherit;font-size:14px;font-weight:700;cursor:pointer">
+            ✓ Conferma ribalta selezionata
+          </button>
+        </div>` : `
+        <div data-picker-key="completa_${p.id}">${pickerConf}</div>
+        <button onclick="confermaCompletamento('${p.id}')"
+                style="width:100%;margin-top:8px;padding:11px;border-radius:8px;border:none;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#1C1F26;font-family:inherit;font-size:14px;font-weight:700;cursor:pointer">
+          ✓ Conferma ribalta selezionata
+        </button>`}
+        <button onclick="chiudiCompletaForm('${p.id}')"
+                style="width:100%;margin-top:6px;padding:8px;border-radius:8px;border:1.5px solid var(--border);background:transparent;color:var(--muted);font-family:inherit;font-size:13px;cursor:pointer">
+          Annulla
+        </button>
       </div>`;
   } else {
     btnHTML = `
@@ -298,14 +330,28 @@ window.chiudiCompletaCassa = function(spotId) {
 window.confermaCassa = async function(spotId) {
   const input = document.getElementById('cfInput_cassa_' + spotId);
   const dest  = input?.value.trim().toUpperCase();
-  if (!dest) { showToast('Inserisci la destinazione', 'error'); return; }
+  if (!dest) { showToast('Seleziona una ribalta', 'error'); return; }
   try {
-    const user = _getUser();
+    const user  = _getUser ? _getUser() : null;
+    const spot  = _getSpots ? _getSpots()[spotId] : null;
+    const plate = spot?.plate || spotId;
+
+    // 1. Libera posto parcheggio
     await setDoc(doc(db, 'spots', spotId), {
       occupied: false, plate: null, since: null, user: null, full: false, damaged: false
     });
+
+    // 2. Occupa ribalta
+    await setDoc(doc(db, 'ribalte', dest), {
+      occupied: true,
+      plate,
+      since:    serverTimestamp(),
+      user:     user?.email || '—',
+      full:     false
+    });
+
     _openCompletaId = null;
-    showToast(`Cassa spostata → ${dest} · Posto ${spotId} liberato`, 'success');
+    showToast(`Cassa ${plate} → ${dest} · Posto ${spotId} liberato`, 'success');
   } catch (e) {
     showToast('Errore: ' + e.message, 'error');
   }
@@ -322,6 +368,11 @@ window.aprirCompletaForm = function(id) {
     form.style.display = 'block';
     setTimeout(() => document.getElementById('cfInput_' + id)?.focus(), 80);
   }
+};
+
+window.aprirModificaRibalta = function(id) {
+  const pickerMod = document.getElementById('pickerMod_' + id);
+  if (pickerMod) pickerMod.style.display = pickerMod.style.display === 'none' ? 'block' : 'none';
 };
 
 window.aprirCompletaMissione = window.aprirCompletaForm;
@@ -343,20 +394,32 @@ window.confermaMissione = window.confermaCompletamento;
 
 async function _completaConPosto(id, postoFine) {
   try {
-    // Recupera la prenotazione per sapere il posto di origine
-    const pren = _prenotazioni.find(p => p.id === id);
+    const pren  = _prenotazioni.find(p => p.id === id);
+    const user  = _getUser ? _getUser() : null;
+    const plate = pren?.plate || '—';
 
-    // Aggiorna la prenotazione come completata
+    // Aggiorna prenotazione come completata
     await updateDoc(doc(db, 'prenotazioni', id), {
       stato:        'completata',
       completataAt: serverTimestamp(),
       postoFine
     });
 
-    // Libera il posto di origine se presente
-    if (pren?.spotId) {
+    // Libera il posto parcheggio di origine
+    if (pren?.spotId && !pren.spotId.startsWith('PNT')) {
       await setDoc(doc(db, 'spots', pren.spotId), {
         occupied: false, plate: null, since: null, user: null, full: false, damaged: false
+      });
+    }
+
+    // Occupa la ribalta di destinazione
+    if (postoFine && postoFine !== '—') {
+      await setDoc(doc(db, 'ribalte', postoFine), {
+        occupied: true,
+        plate,
+        since:    serverTimestamp(),
+        user:     user?.email || '—',
+        full:     false
       });
     }
 
