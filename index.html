@@ -11,7 +11,7 @@
 <meta charset="UTF-8">
 <script>
 (function(){
-  const v = '3.2';
+  const v = '3.3';
   if(localStorage.getItem('appVersion') !== v){
     localStorage.setItem('appVersion', v);
     if(performance.navigation.type !== 1){
@@ -401,7 +401,7 @@ if(!_forceDesktop && (window.innerWidth<=768||navigator.maxTouchPoints>0) && !lo
   text-transform: uppercase;
 }
 .stato-creata     { background:#f59e0b1a; color:#f59e0b; border:1px solid #f59e0b40; }
-.stato-completata { background:#22c55e12; color:#6b7280;  border:1px solid #22c55e25; }
+.stato-completata { background:#22c55e28; color:#22c55e;  border:1px solid #22c55e60; }
 
 /* ── Riga completata spenta ── */
 .pren-row-completata td { opacity: .45; }
