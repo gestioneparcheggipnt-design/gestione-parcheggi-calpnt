@@ -121,6 +121,31 @@
     <div id="prenList"></div>
   </div>
 
+  <!-- ── PAGINA: ASSEGNA VEICOLO (autista) ─────────────────────────────────── -->
+  <div class="page" id="pageAssegna">
+    <div class="pageHeader">Assegna Veicolo</div>
+    <div class="pageSubtitle" id="assegnaSubtitle">Seleziona veicolo e posto libero</div>
+
+    <div class="card">
+      <label style="font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;display:block;margin-bottom:6px"
+             id="assegnaInputLabel">Identificativo veicolo</label>
+      <input class="checkinInput" id="assegnaInput" type="text" placeholder="Es. 001 o ABCD1234567"
+             maxlength="15"
+             oninput="this.value=this.value.toUpperCase();aggiornaPickerPosti()"
+             onkeydown="if(event.key==='Enter')aggiornaPickerPosti()">
+      <div class="checkinResult" id="assegnaResult" style="display:none"></div>
+    </div>
+
+    <div id="assegnaPickerWrap" style="display:none">
+      <div class="card" style="padding-top:12px">
+        <div style="font-size:13px;font-weight:600;color:var(--muted);margin-bottom:10px">
+          Parcheggi disponibili — seleziona per assegnare:
+        </div>
+        <div id="assegnaPickerZone"></div>
+      </div>
+    </div>
+  </div>
+
   <!-- ── PAGINA: RIBALTE (solo operativo) ───────────────────────────────────── -->
   <div class="page" id="pageRibalte">
     <div class="pageHeader">Ribalte</div>
@@ -152,6 +177,9 @@
     </button>
     <button class="navBtn hidden"  id="navPrenotazioni"  onclick="showPage('Prenotazioni',this)">
       <span class="navIcon">📋</span>Prenotazioni
+    </button>
+    <button class="navBtn hidden"  id="navAssegna"       onclick="showPage('Assegna',this)">
+      <span class="navIcon">🅿️</span>Assegna
     </button>
     <button class="navBtn hidden"  id="navRibalte"       onclick="showPage('Ribalte',this)">
       <span class="navIcon">🚚</span>Ribalte
@@ -342,16 +370,17 @@ function showApp() {
   loadMode();
 
   if (isAutista) {
-    // Autista: Prenotazioni + Ricerca, no check-in standalone
+    // Autista: Prenotazioni + Ricerca + Assegna, no check-in standalone
     document.getElementById('navCheckin').classList.add('hidden');
     document.getElementById('navPosti').classList.remove('hidden');
     document.getElementById('navPrenotazioni').classList.remove('hidden');
+    document.getElementById('navAssegna').classList.remove('hidden');
     // aggiorna label pillOcc in base alla modalità
     _updatePillOccLabel();
     startListeners();
     initPrenotazioni({ getUser: () => currentUser, getMode: () => currentMode, getSpots: () => spots });
     const savedPageA = localStorage.getItem('parkPage_' + currentUser.uid);
-    const validPagesA = ['Prenotazioni', 'Posti'];
+    const validPagesA = ['Prenotazioni', 'Posti', 'Assegna'];
     const targetA = validPagesA.includes(savedPageA) ? savedPageA : 'Prenotazioni';
     showPage(targetA, document.getElementById('nav' + targetA));
     return;
@@ -473,6 +502,7 @@ function showPage(id, btn) {
   if (btn) btn.classList.add('active');
   if (id === 'Prenotazioni') renderPrenotazioni();
   if (id === 'Ribalte') renderRibalte();
+  if (id === 'Assegna') initAssegnaPagina();
   // Persisti la pagina attiva per il refresh
   if (currentUser) localStorage.setItem('parkPage_' + currentUser.uid, id);
 }
@@ -506,10 +536,142 @@ function renderStorico() {
 }
 
 // ── IMPORT DINAMICO per updateDoc/addDoc/serverTimestamp usati da ribalte-operativo ──
-import { updateDoc as _updateDoc, addDoc as _addDoc, serverTimestamp as _serverTimestamp }
+import { updateDoc as _updateDoc, addDoc as _addDoc, setDoc as _setDoc,
+         doc as _doc, collection as _collection, serverTimestamp as _serverTimestamp }
   from './firebase-config.js';
 
 // ── EXPOSE GLOBALS ────────────────────────────────────────────────────────────
+// ── PAGINA ASSEGNA VEICOLO ───────────────────────────────────────────────────
+function initAssegnaPagina() {
+  const mode = currentMode === 'cassa' ? 'cassa' : 'container';
+  const lbl  = document.getElementById('assegnaInputLabel');
+  const inp  = document.getElementById('assegnaInput');
+  const sub  = document.getElementById('assegnaSubtitle');
+  if (lbl) lbl.textContent = mode === 'cassa' ? 'Numero cassa (3 cifre)' : 'Sigla container (4 lettere + 7 cifre)';
+  if (inp) inp.placeholder = mode === 'cassa' ? 'Es. 001' : 'Es. ABCD1234567';
+  if (sub) sub.textContent = mode === 'cassa' ? 'Assegna cassa a parcheggio libero' : 'Assegna container a parcheggio libero';
+  // Resetta
+  if (inp) inp.value = '';
+  const wrap = document.getElementById('assegnaPickerWrap');
+  if (wrap) wrap.style.display = 'none';
+  const res = document.getElementById('assegnaResult');
+  if (res) { res.style.display = 'none'; res.textContent = ''; }
+}
+
+window.aggiornaPickerPosti = function() {
+  const mode    = currentMode === 'cassa' ? 'cassa' : 'container';
+  const inp     = document.getElementById('assegnaInput');
+  const plate   = inp?.value.trim().toUpperCase() || '';
+  const res     = document.getElementById('assegnaResult');
+  const wrap    = document.getElementById('assegnaPickerWrap');
+  const zone    = document.getElementById('assegnaPickerZone');
+
+  // Validazione formato
+  const RE_CASSA     = /^\d{3}$/;
+  const RE_CONTAINER = /^[A-Z]{4}\d{7}$/;
+  const isValid = mode === 'cassa' ? RE_CASSA.test(plate) : RE_CONTAINER.test(plate);
+
+  if (!plate) {
+    if (res)  { res.style.display = 'none'; }
+    if (wrap) { wrap.style.display = 'none'; }
+    return;
+  }
+
+  if (!isValid) {
+    if (res) {
+      res.textContent = mode === 'cassa'
+        ? '⚠️ Inserisci un numero di 3 cifre (es. 001)'
+        : '⚠️ Formato non valido. Usa 4 lettere + 7 cifre (es. ABCD1234567)';
+      res.className = 'checkinResult warn';
+      res.style.display = 'block';
+    }
+    if (wrap) wrap.style.display = 'none';
+    return;
+  }
+
+  // Controlla se già assegnato
+  const all = Object.values(spots);
+  const gia = all.find(s => s.occupied && s.plate === plate);
+  if (gia) {
+    if (res) {
+      res.textContent = `⚠️ ${plate} è già al posto ${gia.id}`;
+      res.className = 'checkinResult warn';
+      res.style.display = 'block';
+    }
+    if (wrap) wrap.style.display = 'none';
+    return;
+  }
+
+  if (res) res.style.display = 'none';
+
+  // Costruisce picker posti liberi raggruppati per zona
+  const liberi = all.filter(s => !s.occupied);
+  if (!liberi.length) {
+    if (zone) zone.innerHTML = '<div style="color:var(--muted);font-size:13px">Nessun posto libero disponibile</div>';
+    if (wrap) wrap.style.display = 'block';
+    return;
+  }
+
+  const zoneMap = {};
+  liberi.forEach(s => {
+    const z = s.zone || 'Altro';
+    if (!zoneMap[z]) zoneMap[z] = [];
+    zoneMap[z].push(s.id);
+  });
+
+  let html = '';
+  for (const [zoneName, ids] of Object.entries(zoneMap)) {
+    html += `<div style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin:8px 0 4px">${zoneName}</div>`;
+    html += `<div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:8px">`;
+    html += ids.map(id => `
+      <button id="assegnaBtn_${id}"
+              onclick="assegnaVeicoloPosto('${plate}','${id}')"
+              style="padding:10px 14px;border-radius:8px;border:1.5px solid var(--border);
+                     background:var(--surface2);color:var(--accent);font-family:inherit;
+                     font-size:15px;font-weight:700;cursor:pointer">
+        ${id}
+      </button>`).join('');
+    html += `</div>`;
+  }
+
+  if (zone) zone.innerHTML = html;
+  if (wrap) wrap.style.display = 'block';
+};
+
+window.assegnaVeicoloPosto = async function(plate, spotId) {
+  const user = currentUser;
+  const mode = currentMode;
+  try {
+    await _setDoc(_doc(db, 'spots', spotId), {
+      occupied: true, plate, since: _serverTimestamp(),
+      user: user.email, damaged: false, full: false
+    });
+    await _addDoc(_collection(db, 'history'), {
+      ts: _serverTimestamp(), spot: spotId,
+      action: 'Assegnato', plate, user: user.email, mode
+    });
+    // Reset UI
+    const inp = document.getElementById('assegnaInput');
+    if (inp) inp.value = '';
+    const wrap = document.getElementById('assegnaPickerWrap');
+    if (wrap) wrap.style.display = 'none';
+    const res = document.getElementById('assegnaResult');
+    if (res) {
+      res.textContent = `✅ ${plate} assegnato al posto ${spotId}`;
+      res.className = 'checkinResult ok';
+      res.style.display = 'block';
+      setTimeout(() => { res.style.display = 'none'; }, 4000);
+    }
+  } catch(e) {
+    const res = document.getElementById('assegnaResult');
+    if (res) {
+      res.textContent = '⚠️ Errore: ' + e.message;
+      res.className = 'checkinResult warn';
+      res.style.display = 'block';
+    }
+  }
+};
+
 window.doLogin              = doLogin;
 window.doLogout             = doLogout;
 window.setMode              = setMode;
