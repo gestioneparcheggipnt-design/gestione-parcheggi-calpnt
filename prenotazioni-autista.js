@@ -197,6 +197,7 @@ function _missioneCard(p) {
   const d = _parseDate(p.dataOra);
   const dataStr = d ? d.toLocaleString('it-IT', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' }) : '—';
   const statoVeicolo = p.fullAllaLibera ? '🟡 Piena' : '🟢 Vuota';
+  const pickerPosti = _postiPickerHTML('miss_' + p.id);
 
   return `
     <div class="missioneCard">
@@ -205,19 +206,23 @@ function _missioneCard(p) {
         <strong>${_esc(p.plate || '—')}</strong> · ${statoVeicolo} · ${dataStr}
       </div>
       <div style="font-size:12px;color:var(--muted);margin-top:4px">${_esc(p.note || '')}</div>
-      <button class="btnCompleta" onclick="aprirCompletaMissione('${p.id}')" style="margin-top:10px">
+      <button class="btnCompleta" onclick="aprirCompletaMissione('${p.id}')" style="margin-top:10px;width:100%">
         ✅ Completa missione
       </button>
-      <div class="completaForm" id="completaForm_${p.id}" style="display:none">
-        <div class="cfTitle">Dove hai posizionato il veicolo?</div>
-        <label style="font-size:12px;font-weight:600;color:var(--muted);display:block;margin-bottom:5px">Posto parcheggio / Ribalta destinazione</label>
+      <div id="completaForm_${p.id}" style="display:none;margin-top:10px">
+        <div class="cfTitle">Parcheggio in cui hai posizionato il veicolo:</div>
         <input class="cfInput" id="cfInput_${p.id}" type="text"
-               placeholder="Es. A01 oppure R04"
-               oninput="this.value=this.value.toUpperCase()">
-        <div class="cfActions">
-          <button class="btnCfConfirm" onclick="confermaMissione('${p.id}')">✓ Conferma</button>
-          <button class="btnCfCancel"  onclick="chiudiCompletaForm('${p.id}')">Annulla</button>
-        </div>
+               placeholder="Seleziona dal picker sotto"
+               readonly style="margin-bottom:10px">
+        <div data-picker-key="miss_${p.id}">${pickerPosti}</div>
+        <button onclick="confermaMissione('${p.id}')"
+                style="width:100%;margin-top:10px;padding:11px;border-radius:8px;border:none;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#1C1F26;font-family:inherit;font-size:14px;font-weight:700;cursor:pointer">
+          ✓ Conferma spostamento
+        </button>
+        <button onclick="chiudiCompletaForm('${p.id}')"
+                style="width:100%;margin-top:6px;padding:8px;border-radius:8px;border:1.5px solid var(--border);background:transparent;color:var(--muted);font-family:inherit;font-size:13px;cursor:pointer">
+          Annulla
+        </button>
       </div>
     </div>`;
 }
@@ -370,6 +375,57 @@ window.aprirCompletaForm = function(id) {
   }
 };
 
+// ── PICKER POSTI PARCHEGGIO LIBERI ───────────────────────────────────────────
+// Usato nella card missione ribalta: l'autista sceglie dove parcheggiare
+function _postiPickerHTML(formKey) {
+  const spots   = _getSpots ? _getSpots() : {};
+  const liberi  = Object.values(spots).filter(s => !s.occupied);
+
+  // Raggruppa per zona
+  const zone = {};
+  liberi.forEach(s => {
+    const z = s.zone || 'Altro';
+    if (!zone[z]) zone[z] = [];
+    zone[z].push(s.id);
+  });
+
+  if (!liberi.length) {
+    return `<div style="color:var(--muted);font-size:13px;padding:8px">Nessun posto libero disponibile</div>`;
+  }
+
+  let html = '';
+  for (const [zona, ids] of Object.entries(zone)) {
+    html += `<div style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin:8px 0 4px">${zona}</div>`;
+    html += `<div style="display:flex;flex-wrap:wrap;gap:4px">`;
+    html += ids.map(id => `
+      <button id="postoBtn_${formKey}_${id}"
+              onclick="scegliPosto('${formKey}','${id}')"
+              style="padding:8px 12px;border-radius:8px;border:1.5px solid var(--border);
+                     background:var(--surface2);color:var(--accent);font-family:inherit;
+                     font-size:14px;font-weight:700;cursor:pointer;margin:2px">
+        ${id}
+      </button>`).join('');
+    html += `</div>`;
+  }
+
+  return `<div id="postiPicker_${formKey}">${html}</div>`;
+}
+
+window.scegliPosto = function(formKey, postoId) {
+  // Evidenzia tasto selezionato e deseleziona gli altri
+  document.querySelectorAll(`[id^="postoBtn_${formKey}_"]`).forEach(b => {
+    const sel = b.id === `postoBtn_${formKey}_${postoId}`;
+    b.style.background = sel ? 'var(--accent)' : 'var(--surface2)';
+    b.style.color      = sel ? '#1C1F26'       : 'var(--accent)';
+    b.style.border     = sel ? '2px solid var(--accent)' : '1.5px solid var(--border)';
+    b.style.fontWeight = sel ? '700'            : '700';
+  });
+  // Imposta valore nell'input del form
+  const rawKey = formKey.replace(/^miss_/, '');
+  const inputEl = document.getElementById('cfInput_' + rawKey);
+  if (inputEl) inputEl.value = postoId;
+};
+
 window.aprirModificaRibalta = function(id) {
   const pickerMod = document.getElementById('pickerMod_' + id);
   if (pickerMod) pickerMod.style.display = pickerMod.style.display === 'none' ? 'block' : 'none';
@@ -397,6 +453,7 @@ async function _completaConPosto(id, postoFine) {
     const pren  = _prenotazioni.find(p => p.id === id);
     const user  = _getUser ? _getUser() : null;
     const plate = pren?.plate || '—';
+    const isMissioneRibalta = pren?.tipoMissione === 'ribalta';
 
     // Aggiorna prenotazione come completata
     await updateDoc(doc(db, 'prenotazioni', id), {
@@ -405,26 +462,48 @@ async function _completaConPosto(id, postoFine) {
       postoFine
     });
 
-    // Libera il posto parcheggio di origine
-    if (pren?.spotId && !pren.spotId.startsWith('PNT')) {
-      await setDoc(doc(db, 'spots', pren.spotId), {
-        occupied: false, plate: null, since: null, user: null, full: false, damaged: false
-      });
-    }
-
-    // Occupa la ribalta di destinazione
-    if (postoFine && postoFine !== '—') {
-      await setDoc(doc(db, 'ribalte', postoFine), {
-        occupied: true,
-        plate,
-        since:    serverTimestamp(),
-        user:     user?.email || '—',
-        full:     false
-      });
+    if (isMissioneRibalta) {
+      // MISSIONE RIBALTA → PARCHEGGIO:
+      // 1. Libera la ribalta di origine (spotId è un PNT)
+      if (pren?.spotId) {
+        await setDoc(doc(db, 'ribalte', pren.spotId), {
+          occupied: false, plate: null, since: null, user: null, full: false
+        });
+      }
+      // 2. Occupa il posto parcheggio di destinazione
+      if (postoFine && postoFine !== '—') {
+        await setDoc(doc(db, 'spots', postoFine), {
+          occupied: true,
+          plate,
+          since:    serverTimestamp(),
+          user:     user?.email || '—',
+          full:     pren?.fullAllaLibera || false,
+          damaged:  false
+        });
+      }
+      showToast(`Missione completata · ${pren?.spotId} liberata · ${postoFine} occupato`, 'success');
+    } else {
+      // MISSIONE CONTAINER → RIBALTA:
+      // 1. Libera posto parcheggio di origine
+      if (pren?.spotId) {
+        await setDoc(doc(db, 'spots', pren.spotId), {
+          occupied: false, plate: null, since: null, user: null, full: false, damaged: false
+        });
+      }
+      // 2. Occupa ribalta di destinazione
+      if (postoFine && postoFine !== '—') {
+        await setDoc(doc(db, 'ribalte', postoFine), {
+          occupied: true,
+          plate,
+          since:    serverTimestamp(),
+          user:     user?.email || '—',
+          full:     false
+        });
+      }
+      showToast(`Completato · ${postoFine} occupata · Posto ${pren?.spotId} liberato`, 'success');
     }
 
     _openCompletaId = null;
-    showToast(`Completato → ${postoFine}${pren?.spotId ? ' · Posto ' + pren.spotId + ' liberato' : ''}`, 'success');
   } catch (e) {
     showToast('Errore: ' + e.message, 'error');
   }
