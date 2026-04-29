@@ -11,7 +11,7 @@
 <meta charset="UTF-8">
 <script>
 (function(){
-  const v = '3.3';
+  const v = '3.4';
   if(localStorage.getItem('appVersion') !== v){
     localStorage.setItem('appVersion', v);
     if(performance.navigation.type !== 1){
@@ -402,6 +402,90 @@ if(!_forceDesktop && (window.innerWidth<=768||navigator.maxTouchPoints>0) && !lo
 }
 .stato-creata     { background:#f59e0b1a; color:#f59e0b; border:1px solid #f59e0b40; }
 .stato-completata { background:#22c55e28; color:#22c55e;  border:1px solid #22c55e60; }
+
+/* ── Vista Casse ── */
+.casse-list {
+  display: flex;
+  flex-direction: column;
+  gap: .6rem;
+}
+.casse-empty {
+  text-align: center;
+  color: var(--muted);
+  padding: 2rem;
+  font-style: italic;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+.cassa-row {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: .9rem 1.1rem;
+  transition: background .15s;
+}
+.cassa-row:hover { background: var(--surface2); }
+.cassa-row.urgente {
+  border-color: #ef444455;
+  background: #ef44440a;
+}
+.cassa-row.urgente:hover { background: #ef44440f; }
+.cassa-rank {
+  min-width: 2rem;
+  text-align: center;
+  font-weight: 700;
+  font-size: 1.1rem;
+  color: var(--muted);
+  flex-shrink: 0;
+}
+.cassa-rank.top { color: var(--accent); }
+.cassa-id {
+  font-family: 'DM Mono', monospace;
+  font-weight: 700;
+  font-size: 1.25rem;
+  color: var(--text);
+  min-width: 4rem;
+  flex-shrink: 0;
+}
+.cassa-posto {
+  color: var(--muted);
+  font-size: .9rem;
+  min-width: 3.5rem;
+  flex-shrink: 0;
+}
+.cassa-anzianita {
+  color: var(--muted);
+  font-size: .85rem;
+  flex: 1;
+}
+.cassa-badges {
+  display: flex;
+  gap: .4rem;
+  flex-wrap: wrap;
+  flex-shrink: 0;
+}
+.badge-urgente {
+  background: #ef44441a;
+  color: var(--red);
+  border: 1px solid #ef444440;
+  border-radius: 20px;
+  padding: 2px 10px;
+  font-size: .75rem;
+  font-weight: 700;
+}
+.badge-pieno {
+  background: #f59e0b1a;
+  color: var(--orange);
+  border: 1px solid #f59e0b40;
+  border-radius: 20px;
+  padding: 2px 10px;
+  font-size: .75rem;
+  font-weight: 600;
+}
 
 /* ── Riga completata spenta ── */
 .pren-row-completata td { opacity: .45; }
