@@ -6,8 +6,12 @@ import { db, collection, query, orderBy, onSnapshot, doc, updateDoc, setDoc, add
   from './firebase-config.js';
 import { showToast, _esc, validateDestination, isValidSpot, isValidRibalta } from './shared-utils.js';
 
+const RE_CASSA = /^\d{3}$/;
+
 let _unsubPren   = null;
+let _unsubSpots  = null;
 let _prenotazioni = [];
+let _spots        = {};   // cache posti per vista casse
 let _getUser;
 let _getMode;
 
@@ -27,25 +31,40 @@ export function initPrenotazioni({ getUser, getMode }) {
     },
     err => console.error('Errore prenotazioni:', err)
   );
+
+  // Listener spots per la vista casse (serve solo in modalità cassa ma lo teniamo attivo)
+  if (_unsubSpots) _unsubSpots();
+  _unsubSpots = onSnapshot(
+    collection(db, 'spots'),
+    snap => {
+      _spots = {};
+      snap.docs.forEach(d => { _spots[d.id] = { id: d.id, ...d.data() }; });
+      renderPrenotazioni();
+    },
+    err => console.error('Errore spots:', err)
+  );
 }
 
 export function stopPrenotazioni() {
-  if (_unsubPren) { _unsubPren(); _unsubPren = null; }
+  if (_unsubPren)  { _unsubPren();  _unsubPren  = null; }
+  if (_unsubSpots) { _unsubSpots(); _unsubSpots = null; }
 }
 
 export function renderPrenotazioni() {
   const mode = _getMode ? _getMode() : 'container';
-  let lista  = [..._prenotazioni];
+  const el   = document.getElementById('prenList');
+  if (!el) return;
 
-  // Filtra per modalità:
-  // - Modalità cassa:     mostra solo prenotazioni ordinarie (non missioni ribalta)
-  //                       oppure mostra anche le missioni ribalta? → mostra le ordinarie
-  // - Modalità container: stesso comportamento
-  // Le missioni ribalta (tipoMissione === 'ribalta') vengono mostrate separatamente
-  const missioni   = lista.filter(p => p.tipoMissione === 'ribalta' && p.stato === 'creata');
-  const ordinarie  = lista.filter(p => p.tipoMissione !== 'ribalta');
+  // ── MODALITÀ CASSA: mostra lista posti occupati da casse ─────────────────
+  if (mode === 'cassa') {
+    _renderCasse(el);
+    return;
+  }
 
-  // Ordina: urgenti prima, poi anzianità
+  // ── MODALITÀ CONTAINER: mostra prenotazioni container + missioni ribalta ──
+  const missioni  = _prenotazioni.filter(p => p.tipoMissione === 'ribalta' && p.stato === 'creata');
+  const ordinarie = _prenotazioni.filter(p => p.tipoMissione !== 'ribalta' && (!p.tipoMezzo || p.tipoMezzo === 'container'));
+
   const sortFn = (a, b) => {
     if (a.urgente && !b.urgente) return -1;
     if (!a.urgente && b.urgente) return 1;
@@ -60,33 +79,22 @@ export function renderPrenotazioni() {
   const pendenti   = ordinarie.filter(p => p.stato === 'creata');
   const completate = ordinarie.filter(p => p.stato !== 'creata');
 
-  const el = document.getElementById('prenList');
-  if (!el) return;
-
   if (!pendenti.length && !completate.length && !missioni.length) {
-    el.innerHTML = '<div class="emptyState">Nessuna prenotazione trovata.</div>';
+    el.innerHTML = '<div class="emptyState">Nessuna prenotazione container trovata.</div>';
     return;
   }
 
   const bloccoAttivo = Math.min(3, pendenti.length);
   let html = '';
 
-  // ── Missioni ribalta (notifiche speciali in cima) ──────────────────────────
   if (missioni.length) {
     html += `<div class="prenGroupTitle" style="color:var(--orange)">🚛 Missioni ribalta (${missioni.length})</div>`;
     missioni.forEach(p => { html += _missioneCard(p); });
   }
-
-  // ── Prenotazioni ordinarie pendenti ───────────────────────────────────────
   if (pendenti.length) {
     html += `<div class="prenGroupTitle">Da movimentare (${pendenti.length})</div>`;
-    pendenti.forEach((p, idx) => {
-      const abilitato = idx < bloccoAttivo;
-      html += _prenCard(p, abilitato, idx);
-    });
+    pendenti.forEach((p, idx) => { html += _prenCard(p, idx < bloccoAttivo, idx); });
   }
-
-  // ── Completate ────────────────────────────────────────────────────────────
   if (completate.length) {
     html += `<div class="prenGroupTitle" style="margin-top:14px">Completate (${completate.length})</div>`;
     completate.forEach(p => { html += _prenCard(p, false, -1); });
@@ -94,11 +102,77 @@ export function renderPrenotazioni() {
 
   el.innerHTML = html;
 
-  // Ripristina form aperto se ancora presente
   if (_openCompletaId) {
     const form = document.getElementById('completaForm_' + _openCompletaId);
     if (form) form.style.display = 'block';
   }
+}
+
+// ── VISTA CASSE ───────────────────────────────────────────────────────────────
+function _renderCasse(el) {
+  // Posti occupati da casse (plate = 3 cifre + full = true)
+  const casseOccupate = Object.values(_spots).filter(s =>
+    s.occupied && s.full && s.plate && RE_CASSA.test(s.plate.trim())
+  );
+
+  if (!casseOccupate.length) {
+    el.innerHTML = '<div class="emptyState">Nessuna cassa piena al momento.</div>';
+    return;
+  }
+
+  // Urgenti: prenotazioni attive con quella plate
+  const idUrgenti = new Set(
+    _prenotazioni.filter(p => p.urgente && p.stato === 'creata').map(p => p.plate)
+  );
+
+  // Ordine: urgenti prima, poi anzianità (since crescente)
+  casseOccupate.sort((a, b) => {
+    const aUrg = idUrgenti.has(a.plate) ? 0 : 1;
+    const bUrg = idUrgenti.has(b.plate) ? 0 : 1;
+    if (aUrg !== bUrg) return aUrg - bUrg;
+    const aTs = _tsVal(a.since);
+    const bTs = _tsVal(b.since);
+    return aTs - bTs;
+  });
+
+  let html = `<div class="prenGroupTitle">Casse parcheggiate (${casseOccupate.length})</div>`;
+  casseOccupate.forEach((s, idx) => {
+    const urgente   = idUrgenti.has(s.plate);
+    const sinceTs   = s.since ? (s.since.toDate ? s.since.toDate() : new Date(s.since)) : null;
+    const anzianita = sinceTs ? _fmtAnzianita(sinceTs) : '—';
+    const sinceStr  = sinceTs
+      ? sinceTs.toLocaleDateString('it-IT', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' })
+      : '—';
+    const rankClass = idx < 3 ? 'cassa-rank top' : 'cassa-rank';
+
+    html += `
+      <div class="casseCard${urgente ? ' urgente' : ''}">
+        <div class="casseCardHeader">
+          <span class="${rankClass}">${idx + 1}</span>
+          <span class="casseCardPlate">${_esc(s.plate)}</span>
+          <span class="casseCardPosto">${_esc(s.id)}</span>
+          ${urgente ? '<span class="urgBadge">🚨 URGENTE</span>' : ''}
+        </div>
+        <div class="casseCardMeta" title="Entrata: ${sinceStr}">⏱ ${anzianita}</div>
+      </div>`;
+  });
+
+  el.innerHTML = html;
+}
+
+function _tsVal(since) {
+  if (!since) return 0;
+  if (since.toDate) return since.toDate().getTime();
+  return new Date(since).getTime();
+}
+
+function _fmtAnzianita(date) {
+  const ms = Date.now() - date.getTime();
+  const m  = Math.floor(ms / 60000);
+  if (m < 60) return m + ' min';
+  const h = Math.floor(m / 60);
+  if (h < 24) return h + 'h ' + (m % 60) + 'min';
+  return Math.floor(h / 24) + 'g ' + (h % 24) + 'h';
 }
 
 // ── CARD MISSIONE RIBALTA ────────────────────────────────────────────────────

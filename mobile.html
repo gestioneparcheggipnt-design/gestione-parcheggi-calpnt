@@ -6,6 +6,53 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <title>Gestione Parcheggi Mobile</title>
 <link rel="stylesheet" href="mobile-styles.css">
+<style>
+/* ── Vista Casse (mobile) ── */
+.casseCard {
+  background: var(--surface, #fff);
+  border: 1px solid var(--border, #e5e7eb);
+  border-radius: 12px;
+  padding: 12px 14px;
+  margin-bottom: 8px;
+}
+.casseCard.urgente {
+  border-color: #ef444455;
+  background: #ef44440a;
+}
+.casseCardHeader {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.cassa-rank {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--muted, #6b7280);
+  min-width: 20px;
+  text-align: center;
+  flex-shrink: 0;
+}
+.cassa-rank.top { color: var(--accent, #A4D200); }
+.casseCardPlate {
+  font-family: 'DM Mono', monospace;
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text, #1C1F26);
+  flex: 1;
+}
+.casseCardPosto {
+  font-size: 14px;
+  color: var(--muted, #6b7280);
+  font-weight: 600;
+  flex-shrink: 0;
+}
+.casseCardMeta {
+  font-size: 12px;
+  color: var(--muted, #6b7280);
+  margin-top: 6px;
+}
+</style>
 </head>
 <body>
 
