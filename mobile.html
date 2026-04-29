@@ -3,9 +3,25 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <title>Gestione Parcheggi Mobile</title>
 <link rel="stylesheet" href="mobile-styles.css">
+<script>
+  // Service Worker: aggiornamenti automatici, zero cache manuale
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('./sw.js').then(reg => {
+      if (reg.waiting) reg.waiting.postMessage({ type: 'SKIP_WAITING' });
+      reg.addEventListener('updatefound', () => {
+        const sw = reg.installing;
+        sw.addEventListener('statechange', () => {
+          if (sw.state === 'installed' && navigator.serviceWorker.controller) {
+            navigator.serviceWorker.addEventListener('controllerchange', () => window.location.reload());
+            sw.postMessage({ type: 'SKIP_WAITING' });
+          }
+        });
+      });
+    });
+  }
+</script>
 <style>
 /* ── Vista Casse (mobile) ── */
 .casseCard {
