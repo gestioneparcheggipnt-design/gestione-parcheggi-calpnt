@@ -434,7 +434,15 @@ function applyModeUI() {
   document.getElementById('modeBarLabel').textContent =
     currentMode === 'cassa' ? '📦 Modalità Cassa' : '🚛 Modalità Container';
 
-  const showPren = currentMode === 'cassa' || currentUser?.role === 'autista';
+  const role    = currentUser?.role;
+  const isAutista = role === 'autista';
+
+  // navPosti: sempre visibile per autista, indipendente dalla modalità
+  if (isAutista) {
+    document.getElementById('navPosti').classList.remove('hidden');
+  }
+
+  const showPren = currentMode === 'cassa' || isAutista;
   document.getElementById('navPrenotazioni').classList.toggle('hidden', !showPren);
   if (showPren && currentUser) {
     initPrenotazioni({ getUser: () => currentUser, getMode: () => currentMode });

@@ -55,14 +55,27 @@ export function renderPrenotazioni() {
   const el   = document.getElementById('prenList');
   if (!el) return;
 
-  // ── MODALITÀ CASSA: mostra lista posti occupati da casse ─────────────────
+  // Missioni ribalta: mostrate sempre, in qualsiasi modalità
+  const missioni = _prenotazioni.filter(p => p.tipoMissione === 'ribalta' && p.stato === 'creata');
+
+  // ── MODALITÀ CASSA: mostra lista posti occupati da casse + eventuali missioni ─
   if (mode === 'cassa') {
-    _renderCasse(el);
+    let html = '';
+    if (missioni.length) {
+      const sortFn = (a, b) => {
+        if (a.urgente && !b.urgente) return -1;
+        if (!a.urgente && b.urgente) return 1;
+        return 0;
+      };
+      missioni.sort(sortFn);
+      html += `<div class="prenGroupTitle" style="color:var(--orange)">🚛 Missioni ribalta (${missioni.length})</div>`;
+      missioni.forEach(p => { html += _missioneCard(p); });
+    }
+    _renderCasse(el, html);
     return;
   }
 
   // ── MODALITÀ CONTAINER: mostra prenotazioni container + missioni ribalta ──
-  const missioni  = _prenotazioni.filter(p => p.tipoMissione === 'ribalta' && p.stato === 'creata');
   const ordinarie = _prenotazioni.filter(p => p.tipoMissione !== 'ribalta' && (!p.tipoMezzo || p.tipoMezzo === 'container'));
 
   const sortFn = (a, b) => {
@@ -109,14 +122,14 @@ export function renderPrenotazioni() {
 }
 
 // ── VISTA CASSE ───────────────────────────────────────────────────────────────
-function _renderCasse(el) {
+function _renderCasse(el, htmlPrefix = '') {
   // Posti occupati da casse (plate = 3 cifre + full = true)
   const casseOccupate = Object.values(_spots).filter(s =>
     s.occupied && s.full && s.plate && RE_CASSA.test(s.plate.trim())
   );
 
   if (!casseOccupate.length) {
-    el.innerHTML = '<div class="emptyState">Nessuna cassa piena al momento.</div>';
+    el.innerHTML = htmlPrefix + '<div class="emptyState">Nessuna cassa piena al momento.</div>';
     return;
   }
 
@@ -135,7 +148,7 @@ function _renderCasse(el) {
     return aTs - bTs;
   });
 
-  let html = `<div class="prenGroupTitle">Casse parcheggiate (${casseOccupate.length})</div>`;
+  let html = htmlPrefix + `<div class="prenGroupTitle">Casse parcheggiate (${casseOccupate.length})</div>`;
   casseOccupate.forEach((s, idx) => {
     const urgente   = idUrgenti.has(s.plate);
     const sinceTs   = s.since ? (s.since.toDate ? s.since.toDate() : new Date(s.since)) : null;
