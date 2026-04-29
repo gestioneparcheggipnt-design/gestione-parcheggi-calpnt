@@ -4,7 +4,7 @@
 
 import { db, doc, setDoc, addDoc, collection, updateDoc, serverTimestamp }
   from './firebase-config.js';
-import { fmtDate, fmtDur, showToast } from './shared-utils.js';
+import { fmtDate, fmtDur, showToast, validatePlate, checkVehicleNotDuplicate, checkSpotFree } from './shared-utils.js';
 
 // Riferimento allo stato condiviso (definito in mobile.html e passato a questo modulo)
 // Usato tramite getters per evitare problemi di riferimento circolare
@@ -54,38 +54,38 @@ export function updateCheckinUI() {
 
 export async function doCheckinRapido() {
   const input  = document.getElementById('checkinInput');
-  const plate  = input.value.trim().toUpperCase();
+  const raw    = input.value.trim();
   const res    = document.getElementById('checkinResult');
   const spots  = _getSpots();
   const user   = _getUser();
   const mode   = _getMode();
 
-  const RE_VAL_CASSA     = /^\d{3}$/;
-  const RE_VAL_CONTAINER = /^[A-Z]{4}\d{7}$/;
+  // Validazione formato
+  const plateCheck = validatePlate(raw, mode);
+  if (!plateCheck.ok) {
+    showResult(res, '⚠️ ' + plateCheck.msg, 'warn');
+    return;
+  }
+  const plate = raw.toUpperCase();
 
-  if (!plate) {
-    showResult(res, '⚠️ Inserisci ' + (mode === 'cassa' ? 'n. cassa (3 cifre)' : 'targa (4 lettere + 7 cifre)'), 'warn');
-    return;
-  }
-  if (mode === 'cassa' && !RE_VAL_CASSA.test(plate)) {
-    showResult(res, '⚠️ Formato non valido. Inserisci 3 cifre (es. 001)', 'warn');
-    return;
-  }
-  if (mode !== 'cassa' && !RE_VAL_CONTAINER.test(plate)) {
-    showResult(res, '⚠️ Formato non valido. Inserisci 4 lettere + 7 cifre (es. ABCD1234567)', 'warn');
+  // Verifica che il veicolo non sia già parcheggiato
+  const dupCheck = checkVehicleNotDuplicate(spots, plate);
+  if (!dupCheck.ok) {
+    showResult(res, '⚠️ ' + dupCheck.msg, 'warn');
     return;
   }
 
   const all = Object.values(spots);
-  const alreadySpot = all.find(s => s.occupied && s.plate === plate);
-  if (alreadySpot) {
-    showResult(res, `⚠️ ${plate} già al posto ${alreadySpot.id}`, 'warn');
+  const freeSpot = all.find(s => !s.occupied && !s.unusable);
+  if (!freeSpot) {
+    showResult(res, '⚠️ Nessun posto libero disponibile', 'warn');
     return;
   }
 
-  const freeSpot = all.find(s => !s.occupied);
-  if (!freeSpot) {
-    showResult(res, '⚠️ Nessun posto libero disponibile', 'warn');
+  // Doppio check: il posto è ancora libero?
+  const spotCheck = checkSpotFree(spots, freeSpot.id);
+  if (!spotCheck.ok) {
+    showResult(res, '⚠️ ' + spotCheck.msg, 'warn');
     return;
   }
 
@@ -126,30 +126,24 @@ export function renderPosti() {
   let res = Object.values(spots);
   if (q)               res = res.filter(s => s.id.includes(q) || (s.plate && s.plate.includes(q)));
 
-  const RE_CASSA = /^\d{3}$/;
-  const RE_CONTAINER = /^[A-Z]{4}\d{7}$/;
   if (pill === 'libero') {
     res = res.filter(s => !s.occupied);
   } else if (pill === 'occupato') {
-    if (mode === 'cassa') {
-      // Casse: plate a 3 cifre
-      res = res.filter(s => s.occupied && s.plate && RE_CASSA.test(s.plate.trim()));
-    } else {
-      // Container: plate con 4 lettere + 7 cifre, o comunque NON a 3 cifre
-      res = res.filter(s => s.occupied && s.plate && !RE_CASSA.test(s.plate.trim()));
-    }
+    // Filtra per modalità: se cassa mostra solo occupati con casse, se container solo container
+    // Attualmente il campo 'mode' non è su spots, ma possiamo filtrare semplicemente gli occupati
+    res = res.filter(s => s.occupied);
   }
 
   if (fZona) res = res.filter(s => s.zone === fZona);
 
   document.getElementById('spotList').innerHTML = res.map(s => `
-    <div class="spotItem ${s.occupied ? 'occupied' : 'free'}" onclick="openSpotDrawer('${s.id}')">
+    <div class="spotItem ${s.unusable ? 'unusable' : s.occupied ? 'occupied' : 'free'}" onclick="openSpotDrawer('${s.id}')">
       <div class="spotId">${s.id}</div>
       <div class="spotInfo">
-        <div class="spotPlate">${s.plate || (s.occupied ? '—' : 'Libero')}</div>
-        <div class="spotMeta">${s.zone}${s.since ? ' · ' + fmtDur(s.since) : ''}${s.damaged ? ' · ⚠️ Danneggiato' : ''}${s.full ? ' · 🟡 Pieno' : ''}</div>
+        <div class="spotPlate">${s.plate || (s.occupied ? '—' : s.unusable ? 'Inutilizzabile' : 'Libero')}</div>
+        <div class="spotMeta">${s.zone}${s.since ? ' · ' + fmtDur(s.since) : ''}${s.damaged ? ' · ⚠️ Guasto' : ''}${s.unusable ? ' · 🚫 Inutilizzabile' : ''}${s.full ? ' · 🟡 Pieno' : ''}</div>
       </div>
-      <span class="spotBadge ${s.occupied ? 'occ' : 'free'}">${s.occupied ? 'Occupato' : 'Libero'}</span>
+      <span class="spotBadge ${s.unusable ? 'unusable' : s.occupied ? 'occ' : 'free'}">${s.unusable ? 'Inutilizzabile' : s.occupied ? 'Occupato' : 'Libero'}</span>
     </div>`).join('') || '<div class="emptyState">Nessun posto trovato</div>';
 }
 
@@ -161,23 +155,43 @@ export function openSpotDrawer(id) {
   const sp      = spots[id];
   if (!sp) return;
 
-  const canManage = user && (user.role === 'autista' || user.role === 'amministratore' || user.role === 'portineria');
+  const canManage     = user && (user.role === 'autista' || user.role === 'amministratore' || user.role === 'portineria' || user.role === 'amministrativo');
+  const canManageDamage = user && (user.role === 'amministrativo' || user.role === 'amministratore');
   const modeLabel = mode === 'cassa' ? 'Cassa' : 'Container';
   const modeIcon  = mode === 'cassa' ? '📦' : '🚛';
 
   let html = `<div class="drawerTitle">${modeIcon} Posto ${id}</div>
     <div style="font-size:12px;color:var(--muted);margin-bottom:14px">${sp.zone}</div>`;
 
+  // Stato inutilizzabile
+  if (sp.unusable) {
+    html += `<div style="background:#7c3aed13;border:1px solid #7c3aed30;border-radius:10px;padding:10px 14px;margin-bottom:14px;font-weight:700;color:#7c3aed">🚫 Inutilizzabile</div>`;
+    if (canManageDamage) {
+      html += `<button class="btnGray" style="margin-bottom:8px" onclick="removeUnusableDrawer('${id}')">✓ Rimuovi stato inutilizzabile</button>`;
+    }
+    html += `<button class="btnGray" style="margin-top:8px" onclick="closeDrawer()">Chiudi</button>`;
+    document.getElementById('drawerContent').innerHTML = html;
+    document.getElementById('spotDrawer').classList.add('open');
+    document.getElementById('drawerOverlay').classList.add('open');
+    return;
+  }
+
   if (!sp.occupied) {
     html += `<div style="background:#A4D20013;border:1px solid #A4D20030;border-radius:10px;padding:10px 14px;margin-bottom:14px;font-weight:700;color:var(--accent2)">🟢 Libero</div>`;
     if (canManage) {
       html += `<label style="font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;display:block;margin-bottom:6px">${modeLabel} / Identificativo</label>
-        <input class="inputField" id="drawerInput" type="text" placeholder="${mode === 'cassa' ? 'CAX-001' : 'AB123CD'}" maxlength="15" oninput="this.value=this.value.toUpperCase()" onkeydown="if(event.key==='Enter')assignFromDrawer('${id}')">
-        <label class="checkLabel"><input type="checkbox" id="drawerDamaged" style="accent-color:var(--red)"> ⚠️ Veicolo danneggiato</label>
+        <input class="inputField" id="drawerInput" type="text" placeholder="${mode === 'cassa' ? '042' : 'ABCD1234567'}" maxlength="15" oninput="this.value=this.value.toUpperCase()" onkeydown="if(event.key==='Enter')assignFromDrawer('${id}')">
         <label class="checkLabel"><input type="checkbox" id="drawerFull" style="accent-color:var(--orange)"> 🟡 Piena/o (carico completo)</label>
         <button class="btnGreen" onclick="assignFromDrawer('${id}')">✓ Assegna ${modeLabel}</button>`;
     } else {
       html += `<div style="color:var(--muted);font-size:13px">Solo gli autisti possono assegnare veicoli.</div>`;
+    }
+    // Bottoni stato veicolo (solo per posto libero, a cura di amministrativi)
+    if (canManageDamage) {
+      html += `<div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border)">
+        <div style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-bottom:8px">Stato posto</div>
+        <button class="btnUnusable" onclick="addUnusableDrawer('${id}')">🚫 Segna come inutilizzabile</button>
+      </div>`;
     }
   } else {
     html += `<div style="background:#ef444413;border:1px solid #ef444430;border-radius:10px;padding:10px 14px;margin-bottom:14px;font-weight:700;color:var(--red)">🔴 Occupato</div>
@@ -186,16 +200,23 @@ export function openSpotDrawer(id) {
       <div class="infoRow"><span class="infoKey">Durata</span><span class="infoVal">${fmtDur(sp.since)}</span></div>
       <div class="infoRow"><span class="infoKey">Utente</span><span class="infoVal" style="font-size:12px">${sp.user || '—'}</span></div>
       <div class="infoRow"><span class="infoKey">Stato cassa</span><span class="infoVal">${sp.full ? '🟡 Piena' : '🟢 Vuota'}</span></div>
-      ${sp.damaged ? '<div class="infoRow"><span class="infoKey">Danno</span><span class="infoVal" style="color:var(--red)">⚠️ Segnalato</span></div>' : ''}
+      ${sp.damaged ? '<div class="infoRow"><span class="infoKey">Veicolo</span><span class="infoVal" style="color:var(--red)">⚠️ Guasto segnalato</span></div>' : ''}
       <div style="margin-top:14px"></div>
       ${sp.full
         ? `<button class="btnGreen" style="margin-bottom:8px" onclick="toggleFullDrawer('${id}',false)">🟢 Segna come Vuota</button>`
         : `<button class="btnOrange" style="margin-bottom:8px" onclick="toggleFullDrawer('${id}',true)">🟡 Segna come Piena</button>`}`;
     if (canManage) {
-      html += `${sp.damaged
-        ? `<button class="btnOrange" style="margin-bottom:8px" onclick="removeDamagedDrawer('${id}')">✓ Rimuovi segnalazione danno</button>`
-        : `<button class="btnOrange" style="margin-bottom:8px" onclick="addDamagedDrawer('${id}')">⚠️ Segnala veicolo danneggiato</button>`}
-        <button class="btnRed" onclick="freeFromDrawer('${id}')">✕ Libera Posto</button>`;
+      html += `<button class="btnRed" onclick="freeFromDrawer('${id}')">✕ Libera Posto</button>`;
+    }
+    // Bottoni danno e inutilizzabile: solo amministrativi/amministratori
+    if (canManageDamage) {
+      html += `<div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border)">
+        <div style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-bottom:8px">Stato veicolo</div>
+        ${sp.damaged
+          ? `<button class="btnOrange" style="margin-bottom:8px" onclick="removeDamagedDrawer('${id}')">✓ Rimuovi segnalazione guasto</button>`
+          : `<button class="btnOrange" style="margin-bottom:8px" onclick="addDamagedDrawer('${id}')">⚠️ Segna veicolo come guasto</button>`}
+        <button class="btnUnusable" onclick="addUnusableDrawer('${id}')">🚫 Segna come inutilizzabile</button>
+      </div>`;
     }
   }
   html += `<button class="btnGray" style="margin-top:8px" onclick="closeDrawer()">Chiudi</button>`;
@@ -216,25 +237,24 @@ export async function assignFromDrawer(id) {
   const user  = _getUser();
   const mode  = _getMode();
   const inp   = document.getElementById('drawerInput');
-  const plate = inp?.value.trim().toUpperCase();
-  if (!plate) { showToast('Inserisci identificativo', 'error'); return; }
+  const raw   = inp?.value.trim() || '';
 
-  const _RE_CASSA_D     = /^\d{3}$/;
-  const _RE_CONTAINER_D = /^[A-Z]{4}\d{7}$/;
-  if (mode === 'cassa' && !_RE_CASSA_D.test(plate)) {
-    showToast('⚠️ Formato cassa non valido. Usa 3 cifre (es. 001)', 'error'); return;
-  }
-  if (mode !== 'cassa' && !_RE_CONTAINER_D.test(plate)) {
-    showToast('⚠️ Formato container non valido. Usa 4 lettere + 7 cifre (es. ABCD1234567)', 'error'); return;
-  }
+  // Validazione formato
+  const plateCheck = validatePlate(raw, mode);
+  if (!plateCheck.ok) { showToast(plateCheck.msg, 'error'); return; }
+  const plate = raw.toUpperCase();
 
-  const alreadySpot = Object.entries(spots).find(([sid, s]) => s.occupied && s.plate === plate && sid !== id);
-  if (alreadySpot) { showToast(`⚠️ ${plate} già al posto ${alreadySpot[0]}`, 'error'); return; }
+  // Verifica duplicato
+  const dupCheck = checkVehicleNotDuplicate(spots, plate, id);
+  if (!dupCheck.ok) { showToast(dupCheck.msg, 'error'); return; }
 
-  const damaged = document.getElementById('drawerDamaged')?.checked || false;
-  const full    = document.getElementById('drawerFull')?.checked    || false;
+  // Verifica posto libero
+  const spotCheck = checkSpotFree(spots, id);
+  if (!spotCheck.ok) { showToast(spotCheck.msg, 'error'); return; }
+
+  const full = document.getElementById('drawerFull')?.checked || false;
   try {
-    await setDoc(doc(db, 'spots', id), { occupied: true, plate, since: serverTimestamp(), user: user.email, damaged, full });
+    await setDoc(doc(db, 'spots', id), { occupied: true, plate, since: serverTimestamp(), user: user.email, damaged: false, full });
     await addDoc(collection(db, 'history'), { ts: serverTimestamp(), spot: id, action: 'Assegnato', plate, user: user.email, mode });
     showToast(`Posto ${id} → ${plate}`, 'success');
     closeDrawer();
@@ -265,23 +285,57 @@ export async function toggleFullDrawer(id, newFull) {
 }
 
 export async function addDamagedDrawer(id) {
-  const spots = _getSpots();
   const user  = _getUser();
+  if (!['amministrativo', 'amministratore'].includes(user?.role)) {
+    showToast('Non hai i permessi per segnalare un guasto.', 'error'); return;
+  }
+  const spots = _getSpots();
   try {
     await updateDoc(doc(db, 'spots', id), { damaged: true });
-    await addDoc(collection(db, 'history'), { ts: serverTimestamp(), spot: id, action: 'Danno segnalato', plate: spots[id].plate, user: user.email });
-    showToast(`Danno segnalato per ${id}`, 'success');
+    await addDoc(collection(db, 'history'), { ts: serverTimestamp(), spot: id, action: 'Guasto segnalato', plate: spots[id].plate, user: user.email });
+    showToast(`Guasto segnalato per ${id}`, 'success');
     openSpotDrawer(id);
   } catch (e) { showToast('Errore: ' + e.message, 'error'); }
 }
 
 export async function removeDamagedDrawer(id) {
-  const spots = _getSpots();
   const user  = _getUser();
+  if (!['amministrativo', 'amministratore'].includes(user?.role)) {
+    showToast('Non hai i permessi per rimuovere un guasto.', 'error'); return;
+  }
+  const spots = _getSpots();
   try {
     await updateDoc(doc(db, 'spots', id), { damaged: false });
-    await addDoc(collection(db, 'history'), { ts: serverTimestamp(), spot: id, action: 'Danno rimosso', plate: spots[id].plate, user: user.email });
-    showToast(`Danno rimosso per ${id}`, 'success');
+    await addDoc(collection(db, 'history'), { ts: serverTimestamp(), spot: id, action: 'Guasto rimosso', plate: spots[id].plate, user: user.email });
+    showToast(`Segnalazione guasto rimossa per ${id}`, 'success');
+    openSpotDrawer(id);
+  } catch (e) { showToast('Errore: ' + e.message, 'error'); }
+}
+
+export async function addUnusableDrawer(id) {
+  const user  = _getUser();
+  if (!['amministrativo', 'amministratore'].includes(user?.role)) {
+    showToast('Non hai i permessi per segnalare un veicolo inutilizzabile.', 'error'); return;
+  }
+  const spots = _getSpots();
+  try {
+    await updateDoc(doc(db, 'spots', id), { unusable: true });
+    await addDoc(collection(db, 'history'), { ts: serverTimestamp(), spot: id, action: 'Inutilizzabile segnalato', plate: spots[id]?.plate || null, user: user.email });
+    showToast(`Posto ${id} segnato come inutilizzabile`, 'success');
+    closeDrawer();
+  } catch (e) { showToast('Errore: ' + e.message, 'error'); }
+}
+
+export async function removeUnusableDrawer(id) {
+  const user  = _getUser();
+  if (!['amministrativo', 'amministratore'].includes(user?.role)) {
+    showToast('Non hai i permessi.', 'error'); return;
+  }
+  const spots = _getSpots();
+  try {
+    await updateDoc(doc(db, 'spots', id), { unusable: false });
+    await addDoc(collection(db, 'history'), { ts: serverTimestamp(), spot: id, action: 'Inutilizzabile rimosso', plate: spots[id]?.plate || null, user: user.email });
+    showToast(`Stato inutilizzabile rimosso per ${id}`, 'success');
     openSpotDrawer(id);
   } catch (e) { showToast('Errore: ' + e.message, 'error'); }
 }
