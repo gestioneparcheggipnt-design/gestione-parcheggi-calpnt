@@ -123,10 +123,15 @@ export function renderPrenotazioni() {
 
 // ── VISTA CASSE ───────────────────────────────────────────────────────────────
 function _renderCasse(el, htmlPrefix = '') {
-  // Posti occupati da casse (plate = 3 cifre + full = true)
   const casseOccupate = Object.values(_spots).filter(s =>
     s.occupied && s.full && s.plate && RE_CASSA.test(s.plate.trim())
   );
+
+  // DEBUG temporaneo — rimuovere dopo il fix
+  console.log('[CASSE] spots totali:', Object.keys(_spots).length);
+  console.log('[CASSE] casseOccupate:', casseOccupate.map(s => ({ id: s.id, plate: s.plate, occupied: s.occupied, full: s.full })));
+  console.log('[CASSE] prenotazioni creata:', _prenotazioni.filter(p => p.stato === 'creata').map(p => ({ id: p.id, plate: p.plate, stato: p.stato })));
+
 
   if (!casseOccupate.length) {
     el.innerHTML = htmlPrefix + '<div class="emptyState">Nessuna cassa piena al momento.</div>';
