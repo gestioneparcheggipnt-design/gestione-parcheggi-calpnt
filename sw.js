@@ -2,7 +2,7 @@
 // Forza sempre il network per JS e CSS: nessun file viene mai servito dalla cache.
 // Per tutti gli altri asset (immagini, font esterni, Firebase SDK) usa cache-first.
 
-const CACHE_NAME = 'calpnt-v1';
+const CACHE_NAME = 'calpnt-v2';
 
 // File dell'app da servire sempre freschi dal network
 const NETWORK_FIRST = [
@@ -34,8 +34,12 @@ self.addEventListener('message', event => {
 });
 
 self.addEventListener('activate', event => {
-  // Prende il controllo di tutte le tab aperte immediatamente
-  event.waitUntil(clients.claim());
+  // Elimina tutte le cache vecchie e prende controllo immediato
+  event.waitUntil(
+    caches.keys().then(keys =>
+      Promise.all(keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k)))
+    ).then(() => clients.claim())
+  );
 });
 
 self.addEventListener('fetch', event => {
