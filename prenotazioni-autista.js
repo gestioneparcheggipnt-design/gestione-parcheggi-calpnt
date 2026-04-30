@@ -178,7 +178,8 @@ function _renderCasse(el, htmlPrefix = '') {
   const prenCreata = _prenotazioni.filter(p => p.stato === 'creata');
   alert(
     'SPOTS plate: ' + casseOccupate.map(s => '"' + s.plate + '"').join(', ') + '\n\n' +
-    'PREN plate: ' + prenCreata.map(p => '"' + p.plate + '"').join(', ')
+    'PREN creata: ' + prenCreata.map(p => '"' + p.plate + '"').join(', ') + '\n\n' +
+    'TUTTE PREN: ' + _prenotazioni.slice(0,5).map(p => p.plate + '/' + p.stato).join(', ')
   );
 
   let html = htmlPrefix + `<div class="prenGroupTitle">Casse parcheggiate (${casseOccupate.length})</div>`;
