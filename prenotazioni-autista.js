@@ -175,7 +175,11 @@ function _renderCasse(el, htmlPrefix = '') {
   const bloccoAttivo = new Set(indiciConPren.slice(0, BLOCCO));
 
   // DEBUG temporaneo
-  alert('indiciConPren: ' + JSON.stringify(indiciConPren) + '\nbloccoAttivo: ' + JSON.stringify([...bloccoAttivo]));
+  const prenCreata = _prenotazioni.filter(p => p.stato === 'creata');
+  alert(
+    'SPOTS plate: ' + casseOccupate.map(s => '"' + s.plate + '"').join(', ') + '\n\n' +
+    'PREN plate: ' + prenCreata.map(p => '"' + p.plate + '"').join(', ')
+  );
 
   let html = htmlPrefix + `<div class="prenGroupTitle">Casse parcheggiate (${casseOccupate.length})</div>`;
   casseOccupate.forEach((s, idx) => {
