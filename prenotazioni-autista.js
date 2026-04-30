@@ -127,13 +127,6 @@ function _renderCasse(el, htmlPrefix = '') {
     s.occupied && s.full && s.plate && RE_CASSA.test(s.plate.trim())
   );
 
-  // DEBUG temporaneo
-  const prenCreata = _prenotazioni.filter(p => p.stato === 'creata');
-  alert(
-    'CASSE OCCUPATE: ' + casseOccupate.map(s => s.plate).join(', ') + '\n\n' +
-    'PRENOTAZIONI CREATA (plate): ' + prenCreata.map(p => p.plate).join(', ')
-  );
-
 
   if (!casseOccupate.length) {
     el.innerHTML = htmlPrefix + '<div class="emptyState">Nessuna cassa piena al momento.</div>';
