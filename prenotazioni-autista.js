@@ -138,6 +138,12 @@ function _renderCasse(el, htmlPrefix = '') {
     _prenotazioni.filter(p => p.urgente && p.stato === 'creata').map(p => p.plate)
   );
 
+  // Mappa plate → prenotazione attiva (per il tasto Completa)
+  const prenPerPlate = {};
+  _prenotazioni.filter(p => p.stato === 'creata').forEach(p => {
+    if (p.plate) prenPerPlate[p.plate.trim()] = p;
+  });
+
   // Ordine: urgenti prima, poi anzianità (since crescente)
   casseOccupate.sort((a, b) => {
     const aUrg = idUrgenti.has(a.plate) ? 0 : 1;
@@ -148,6 +154,26 @@ function _renderCasse(el, htmlPrefix = '') {
     return aTs - bTs;
   });
 
+  // Regola blocco-di-3:
+  // - si lavora su blocchi di 3 prenotazioni attive nell'ordine di visualizzazione
+  // - il tasto Completa è abilitato solo per le card del blocco corrente (le prime 3)
+  // - il blocco successivo si sblocca SOLO quando tutte e 3 le precedenti sono completate
+  // - se l'ultimo blocco ha meno di 3, il tasto è abilitato per quelle rimaste
+  // Poiché _prenotazioni contiene già solo quelle 'creata', tutte le cassePren
+  // sono "ancora da completare". Il blocco attivo è sempre il primo blocco di 3
+  // (indici 0,1,2 nell'array cassePren). Non c'è modo che il blocco 2 sia visibile
+  // finché il blocco 1 non è completo: quando una viene completata sparisce da
+  // _prenotazioni e il listener ri-renderizza — le prime 3 rimaste diventano il blocco.
+  const BLOCCO = 3;
+  // Indici (nell'array casseOccupate) delle card con prenotazione attiva
+  const indiciConPren = casseOccupate
+    .map((s, i) => ({ s, i }))
+    .filter(({ s }) => prenPerPlate[s.plate.trim()])
+    .map(({ i }) => i);
+
+  // Il blocco attivo è sempre i primi BLOCCO indici di indiciConPren
+  const bloccoAttivo = new Set(indiciConPren.slice(0, BLOCCO));
+
   let html = htmlPrefix + `<div class="prenGroupTitle">Casse parcheggiate (${casseOccupate.length})</div>`;
   casseOccupate.forEach((s, idx) => {
     const urgente   = idUrgenti.has(s.plate);
@@ -157,6 +183,16 @@ function _renderCasse(el, htmlPrefix = '') {
       ? sinceTs.toLocaleDateString('it-IT', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' })
       : '—';
     const rankClass = idx < 3 ? 'cassa-rank top' : 'cassa-rank';
+    const pren      = prenPerPlate[s.plate.trim()];
+
+    let completaBtn = '';
+    if (pren) {
+      if (bloccoAttivo.has(idx)) {
+        completaBtn = `<button class="btnCompleta" onclick="completaSingola('${pren.id}')" style="margin-top:10px">✓ Completa missione</button>`;
+      } else {
+        completaBtn = `<div style="font-size:11px;color:var(--muted);margin-top:8px;font-style:italic">🔒 Disponibile dopo il completamento del blocco precedente</div>`;
+      }
+    }
 
     html += `
       <div class="casseCard${urgente ? ' urgente' : ''}">
@@ -167,6 +203,7 @@ function _renderCasse(el, htmlPrefix = '') {
           ${urgente ? '<span class="urgBadge">🚨 URGENTE</span>' : ''}
         </div>
         <div class="casseCardMeta" title="Entrata: ${sinceStr}">⏱ ${anzianita}</div>
+        ${completaBtn}
       </div>`;
   });
 
