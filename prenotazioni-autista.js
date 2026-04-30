@@ -174,6 +174,9 @@ function _renderCasse(el, htmlPrefix = '') {
   // Il blocco attivo è sempre i primi BLOCCO indici di indiciConPren
   const bloccoAttivo = new Set(indiciConPren.slice(0, BLOCCO));
 
+  // DEBUG temporaneo
+  alert('indiciConPren: ' + JSON.stringify(indiciConPren) + '\nbloccoAttivo: ' + JSON.stringify([...bloccoAttivo]));
+
   let html = htmlPrefix + `<div class="prenGroupTitle">Casse parcheggiate (${casseOccupate.length})</div>`;
   casseOccupate.forEach((s, idx) => {
     const urgente   = idUrgenti.has(s.plate);
