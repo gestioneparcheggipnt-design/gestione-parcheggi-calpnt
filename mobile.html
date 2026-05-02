@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+
 <html lang="it">
 <head>
 <meta charset="UTF-8">
@@ -73,6 +74,7 @@
 <body>
 
 <!-- ══ LOADING (previene flash login screen al refresh) ════════════════════════ -->
+
 <div id="loadingScreen">
   <div class="loadingBox">
     <div class="loadingLogoWrap">
@@ -93,6 +95,7 @@
 </div>
 
 <!-- ══ LOGIN ══════════════════════════════════════════════════════════════════ -->
+
 <div id="loginScreen" style="display:none">
   <div class="loginBox">
     <div class="loginLogo">
@@ -127,9 +130,11 @@
 </div>
 
 <!-- ══ APP ════════════════════════════════════════════════════════════════════ -->
+
 <div id="app">
 
   <!-- Top bar -->
+
   <div class="topBar">
     <div class="topBarLeft">
       <div class="topBarLogo">Gestione Parcheggi</div>
@@ -142,6 +147,7 @@
   </div>
 
   <!-- Mode toggle (nascosta per operativo) -->
+
   <div class="modeBar" id="modeBar">
     <div class="modeToggle">
       <button id="btnContainer" onclick="setMode('container')">🚛 Container</button>
@@ -151,65 +157,74 @@
   </div>
 
   <!-- ── PAGINA: CHECK-IN RAPIDO ─────────────────────────────────────────────── -->
+
   <div class="page active" id="pageCheckin">
     <div class="pageHeader">Check-in Rapido</div>
     <div class="pageSubtitle" id="checkinSubtitle">Assegna un veicolo a un posto libero</div>
 
-    <div class="statsRow" id="checkinStats"></div>
+```
+<div class="statsRow" id="checkinStats"></div>
 
-    <div class="card">
-      <div class="cardTitle" id="checkinCardTitle">Nuovo Check-in</div>
-      <label style="font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;display:block;margin-bottom:6px"
-             id="checkinPlaceholderLabel">Targa / Identificativo</label>
-      <input class="checkinInput" id="checkinInput" type="text" placeholder="AB123CD" maxlength="15"
-             oninput="this.value=this.value.toUpperCase()"
-             onkeydown="if(event.key==='Enter')doCheckinRapido()">
-      <div class="checkinResult" id="checkinResult"></div>
-      <button class="btnCheckin" onclick="doCheckinRapido()">✓ Assegna al primo posto libero</button>
-    </div>
+<div class="card">
+  <div class="cardTitle" id="checkinCardTitle">Nuovo Check-in</div>
+  <label style="font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;display:block;margin-bottom:6px"
+         id="checkinPlaceholderLabel">Targa / Identificativo</label>
+  <input class="checkinInput" id="checkinInput" type="text" placeholder="AB123CD" maxlength="15"
+         oninput="this.value=this.value.toUpperCase()"
+         onkeydown="if(event.key==='Enter')doCheckinRapido()">
+  <div class="checkinResult" id="checkinResult"></div>
+  <button class="btnCheckin" onclick="doCheckinRapido()">✓ Assegna al primo posto libero</button>
+</div>
 
-    <!-- Suggerimento ribalta (portineria) -->
-    <div id="ribalteBox" style="display:none">
-      <div class="sugBox">
-        <div class="sugTitle">🔮 Destinazioni Suggerite (ribalta)</div>
-        <div class="sugList" id="sugList">
-          <div class="emptyState">Nessun dato disponibile</div>
-        </div>
-      </div>
+<!-- Suggerimento ribalta (portineria) -->
+<div id="ribalteBox" style="display:none">
+  <div class="sugBox">
+    <div class="sugTitle">🔮 Destinazioni Suggerite (ribalta)</div>
+    <div class="sugList" id="sugList">
+      <div class="emptyState">Nessun dato disponibile</div>
     </div>
+  </div>
+</div>
+```
+
   </div>
 
   <!-- ── PAGINA: RICERCA POSTI (autista / portineria / admin) ───────────────── -->
+
   <div class="page" id="pagePosti">
     <div class="pageHeader">Ricerca</div>
     <div class="pageSubtitle" id="postiSubtitle">Cerca e gestisci i parcheggi</div>
 
-    <div class="searchBar">
-      <input type="text" id="searchPosto" placeholder="Cerca posto o targa…" oninput="renderPosti()">
-      <button class="btnSearch" onclick="document.getElementById('searchPosto').value='';setFilterPill('');renderPosti()">✕</button>
-    </div>
+```
+<div class="searchBar">
+  <input type="text" id="searchPosto" placeholder="Cerca posto o targa…" oninput="renderPosti()">
+  <button class="btnSearch" onclick="document.getElementById('searchPosto').value='';setFilterPill('');renderPosti()">✕</button>
+</div>
 
-    <!-- Filtri rapidi preimpostati -->
-    <div class="filterPills">
-      <button class="filterPill" id="pillLiberi"   onclick="setFilterPill('libero')">🟢 Posti liberi</button>
-      <button class="filterPill" id="pillOccupati" onclick="setFilterPill('occupato')">🔴 <span id="pillOccLabel">Occupati</span></button>
-    </div>
+<!-- Filtri rapidi preimpostati -->
+<div class="filterPills">
+  <button class="filterPill" id="pillLiberi"   onclick="setFilterPill('libero')">🟢 Posti liberi</button>
+  <button class="filterPill" id="pillOccupati" onclick="setFilterPill('occupato')">🔴 <span id="pillOccLabel">Occupati</span></button>
+</div>
 
-    <!-- Filtro zona (solo se non è una pill attiva) -->
-    <div class="filterRow" id="filterZonaRow">
-      <select class="filterSelect" id="filterZona" onchange="renderPosti()">
-        <option value="">Tutte le zone</option>
-        <option value="P VERDE">P Verde</option>
-        <option value="P BLU">P Blu</option>
-        <option value="ZONA C">Zona C</option>
-        <option value="ZONA D">Zona D</option>
-      </select>
-    </div>
+<!-- Filtro zona (solo se non è una pill attiva) -->
+<div class="filterRow" id="filterZonaRow">
+  <select class="filterSelect" id="filterZona" onchange="renderPosti()">
+    <option value="">Tutte le zone</option>
+    <option value="P VERDE">P Verde</option>
+    <option value="P BLU">P Blu</option>
+    <option value="ZONA C">Zona C</option>
+    <option value="ZONA D">Zona D</option>
+  </select>
+</div>
 
-    <div class="spotList" id="spotList"></div>
+<div class="spotList" id="spotList"></div>
+```
+
   </div>
 
   <!-- ── PAGINA: PRENOTAZIONI ────────────────────────────────────────────────── -->
+
   <div class="page" id="pagePrenotazioni">
     <div class="pageHeader">Prenotazioni</div>
     <div class="pageSubtitle" id="prenSubtitle">Ordinate per urgenza e anzianità</div>
@@ -217,6 +232,7 @@
   </div>
 
   <!-- ── PAGINA: RIBALTE (solo operativo) ───────────────────────────────────── -->
+
   <div class="page" id="pageRibalte">
     <div class="pageHeader">Ribalte</div>
     <div class="pageSubtitle" id="ribalteSubtitle">Le tue ribalte di competenza</div>
@@ -227,6 +243,7 @@
   </div>
 
   <!-- ── PAGINA: ADMIN (solo amministratore / amministrativo) ───────────────── -->
+
   <div class="page" id="pageAdmin">
     <div class="pageHeader">Amministrazione</div>
     <div class="pageSubtitle">Statistiche e gestione</div>
@@ -238,6 +255,7 @@
   </div>
 
   <!-- Bottom nav -->
+
   <nav class="bottomNav" id="bottomNav">
     <button class="navBtn active"  id="navCheckin"       onclick="showPage('Checkin',this)">
       <span class="navIcon">⚡</span>Check-in
@@ -258,6 +276,7 @@
 </div><!-- /app -->
 
 <!-- Spot drawer -->
+
 <div class="drawerOverlay" id="drawerOverlay" onclick="closeDrawer()"></div>
 <div class="drawer" id="spotDrawer">
   <div class="drawerHandle"></div>
@@ -266,7 +285,75 @@
 
 <div class="toast" id="toast"></div>
 
+<!-- Popup selezione ribalta (per completamento missioni casse) -->
+
+<div class="popupOverlay" id="popupRibalteOverlay" onclick="if(event.target===this)chiudiPopupRibalte()">
+  <div class="popupBox">
+    <div class="popupHeader">
+      <span id="popupRibalteTitle">Seleziona ribalta</span>
+      <button class="popupClose" onclick="chiudiPopupRibalte()">✕</button>
+    </div>
+    <div class="popupList" id="popupRibalteList"></div>
+  </div>
+</div>
+
+<style>
+.popupOverlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.55);
+  z-index: 200;
+  align-items: flex-end;
+  justify-content: center;
+}
+.popupOverlay.visible { display: flex; }
+.popupBox {
+  background: var(--surface, #fff);
+  border-radius: 18px 18px 0 0;
+  width: 100%;
+  max-height: 70vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.popupHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 18px 12px;
+  font-weight: 700;
+  font-size: 15px;
+  border-bottom: 1px solid var(--border, #e5e7eb);
+}
+.popupClose {
+  background: none;
+  border: none;
+  font-size: 18px;
+  color: var(--muted, #6b7280);
+  cursor: pointer;
+  padding: 2px 6px;
+}
+.popupList {
+  overflow-y: auto;
+  padding: 8px 0 24px;
+}
+.ribaltaItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--border, #e5e7eb);
+  cursor: pointer;
+  transition: background .15s;
+}
+.ribaltaItem:active { background: var(--surface2, #f3f4f6); }
+.ribaltaId { font-weight: 700; font-size: 15px; }
+.ribaltaLibera { font-size: 12px; color: var(--green, #22c55e); }
+</style>
+
 <!-- ══ LOGICA APPLICAZIONE ════════════════════════════════════════════════════ -->
+
 <script type="module">
 import { auth, db, signInWithEmailAndPassword, signOut, onAuthStateChanged,
          doc, getDoc, collection, query, orderBy, limit, onSnapshot, where }
@@ -282,7 +369,7 @@ import { initCheckin, updateCheckinUI, doCheckinRapido,
   addUnusableDrawer, removeUnusableDrawer
 } from './checkin.js';
 
-import { initPrenotazioni, renderPrenotazioni, completaSingola } from './prenotazioni-autista.js?v=4';
+import { initPrenotazioni, renderPrenotazioni, completaSingola } from './prenotazioni-autista.js?v=5';
 import { initRibalteOperativo, renderRibalte } from './ribalte-operativo.js';
 
 // ── STATO ─────────────────────────────────────────────────────────────────────
