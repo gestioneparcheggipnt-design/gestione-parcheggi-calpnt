@@ -1311,18 +1311,28 @@ async function doLogout(){
 function showLogin(){
   document.getElementById("loginScreen").style.display="flex";
   document.getElementById("app").style.display="none";
-["tabStats","tabUtenti","tabPrenotazioni"].forEach(id=>document.getElementById(id).classList.add("hidden"));
+  // Resetta tutti i tab con id alla loro visibilità di default (hidden)
+  ["tabStats","tabUtenti","tabPrenotazioni","tabPortineria"].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el) el.classList.add("hidden");
+  });
+  // Ripristina visibilità dei tab Mappa/Ricerca/Storico (non hanno id ma servono sempre)
+  document.querySelectorAll(".navTab").forEach(btn=>{
+    const pg = btn.getAttribute("onclick") && btn.getAttribute("onclick").match(/'(\w+)'/);
+    if(pg && ["Mappa","Ricerca","Storico"].includes(pg[1])){
+      btn.classList.remove("hidden");
+    }
+  });
 }
 
 function showApp(){
   // Desktop accessibile ad amministratore, amministrativo e portineria
   const rolesDesktop = ["amministratore","amministrativo","portineria"];
   if(!rolesDesktop.includes(currentUser.role)){
-    // Ruolo non autorizzato su desktop: logout silenzioso + messaggio errore
     signOut(auth);
     const errEl = document.getElementById("loginError");
     if(errEl){
-      errEl.textContent = 'Accesso non consentito da desktop per il ruolo "' + currentUser.role + '"\.';
+      errEl.textContent = 'Accesso non consentito da desktop per il ruolo "' + currentUser.role + '".';
       errEl.style.display = "block";
     }
     return;
@@ -1334,33 +1344,25 @@ function showApp(){
   const un=document.getElementById("navUserName");
   if(un) un.textContent=currentUser.name||currentUser.email;
 
-  // Portineria: mostra solo tab Portineria, nasconde tutto il resto
+  // ── PORTINERIA ──────────────────────────────────────────────────────────────
   if(currentUser.role === "portineria"){
-    // Nascondi tabs non pertinenti alla portineria
-    ["tabStats","tabUtenti","tabPrenotazioni"].forEach(id=>{
-      const el=document.getElementById(id);
-      if(el) el.classList.add("hidden");
-    });
-    // Mostra e attiva tab Portineria
-    const tabPort = document.getElementById("tabPortineria");
-    if(tabPort){
-      tabPort.classList.remove("hidden");
-    }
-    // Nascondi le pagine Mappa/Ricerca/Storico dalla navbar
+    // Nascondi tab Mappa/Ricerca/Storico (non servono alla portineria)
     document.querySelectorAll(".navTab").forEach(btn=>{
       const pg = btn.getAttribute("onclick") && btn.getAttribute("onclick").match(/'(\w+)'/);
       if(pg && ["Mappa","Ricerca","Storico"].includes(pg[1])){
         btn.classList.add("hidden");
       }
     });
-    // Attiva direttamente la pagina Portineria
-    showPage("Portineria", document.getElementById("tabPortineria"));
+    // Mostra tab Portineria
+    document.getElementById("tabPortineria").classList.remove("hidden");
     loadMode();
     startListeners();
+    // Attiva pagina Portineria dopo aver preparato tutto
+    showPage("Portineria", document.getElementById("tabPortineria"));
     return;
   }
 
-  // Ruoli standard (amministratore, amministrativo)
+  // ── AMMINISTRATORE / AMMINISTRATIVO ────────────────────────────────────────
   document.getElementById("tabStats").classList.remove("hidden");
   if(currentUser.role==="amministratore") document.getElementById("tabUtenti").classList.remove("hidden");
   document.getElementById("tabPrenotazioni").classList.remove("hidden");
