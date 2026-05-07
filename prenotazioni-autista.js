@@ -81,8 +81,8 @@ export function renderPrenotazioni() {
         return da - db2;
       };
       missioni.sort(sortFn);
-      // Blocco-di-3: solo le prime 3 missioni hanno il tasto Completa attivo
       html += `<div class="prenGroupTitle" style="color:var(--orange)">🚛 Missioni ribalta (${missioni.length})</div>`;
+      // Blocco-di-3: solo le prime 3 missioni hanno il tasto Completa attivo
       missioni.forEach((p, idx) => { html += _missioneCard(p, idx < 3); });
     }
     _renderCasse(el, html);
@@ -246,7 +246,7 @@ function _missioneCard(p, abilitato = true) {
                placeholder="Es. A01 oppure R04"
                oninput="this.value=this.value.toUpperCase()">
         <div class="cfActions">
-          <button class="btnCfConfirm" onclick="confermaMissione('${p.id}')">Conferma</button>
+          <button class="btnCfConfirm" onclick="confermaMissione('${p.id}')">✓ Conferma</button>
           <button class="btnCfCancel"  onclick="chiudiCompletaForm('${p.id}')">Annulla</button>
         </div>
       </div>`
