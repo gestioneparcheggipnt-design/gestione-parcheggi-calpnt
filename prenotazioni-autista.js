@@ -76,11 +76,14 @@ export function renderPrenotazioni() {
       const sortFn = (a, b) => {
         if (a.urgente && !b.urgente) return -1;
         if (!a.urgente && b.urgente) return 1;
-        return 0;
+        const da  = a.dataOra?.toDate ? a.dataOra.toDate() : new Date(a.dataOra || 0);
+        const db2 = b.dataOra?.toDate ? b.dataOra.toDate() : new Date(b.dataOra || 0);
+        return da - db2;
       };
       missioni.sort(sortFn);
+      // Blocco-di-3: solo le prime 3 missioni hanno il tasto Completa attivo
       html += `<div class="prenGroupTitle" style="color:var(--orange)">🚛 Missioni ribalta (${missioni.length})</div>`;
-      missioni.forEach(p => { html += _missioneCard(p); });
+      missioni.forEach((p, idx) => { html += _missioneCard(p, idx < 3); });
     }
     _renderCasse(el, html);
     return;
@@ -227,19 +230,13 @@ function _fmtAnzianita(date) {
 }
 
 // ── CARD MISSIONE RIBALTA ────────────────────────────────────────────────────
-function _missioneCard(p) {
+function _missioneCard(p, abilitato = true) {
   const d = _parseDate(p.dataOra);
   const dataStr = d ? d.toLocaleString('it-IT', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' }) : '—';
   const statoVeicolo = p.fullAllaLibera ? '🟡 Piena' : '🟢 Vuota';
 
-  return `
-    <div class="missioneCard">
-      <div class="missioneTitle">🚛 Sposta veicolo da ribalta ${_esc(p.spotId || '—')}</div>
-      <div class="missioneBody">
-        <strong>${_esc(p.plate || '—')}</strong> · ${statoVeicolo} · ${dataStr}
-      </div>
-      <div style="font-size:12px;color:var(--muted);margin-top:4px">${_esc(p.note || '')}</div>
-      <button class="btnCompleta" onclick="aprirCompletaMissione('${p.id}')" style="margin-top:10px">
+  const btnHTML = abilitato
+    ? `<button class="btnCompleta" onclick="aprirCompletaMissione('${p.id}')" style="margin-top:10px">
         ✅ Completa missione
       </button>
       <div class="completaForm" id="completaForm_${p.id}" style="display:none">
@@ -249,10 +246,23 @@ function _missioneCard(p) {
                placeholder="Es. A01 oppure R04"
                oninput="this.value=this.value.toUpperCase()">
         <div class="cfActions">
-          <button class="btnCfConfirm" onclick="confermaMissione('${p.id}')">✓ Conferma</button>
+          <button class="btnCfConfirm" onclick="confermaMissione('${p.id}')">Conferma</button>
           <button class="btnCfCancel"  onclick="chiudiCompletaForm('${p.id}')">Annulla</button>
         </div>
+      </div>`
+    : `<button disabled style="width:100%;margin-top:8px;padding:11px 0;background:var(--surface2);border:1.5px solid var(--border);border-radius:9px;color:var(--muted);font-family:inherit;font-size:13px;font-weight:700;cursor:not-allowed;opacity:.6">
+        🔒 In attesa
+      </button>
+      <div style="font-size:11px;color:var(--muted);margin-top:4px;font-style:italic">Disponibile dopo il completamento delle prime 3</div>`;
+
+  return `
+    <div class="missioneCard">
+      <div class="missioneTitle">🚛 Sposta veicolo da ribalta ${_esc(p.spotId || '—')}</div>
+      <div class="missioneBody">
+        <strong>${_esc(p.plate || '—')}</strong> · ${statoVeicolo} · ${dataStr}
       </div>
+      <div style="font-size:12px;color:var(--muted);margin-top:4px">${_esc(p.note || '')}</div>
+      ${btnHTML}
     </div>`;
 }
 
