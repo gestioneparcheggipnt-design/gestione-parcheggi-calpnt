@@ -146,65 +146,38 @@ function _renderCasse(el, htmlPrefix = '') {
     return;
   }
 
-  // Mappa plate → prenotazione attiva
-  const prenPerPlate = {};
-  _prenotazioni.filter(p => p.stato === 'creata' && RE_CASSA.test((p.plate || '').trim())).forEach(p => {
-    if (p.plate) prenPerPlate[p.plate.trim()] = p;
-  });
+  // Ordine: anzianità (since crescente) — le casse più vecchie prima
+  casseOccupate.sort((a, b) => _tsVal(a.since) - _tsVal(b.since));
 
-  // Urgenti
-  const idUrgenti = new Set(
-    _prenotazioni.filter(p => p.urgente && p.stato === 'creata').map(p => (p.plate || '').trim())
-  );
-
-  // Ordine: urgenti prima, poi anzianità (since crescente)
-  casseOccupate.sort((a, b) => {
-    const aUrg = idUrgenti.has(a.plate.trim()) ? 0 : 1;
-    const bUrg = idUrgenti.has(b.plate.trim()) ? 0 : 1;
-    if (aUrg !== bUrg) return aUrg - bUrg;
-    return _tsVal(a.since) - _tsVal(b.since);
-  });
-
-  // Regola blocco-di-3: le card con prenotazione attiva vengono lavorate a blocchi di 3.
-  // Solo le prime 3 hanno il tasto Completa attivo.
-  // Il blocco successivo si sblocca SOLO quando tutte e 3 le precedenti vengono completate
-  // (spariscono dalla lista perché la prenotazione non è più 'creata').
-  // Se l'ultimo blocco ha meno di 3, tutte quelle rimaste sono abilitate.
+  // Blocco-di-3: le prime 3 casse hanno il tasto Completa attivo,
+  // indipendentemente dall'esistenza di una prenotazione collegata.
+  // Quando una cassa viene completata sparisce da _spots e la #4 scala in posizione 3.
   const BLOCCO = 3;
-  const indiciConPren = casseOccupate
-    .map((s, i) => ({ s, i }))
-    .filter(({ s }) => prenPerPlate[s.plate.trim()])
-    .map(({ i }) => i);
-  const bloccoAttivo = new Set(indiciConPren.slice(0, BLOCCO));
 
   let html = htmlPrefix + `<div class="prenGroupTitle">Casse parcheggiate (${casseOccupate.length})</div>`;
 
   casseOccupate.forEach((s, idx) => {
-    const urgente   = idUrgenti.has(s.plate.trim());
     const sinceTs   = s.since ? (s.since.toDate ? s.since.toDate() : new Date(s.since)) : null;
     const anzianita = sinceTs ? _fmtAnzianita(sinceTs) : '—';
     const sinceStr  = sinceTs
       ? sinceTs.toLocaleDateString('it-IT', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' })
       : '—';
-    const rankClass = idx < 3 ? 'cassa-rank top' : 'cassa-rank';
-    const pren      = prenPerPlate[s.plate.trim()];
+    const rankClass = idx < BLOCCO ? 'cassa-rank top' : 'cassa-rank';
+    const abilitato = idx < BLOCCO;
 
     let completaBtn = '';
-    if (pren) {
-      if (bloccoAttivo.has(idx)) {
-        completaBtn = `<button class="btnCompleta" onclick="apriPopupRibalte('${pren.id}')" style="margin-top:10px">✓ Completa missione</button>`;
-      } else {
-        completaBtn = `<div style="font-size:11px;color:var(--muted);margin-top:8px;font-style:italic">🔒 Disponibile dopo il completamento del blocco precedente</div>`;
-      }
+    if (abilitato) {
+      completaBtn = `<button class="btnCompleta" onclick="apriPopupRibalte_cassa('${_esc(s.id)}','${_esc(s.plate)}')" style="margin-top:10px">✓ Completa missione</button>`;
+    } else {
+      completaBtn = `<div style="font-size:11px;color:var(--muted);margin-top:8px;font-style:italic">🔒 Disponibile dopo il completamento delle prime ${BLOCCO}</div>`;
     }
 
     html += `
-      <div class="casseCard${urgente ? ' urgente' : ''}">
+      <div class="casseCard">
         <div class="casseCardHeader">
           <span class="${rankClass}">${idx + 1}</span>
           <span class="casseCardPlate">${_esc(s.plate)}</span>
           <span class="casseCardPosto">${_esc(s.id)}</span>
-          ${urgente ? '<span class="urgBadge">🚨 URGENTE</span>' : ''}
         </div>
         <div class="casseCardMeta" title="Entrata: ${sinceStr}">⏱ ${anzianita}</div>
         ${completaBtn}
@@ -465,6 +438,71 @@ window.apriPopupRibalte = function(prenId) {
 window.chiudiPopupRibalte = function() {
   const overlay = document.getElementById('popupRibalteOverlay');
   if (overlay) overlay.classList.remove('visible');
+};
+
+// ── POPUP RIBALTE PER CASSE (senza prenotazione collegata) ────────────────────
+window.apriPopupRibalte_cassa = function(spotId, plate) {
+  const ribalteLibere = Object.values(_ribalte)
+    .filter(r => !r.occupied)
+    .sort((a, b) => a.id.localeCompare(b.id));
+
+  const overlay = document.getElementById('popupRibalteOverlay');
+  const list    = document.getElementById('popupRibalteList');
+  const title   = document.getElementById('popupRibalteTitle');
+  if (!overlay || !list) return;
+
+  if (title) title.textContent = `Seleziona ribalta per cassa ${plate}`;
+
+  if (!ribalteLibere.length) {
+    list.innerHTML = '<div style="padding:16px;text-align:center;color:var(--muted)">Nessuna ribalta libera al momento</div>';
+  } else {
+    list.innerHTML = ribalteLibere.map(r => `
+      <div class="ribaltaItem" onclick="selezionaRibalta_cassa('${spotId}','${plate}','${r.id}')">
+        <span class="ribaltaId">${_esc(r.id)}</span>
+        <span class="ribaltaLibera">🟢 Libera</span>
+      </div>`).join('');
+  }
+
+  overlay.classList.add('visible');
+};
+
+window.selezionaRibalta_cassa = async function(spotId, plate, ribaltaId) {
+  chiudiPopupRibalte();
+  const user = _getUser ? _getUser() : null;
+
+  try {
+    const ops = [];
+
+    // Libera il posto parcheggio di origine
+    ops.push(setDoc(doc(db, 'spots', spotId), {
+      occupied: false, plate: null, since: null, user: null, full: false
+    }, { merge: true }));
+
+    // Occupa la ribalta di destinazione
+    ops.push(setDoc(doc(db, 'ribalte', ribaltaId), {
+      occupied: true,
+      plate:    plate || null,
+      since:    serverTimestamp(),
+      user:     user?.email || null,
+      full:     false,
+    }, { merge: true }));
+
+    // Storico
+    ops.push(addDoc(collection(db, 'history'), {
+      ts:           serverTimestamp(),
+      spot:         ribaltaId,
+      action:       'Missione cassa completata',
+      plate:        plate || null,
+      user:         user?.email || null,
+      origine:      spotId,
+      destinazione: ribaltaId,
+    }));
+
+    await Promise.all(ops);
+    showToast(`✅ ${plate} → ${ribaltaId}`, 'success');
+  } catch (e) {
+    showToast('Errore: ' + e.message, 'error');
+  }
 };
 
 window.selezionaRibalta = async function(prenId, ribaltaId) {
