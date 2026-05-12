@@ -8,6 +8,8 @@ import { db, collection, query, orderBy, onSnapshot, doc, updateDoc, setDoc, add
 
 from './firebase-config.js';
 
+import { getDestinazioniPerReparto } from './spots-data.js';
+
 import { showToast, _esc, validateDestination, isValidSpot, isValidRibalta } from './shared-utils.js';
 
 const RE_CASSA = /^\d{3}$/;

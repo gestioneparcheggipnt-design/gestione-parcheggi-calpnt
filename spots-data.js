@@ -114,3 +114,6 @@ function getDestinazioniPerReparto(reparto) {
   }
   return REPARTI[reparto];
 }
+
+// Export per ES Module (mobile) — ignorato dal bundle desktop (assemble.py)
+export { SPOT_DEFS, PATCHES, ZONES, REPARTI, getDestinazioniPerReparto };
