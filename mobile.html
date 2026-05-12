@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Gestione Parcheggi Mobile</title>
-<link rel="stylesheet" href="mobile-styles.css?v=1778601172">
+<link rel="stylesheet" href="mobile-styles.css?v=1778601902">
 <script>
   // Service Worker: aggiornamenti automatici, zero cache manuale
   if ('serviceWorker' in navigator) {
@@ -22,53 +22,7 @@
     });
   }
 </script>
-<style>
-/* ── Vista Casse (mobile) ── */
-.casseCard {
-  background: var(--surface, #fff);
-  border: 1px solid var(--border, #e5e7eb);
-  border-radius: 12px;
-  padding: 12px 14px;
-  margin-bottom: 8px;
-}
-.casseCard.urgente {
-  border-color: #ef444455;
-  background: #ef44440a;
-}
-.casseCardHeader {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-.cassa-rank {
-  font-size: 13px;
-  font-weight: 700;
-  color: var(--muted, #6b7280);
-  min-width: 20px;
-  text-align: center;
-  flex-shrink: 0;
-}
-.cassa-rank.top { color: var(--accent, #A4D200); }
-.casseCardPlate {
-  font-family: 'DM Mono', monospace;
-  font-size: 22px;
-  font-weight: 700;
-  color: var(--text, #1C1F26);
-  flex: 1;
-}
-.casseCardPosto {
-  font-size: 14px;
-  color: var(--muted, #6b7280);
-  font-weight: 600;
-  flex-shrink: 0;
-}
-.casseCardMeta {
-  font-size: 12px;
-  color: var(--muted, #6b7280);
-  margin-top: 6px;
-}
-</style>
+
 </head>
 <body>
 
@@ -336,20 +290,20 @@
 <script type="module">
 import { auth, db, signInWithEmailAndPassword, signOut, onAuthStateChanged,
          doc, getDoc, collection, query, orderBy, limit, onSnapshot, where }
-  from './firebase-config.js?v=1778601172';
+  from './firebase-config.js?v=1778601902';
 
-import { SPOT_DEFS } from './spots-data.js?v=1778601172';
-import { fmtDate, fmtDur, showToast } from './shared-utils.js?v=1778601172';
+import { SPOT_DEFS } from './spots-data.js?v=1778601902';
+import { fmtDate, fmtDur, showToast } from './shared-utils.js?v=1778601902';
 
 import { initCheckin, updateCheckinUI, doCheckinRapido,
   renderPosti, openSpotDrawer, closeDrawer,
   assignFromDrawer, freeFromDrawer, toggleFullDrawer,
   addDamagedDrawer, removeDamagedDrawer,
   addUnusableDrawer, removeUnusableDrawer
-} from './checkin.js?v=1778601172';
+} from './checkin.js?v=1778601902';
 
-import { initPrenotazioni, renderPrenotazioni, completaSingola } from './prenotazioni-autista.js?v=1778601172';
-import { initRibalteOperativo, renderRibalte } from './ribalte-operativo.js?v=1778601172';
+import { initPrenotazioni, renderPrenotazioni, completaSingola } from './prenotazioni-autista.js?v=1778601902';
+import { initRibalteOperativo, renderRibalte } from './ribalte-operativo.js?v=1778601902';
 
 // ── STATO ─────────────────────────────────────────────────────────────────────
 let currentUser  = null;
@@ -641,7 +595,7 @@ function renderStorico() {
 
 // ── IMPORT DINAMICO per updateDoc/addDoc/serverTimestamp usati da ribalte-operativo ──
 import { updateDoc as _updateDoc, addDoc as _addDoc, serverTimestamp as _serverTimestamp }
-  from './firebase-config.js?v=1778601172';
+  from './firebase-config.js?v=1778601902';
 
 // ── EXPOSE GLOBALS ────────────────────────────────────────────────────────────
 window.doLogin              = doLogin;
