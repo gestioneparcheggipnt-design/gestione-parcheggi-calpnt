@@ -832,6 +832,19 @@ if(!_forceDesktop && (window.innerWidth<=768||navigator.maxTouchPoints>0) && !lo
     <div class="formGroup"><label>Ruolo</label>
       <select id="newUserRole"><option value="autista">Autista</option><option value="operativo">Operativo</option><option value="portineria">Portineria</option><option value="amministrativo">Amministrativo</option><option value="amministratore">Amministratore</option></select>
     </div>
+    <div class="formGroup"><label>Reparto</label>
+      <select id="newUserReparto">
+        <option value="">— Nessun reparto —</option>
+        <option value="RICEVIMENTO">Ricevimento</option>
+        <option value="SPEDIZIONI">Spedizioni</option>
+        <option value="CAPI APPESI">Capi appesi</option>
+        <option value="LAV MAN">Lav man</option>
+        <option value="REVERSE">Reverse</option>
+        <option value="ESTERO">Estero</option>
+        <option value="E-COMMERCE">E-commerce</option>
+        <option value="TGW">TGW</option>
+      </select>
+    </div>
     <div class="formGroup"><label>Password temporanea</label><input type="text" id="newUserPass" placeholder=""></div>
     <div class="modalActions">
       <button class="btnSecondary" onclick="closeModal('modalAddUser')">Annulla</button>
@@ -911,39 +924,39 @@ const MAP_SRC = "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEBLAEsAAD/2wBDAAgGBgcG
 const IMG_W = 3000, IMG_H = 2250;
 
 const SPOT_DEFS=[
-  ["A13","ZONA A",1291,351,29,87],
-  ["A01","ZONA A",1291,441,29,87],
-  ["A14","ZONA A",1320,351,24,87],
-  ["A02","ZONA A",1320,441,24,87],
-  ["A15","ZONA A",1344,351,24,87],
-  ["A03","ZONA A",1344,441,24,87],
-  ["A16","ZONA A",1368,351,24,87],
-  ["A04","ZONA A",1368,441,24,87],
-  ["A17","ZONA A",1392,351,25,87],
-  ["A05","ZONA A",1392,441,25,87],
-  ["A18","ZONA A",1417,351,23,87],
-  ["A06","ZONA A",1417,441,23,87],
-  ["A19","ZONA A",1440,351,24,87],
-  ["A07","ZONA A",1440,441,24,87],
-  ["A20","ZONA A",1464,351,24,87],
-  ["A08","ZONA A",1464,441,24,87],
-  ["A21","ZONA A",1488,351,24,87],
-  ["A09","ZONA A",1488,441,24,87],
-  ["A22","ZONA A",1512,351,24,87],
-  ["A10","ZONA A",1512,441,24,87],
-  ["A23","ZONA A",1536,351,24,87],
-  ["A11","ZONA A",1536,441,24,87],
-  ["A24","ZONA A",1560,351,29,87],
-  ["A12","ZONA A",1560,441,29,87],
-  ["B01","ZONA B",1647,139,27,97],
-  ["B02","ZONA B",1674,139,26,97],
-  ["B03","ZONA B",1700,139,26,97],
-  ["B04","ZONA B",1726,139,26,97],
-  ["B05","ZONA B",1752,139,26,97],
-  ["B06","ZONA B",1778,139,26,97],
-  ["B07","ZONA B",1804,139,26,97],
-  ["B08","ZONA B",1830,139,26,97],
-  ["B09","ZONA B",1856,139,25,97],
+  ["A13","P VERDE",1291,351,29,87],
+  ["A01","P VERDE",1291,441,29,87],
+  ["A14","P VERDE",1320,351,24,87],
+  ["A02","P VERDE",1320,441,24,87],
+  ["A15","P VERDE",1344,351,24,87],
+  ["A03","P VERDE",1344,441,24,87],
+  ["A16","P VERDE",1368,351,24,87],
+  ["A04","P VERDE",1368,441,24,87],
+  ["A17","P VERDE",1392,351,25,87],
+  ["A05","P VERDE",1392,441,25,87],
+  ["A18","P VERDE",1417,351,23,87],
+  ["A06","P VERDE",1417,441,23,87],
+  ["A19","P VERDE",1440,351,24,87],
+  ["A07","P VERDE",1440,441,24,87],
+  ["A20","P VERDE",1464,351,24,87],
+  ["A08","P VERDE",1464,441,24,87],
+  ["A21","P VERDE",1488,351,24,87],
+  ["A09","P VERDE",1488,441,24,87],
+  ["A22","P VERDE",1512,351,24,87],
+  ["A10","P VERDE",1512,441,24,87],
+  ["A23","P VERDE",1536,351,24,87],
+  ["A11","P VERDE",1536,441,24,87],
+  ["A24","P VERDE",1560,351,29,87],
+  ["A12","P VERDE",1560,441,29,87],
+  ["B01","P BLU",1647,139,27,97],
+  ["B02","P BLU",1674,139,26,97],
+  ["B03","P BLU",1700,139,26,97],
+  ["B04","P BLU",1726,139,26,97],
+  ["B05","P BLU",1752,139,26,97],
+  ["B06","P BLU",1778,139,26,97],
+  ["B07","P BLU",1804,139,26,97],
+  ["B08","P BLU",1830,139,26,97],
+  ["B09","P BLU",1856,139,25,97],
   ["C01","ZONA C",324,1012,89,24],
   ["C02","ZONA C",324,1038,89,23],
   ["C03","ZONA C",324,1063,89,24],
@@ -990,10 +1003,37 @@ const PATCHES=[
 
 const ZONES = {
   "ZONA A": SPOT_DEFS.filter(s=>s[1]==="ZONA A").map(s=>s[0]),
-  "ZONA B":   SPOT_DEFS.filter(s=>s[1]==="ZONA B").map(s=>s[0]),
-  "ZONA C":  SPOT_DEFS.filter(s=>s[1]==="ZONA C").map(s=>s[0]),
-  "ZONA D":  SPOT_DEFS.filter(s=>s[1]==="ZONA D").map(s=>s[0]),
+  "ZONA B": SPOT_DEFS.filter(s=>s[1]==="ZONA B").map(s=>s[0]),
+  "ZONA C": SPOT_DEFS.filter(s=>s[1]==="ZONA C").map(s=>s[0]),
+  "ZONA D": SPOT_DEFS.filter(s=>s[1]==="ZONA D").map(s=>s[0]),
 };
+
+// ── Mappa reparti → ribalte ───────────────────────────────────────────────────
+function _range(prefix, from, to) {
+  const out = [];
+  for (let i = from; i <= to; i++) out.push(prefix + '-' + String(i).padStart(2,'0'));
+  return out;
+}
+const REPARTI = {
+  "RICEVIMENTO": [..._range('PNT1', 1, 31)],
+  "SPEDIZIONI":  [..._range('PNT1', 32, 61), ..._range('PNT1', 73, 81)],
+  "CAPI APPESI": [..._range('PNT1', 62, 72)],
+  "LAV MAN":     [..._range('PNT1', 82, 90)],
+  "REVERSE":     [..._range('PNT2', 1, 18), ..._range('PNT2', 32, 33)],
+  "ESTERO":      [..._range('PNT2', 19, 29)],
+  "E-COMMERCE":  [..._range('PNT2', 30, 31), ..._range('PNT2', 34, 48)],
+  "TGW":         [..._range('PNT2', 49, 49)],
+};
+
+// Restituisce le destinazioni valide per un reparto.
+// Se reparto è null/undefined (es. amministratore) restituisce tutte.
+function getDestinazioniPerReparto(reparto) {
+  if (!reparto || !REPARTI[reparto]) {
+    // Tutte le destinazioni
+    return Object.values(REPARTI).flat();
+  }
+  return REPARTI[reparto];
+}
 
 // ââ STATO LOCALE âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 const spots = {};
@@ -1751,6 +1791,17 @@ async function renderUsers(){
         <option value="amministrativo"${u.role==="amministrativo"?"selected":""}>Amministrativo</option>
         <option value="amministratore"${u.role==="amministratore"?"selected":""}>Amministratore</option>
       </select>
+      <select class="roleSelect" onchange="window._changeReparto('${u.uid}',this.value)" title="Reparto ribalte">
+        <option value="" ${!u.reparto?"selected":""}>— Reparto —</option>
+        <option value="RICEVIMENTO"  ${u.reparto==="RICEVIMENTO"?"selected":""}>Ricevimento</option>
+        <option value="SPEDIZIONI"   ${u.reparto==="SPEDIZIONI"?"selected":""}>Spedizioni</option>
+        <option value="CAPI APPESI"  ${u.reparto==="CAPI APPESI"?"selected":""}>Capi appesi</option>
+        <option value="LAV MAN"      ${u.reparto==="LAV MAN"?"selected":""}>Lav man</option>
+        <option value="REVERSE"      ${u.reparto==="REVERSE"?"selected":""}>Reverse</option>
+        <option value="ESTERO"       ${u.reparto==="ESTERO"?"selected":""}>Estero</option>
+        <option value="E-COMMERCE"   ${u.reparto==="E-COMMERCE"?"selected":""}>E-commerce</option>
+        <option value="TGW"          ${u.reparto==="TGW"?"selected":""}>TGW</option>
+      </select>
       <button class="btnDanger" onclick="window._deleteUser('${u.uid}','${(u.name||u.email).replace(/'/g,"\'")}')">🗑</button>
     </div>`).join("")||'<div style="color:var(--muted);font-size:13px">Nessun utente trovato</div>';
 }
@@ -1878,6 +1929,12 @@ async function changeRole(uid,role){
   renderUsers();
 }
 window._changeRole=changeRole;
+
+async function changeReparto(uid, reparto) {
+  await updateDoc(doc(db,"users",uid), { reparto: reparto || null });
+  showToast("Reparto aggiornato","success");
+}
+window._changeReparto = changeReparto;
 window.renderUsers=renderUsers;
 
 async function deleteUser(uid, nome) {
@@ -1896,7 +1953,8 @@ window.addUser = async function(){
   const name  = document.getElementById("newUserName").value.trim();
   const email = document.getElementById("newUserEmail").value.trim();
   const pass  = document.getElementById("newUserPass").value.trim();
-  const role  = document.getElementById("newUserRole").value;
+  const role   = document.getElementById("newUserRole").value;
+  const reparto = document.getElementById("newUserReparto")?.value || null;
   if(!name||!email||!pass){ showToast("Compila tutti i campi","error"); return; }
   if(pass.length < 6){ showToast("La password deve essere di almeno 6 caratteri","error"); return; }
   const btn = document.querySelector("#modalAddUser .btnPrimary");
@@ -1908,7 +1966,7 @@ window.addUser = async function(){
     const cred = await createUserWithEmailAndPassword(secondaryAuth, email, pass);
     const uid = cred.user.uid;
     // Salva profilo su Firestore
-    await setDoc(doc(db, "users", uid), { name, email, role });
+    await setDoc(doc(db, "users", uid), { name, email, role, reparto: reparto || null });
     // Disconnetti e distruggi l'istanza secondaria
     await signOut(secondaryAuth);
     await secondaryApp.delete();
@@ -2003,22 +2061,14 @@ function riconosciTipoMezzo(id) {
 }
 
 // ── Stato locale prenotazioni ─────────────────────────────────────────────
-const DESTINAZIONI_VALIDE = [
-  'PNT1-01','PNT1-02','PNT1-03','PNT1-04','PNT1-05','PNT1-06','PNT1-07','PNT1-08','PNT1-09','PNT1-10',
-  'PNT1-11','PNT1-12','PNT1-13','PNT1-14','PNT1-15','PNT1-16','PNT1-17','PNT1-18','PNT1-19','PNT1-20',
-  'PNT1-21','PNT1-22','PNT1-23','PNT1-24','PNT1-25','PNT1-26','PNT1-27','PNT1-28','PNT1-29','PNT1-30',
-  'PNT1-31','PNT1-32','PNT1-33','PNT1-34','PNT1-35','PNT1-36','PNT1-37','PNT1-38','PNT1-39','PNT1-40',
-  'PNT1-41','PNT1-42','PNT1-43','PNT1-44','PNT1-45','PNT1-46','PNT1-47','PNT1-48','PNT1-49','PNT1-50',
-  'PNT1-51','PNT1-52','PNT1-53','PNT1-54','PNT1-55','PNT1-56','PNT1-57','PNT1-58','PNT1-59','PNT1-60',
-  'PNT1-61','PNT1-62','PNT1-63','PNT1-64','PNT1-65','PNT1-66','PNT1-67','PNT1-68','PNT1-69','PNT1-70',
-  'PNT1-71','PNT1-72','PNT1-73','PNT1-74','PNT1-75','PNT1-76','PNT1-77','PNT1-78','PNT1-79','PNT1-80',
-  'PNT1-81','PNT1-82','PNT1-83','PNT1-84','PNT1-85','PNT1-86','PNT1-87','PNT1-88','PNT1-89','PNT1-90',
-  'PNT2-01','PNT2-02','PNT2-03','PNT2-04','PNT2-05','PNT2-06','PNT2-07','PNT2-08','PNT2-09','PNT2-10',
-  'PNT2-11','PNT2-12','PNT2-13','PNT2-14','PNT2-15','PNT2-16','PNT2-17','PNT2-18','PNT2-19','PNT2-20',
-  'PNT2-21','PNT2-22','PNT2-23','PNT2-24','PNT2-25','PNT2-26','PNT2-27','PNT2-28','PNT2-29','PNT2-30',
-  'PNT2-31','PNT2-32','PNT2-33','PNT2-34','PNT2-35','PNT2-36','PNT2-37','PNT2-38','PNT2-39','PNT2-40',
-  'PNT2-41','PNT2-42','PNT2-43','PNT2-44','PNT2-45','PNT2-46','PNT2-47','PNT2-48','PNT2-49'
-];
+// DESTINAZIONI_VALIDE è dinamico: dipende dal reparto dell'utente corrente.
+// Amministratore → tutte; altri → solo quelle del proprio reparto.
+function _getDestinazioniUtente() {
+  const reparto = (typeof currentUser !== 'undefined' && currentUser)
+    ? (currentUser.role === 'amministratore' ? null : currentUser.reparto)
+    : null;
+  return getDestinazioniPerReparto(reparto);
+}
 
 let _prenotazioni = [];
 let _mezzoCorrente = null;
@@ -2031,8 +2081,8 @@ const _gruppoPickerDesk = {}; // { [formKey]: 'PNT1'|'PNT2' }
 function _getRibalteLibere() {
   const occupate = new Set(Object.values(_ribalteData).filter(r => r.occupied).map(r => r.id));
   return {
-    PNT1: DESTINAZIONI_VALIDE.filter(d => d.startsWith('PNT1') && !occupate.has(d)),
-    PNT2: DESTINAZIONI_VALIDE.filter(d => d.startsWith('PNT2') && !occupate.has(d))
+    PNT1: _getDestinazioniUtente().filter(d => d.startsWith('PNT1') && !occupate.has(d)),
+    PNT2: _getDestinazioniUtente().filter(d => d.startsWith('PNT2') && !occupate.has(d))
   };
 }
 
@@ -2159,7 +2209,7 @@ function validaDestinazione() {
     feedback.textContent = '';
     feedback.className = 'pren-feedback';
     _destinazioneValida = false;
-  } else if (DESTINAZIONI_VALIDE.includes(val)) {
+  } else if (_getDestinazioniUtente().includes(val)) {
     feedback.textContent = '✔ Destinazione valida';
     feedback.className = 'pren-feedback ok';
     _destinazioneValida = true;
@@ -2260,7 +2310,7 @@ async function salvaPrenotazione() {
   const destinazione = document.getElementById('pren-destinazione').value.trim().toUpperCase();
   const dataOra = document.getElementById('pren-data').value;
   const urgente = document.getElementById('pren-urgente').checked;
-  if (!destinazione || !DESTINAZIONI_VALIDE.includes(destinazione)) { alert('Destinazione non valida.'); return; }
+  if (!destinazione || !_getDestinazioniUtente().includes(destinazione)) { alert('Destinazione non valida.'); return; }
   if (!dataOra) { alert('Inserisci data e ora dello spostamento.'); return; }
   const user = auth.currentUser;
   const btnSalva = document.getElementById('pren-btn-salva');

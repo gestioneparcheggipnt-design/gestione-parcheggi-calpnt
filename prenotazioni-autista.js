@@ -724,9 +724,13 @@ showToast('Errore: ' + e.message, 'error');
 
 window.apriPopupRibalte = function(prenId) {
 
+const _destUtente = (typeof currentUser !== 'undefined' && currentUser && currentUser.role !== 'amministratore')
+  ? getDestinazioniPerReparto(currentUser.reparto)
+  : null;
+
 const ribalteLibere = Object.values(_ribalte)
 
-.filter(r => !r.occupied)
+.filter(r => !r.occupied && (!_destUtente || _destUtente.includes(r.id)))
 
 .sort((a, b) => a.id.localeCompare(b.id));
 
@@ -776,9 +780,13 @@ if (overlay) overlay.classList.remove('visible');
 
 window.apriPopupRibalte_cassa = function(spotId, plate) {
 
+const _destUtente = (typeof currentUser !== 'undefined' && currentUser && currentUser.role !== 'amministratore')
+  ? getDestinazioniPerReparto(currentUser.reparto)
+  : null;
+
 const ribalteLibere = Object.values(_ribalte)
 
-.filter(r => !r.occupied)
+.filter(r => !r.occupied && (!_destUtente || _destUtente.includes(r.id)))
 
 .sort((a, b) => a.id.localeCompare(b.id));
 
