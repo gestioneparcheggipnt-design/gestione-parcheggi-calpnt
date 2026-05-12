@@ -989,7 +989,7 @@ margin-bottom: 8px;
 
 .casseCardPosto {
   font-family: 'Barlow Condensed', sans-serif;
-  font-size: 30px;
+  font-size: 38px;
   font-weight: 800;
   color: var(--text);
   line-height: 1;
@@ -997,7 +997,7 @@ margin-bottom: 8px;
 
 .casseCardArrow {
   font-family: 'Barlow Condensed', sans-serif;
-  font-size: 26px;
+  font-size: 22px;
   font-weight: 700;
   color: var(--muted);
   line-height: 1;
@@ -1005,14 +1005,11 @@ margin-bottom: 8px;
 
 .casseCardDest {
   font-family: 'Barlow Condensed', sans-serif;
-  font-size: 30px;
-  font-weight: 800;
-  color: var(--orange);
-  line-height: 1;
-}
-
-.casseCard.bloccata .casseCardDest {
+  font-size: 18px;
+  font-weight: 700;
   color: var(--muted);
+  line-height: 1;
+  letter-spacing: .5px;
 }
 
 /* Anzianità */
