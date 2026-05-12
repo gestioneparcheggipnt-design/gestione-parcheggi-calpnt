@@ -288,25 +288,35 @@ let completaBtn = '';
 
 if (abilitato) {
 
-completaBtn = `<button class="btnCompleta" onclick="apriPopupRibalte_cassa('${_esc(s.id)}','${_esc(s.plate)}')" style="margin-top:10px">✓ Completa missione</button>`;
+completaBtn = `<button class="btnCompletaOrange" onclick="apriPopupRibalte_cassa('${_esc(s.id)}','${_esc(s.plate)}')">✅ Completa missione</button>`;
 
 } else {
 
-completaBtn = `<div style="font-size:11px;color:var(--muted);margin-top:8px;font-style:italic">🔒 Disponibile dopo il completamento delle prime ${BLOCCO}</div>`;
+completaBtn = `<button disabled class="btnBlocco">🔒 In attesa</button>`;
 
 }
 
+const cardClass = abilitato ? 'casseCard pendente' : 'casseCard bloccata';
+
 html += `
 
-<div class="casseCard">
+<div class="${cardClass}">
 
-<div class="casseCardHeader">
+<div class="casseCardTop">
 
 <span class="${rankClass}">${idx + 1}</span>
 
 <span class="casseCardPlate">${_esc(s.plate)}</span>
 
+</div>
+
+<div class="casseCardRoute">
+
 <span class="casseCardPosto">${_esc(s.id)}</span>
+
+<span class="casseCardArrow">→</span>
+
+<span class="casseCardDest">Ribalta</span>
 
 </div>
 
