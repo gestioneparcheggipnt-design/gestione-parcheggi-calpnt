@@ -2100,6 +2100,26 @@ function _getRibalteLibere() {
   };
 }
 
+// Stili bottoni picker desktop
+const _DS = {
+  ribBtn:    'padding:5px 10px;border-radius:6px;border:1px solid var(--border,#3a4050);background:var(--surface2,#2e333d);color:#A4D200;font-size:13px;font-weight:700;cursor:pointer;margin:2px',
+  ribBtnSel: 'padding:5px 10px;border-radius:6px;border:2px solid #A4D200;background:#A4D200;color:#1C1F26;font-size:13px;font-weight:700;cursor:pointer;margin:2px',
+  navBtn:    'padding:4px 12px;border-radius:6px;border:1px solid var(--border,#3a4050);background:var(--surface2,#2e333d);color:var(--text,#e8eaf0);font-size:12px;font-weight:600;cursor:pointer;margin:2px',
+  navBtnSel: 'padding:4px 12px;border-radius:6px;border:2px solid #A4D200;background:#A4D200;color:#1C1F26;font-size:12px;font-weight:700;cursor:pointer;margin:2px',
+  altriBtn:  'padding:4px 12px;border-radius:6px;border:1px solid var(--border,#3a4050);background:transparent;color:var(--text2,#9ca3af);font-size:12px;font-weight:600;cursor:pointer;margin:2px',
+  label:     'font-size:11px;color:var(--text2,#9ca3af);margin:8px 0 4px;text-transform:uppercase;letter-spacing:.04em',
+};
+
+// Restituisce tutte le ribalte libere (non filtrate per reparto utente), escludendo impegnate
+function _getRibalteLibereAll() {
+  const occupate = new Set(Object.values(_ribalteData).filter(r => r.occupied).map(r => r.id));
+  _prenotazioni.forEach(p => {
+    if (p.stato === 'creata' && p.destinazione) occupate.add(p.destinazione.trim().toUpperCase());
+  });
+  const all = window.getDestinazioniPerReparto ? window.getDestinazioniPerReparto(null) : [];
+  return all.filter(d => !occupate.has(d));
+}
+
 function _ribaltaPickerHTMLDesk(formKey) {
   const gruppo = _gruppoPickerDesk[formKey] || 'PNT1';
   const { PNT1, PNT2 } = _getRibalteLibere();
@@ -2107,21 +2127,99 @@ function _ribaltaPickerHTMLDesk(formKey) {
   const btnSt = (a) => `padding:5px 14px;border-radius:6px;font-size:12px;cursor:pointer;` +
     (a ? `border:2px solid #A4D200;background:#A4D200;color:#1C1F26;font-weight:700`
        : `border:1px solid var(--border,#3a4050);background:var(--surface2,#2e333d);color:var(--text,#e8eaf0)`);
+
+  // Pulsante "altri reparti" solo se l'utente non è amministratore
+  const mostraAltri = (typeof currentUser !== 'undefined' && currentUser &&
+    currentUser.role !== 'amministratore' && currentUser.reparto);
+  const altriBtnHTML = mostraAltri
+    ? `<button onclick="deskApriAltriReparti('${formKey}')" style="${_DS.altriBtn}">🔀 Ribalte altri reparti</button>`
+    : '';
+
   const items = list.length
     ? list.map(d => `<button id="deskRibBtn_${formKey}_${d}" onclick="deskScegliRibalta('${formKey}','${d}')"
-        style="padding:5px 10px;border-radius:6px;border:1px solid var(--border,#3a4050);
-               background:var(--surface2,#2e333d);color:#A4D200;font-size:13px;font-weight:700;cursor:pointer;margin:2px">
-        ${d}</button>`).join('')
+        style="${_DS.ribBtn}">${d}</button>`).join('')
     : `<span style="color:var(--text2);font-size:12px">Nessuna libera per ${gruppo}</span>`;
+
   return `<div id="deskRibaltaPicker_${formKey}" style="margin-top:8px">
     <div style="font-size:11px;color:var(--text2);margin-bottom:6px;text-transform:uppercase;letter-spacing:.4px">Ribalta disponibile:</div>
-    <div style="display:flex;gap:6px;margin-bottom:8px">
+    <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;align-items:center">
       <button onclick="deskCambiaGruppo('${formKey}','PNT1')" style="${btnSt(gruppo==='PNT1')}">PNT1</button>
       <button onclick="deskCambiaGruppo('${formKey}','PNT2')" style="${btnSt(gruppo==='PNT2')}">PNT2</button>
+      ${altriBtnHTML}
     </div>
     <div style="display:flex;flex-wrap:wrap;gap:4px">${items}</div>
+    <div id="deskAltriReparti_${formKey}" style="display:none;margin-top:10px;padding-top:10px;border-top:1px solid var(--border,#3a4050)"></div>
   </div>`;
 }
+
+// ── Navigazione "altri reparti" desktop ───────────────────────────────────────
+
+window.deskApriAltriReparti = function(formKey) {
+  const wrap = document.getElementById('deskAltriReparti_' + formKey);
+  if (!wrap) return;
+  const libereAll = _getRibalteLibereAll();
+  // Escludi destinazioni già del proprio reparto
+  const mieDestin = new Set(_getRibalteLibere().PNT1.concat(_getRibalteLibere().PNT2));
+  const altreLibere = libereAll.filter(d => !mieDestin.has(d));
+
+  const pnt1 = altreLibere.filter(d => d.startsWith('PNT1-'));
+  const pnt2 = altreLibere.filter(d => d.startsWith('PNT2-'));
+
+  if (!altreLibere.length) {
+    wrap.innerHTML = '<div style="font-size:12px;color:var(--text2)">Nessuna ribalta libera in altri reparti</div>';
+    wrap.style.display = 'block';
+    return;
+  }
+
+  let h = `<div style="${_DS.label}">Seleziona edificio:</div><div style="display:flex;flex-wrap:wrap;gap:4px">`;
+  if (pnt1.length) h += `<button style="${_DS.navBtn}" onclick="deskAltriEdificio('${formKey}','PNT1')">🏭 PNT1 (${pnt1.length})</button>`;
+  if (pnt2.length) h += `<button style="${_DS.navBtn}" onclick="deskAltriEdificio('${formKey}','PNT2')">🏭 PNT2 (${pnt2.length})</button>`;
+  h += `</div><div id="deskAltriSub_${formKey}"></div>`;
+  wrap.innerHTML = h;
+  wrap.style.display = 'block';
+};
+
+window.deskAltriEdificio = function(formKey, edificio) {
+  const sub = document.getElementById('deskAltriSub_' + formKey);
+  if (!sub) return;
+  const libereAll = _getRibalteLibereAll();
+  const mieDestin = new Set(_getRibalteLibere().PNT1.concat(_getRibalteLibere().PNT2));
+  const altreLibere = libereAll.filter(d => !mieDestin.has(d) && d.startsWith(edificio + '-'));
+
+  // Raggruppa per reparto
+  const repartiMap = {};
+  altreLibere.forEach(d => {
+    let found = 'Altro';
+    for (const [nome, ids] of Object.entries(window._REPARTI || {})) {
+      if (ids.includes(d)) { found = nome; break; }
+    }
+    if (!repartiMap[found]) repartiMap[found] = [];
+    repartiMap[found].push(d);
+  });
+
+  let h = `<div style="${_DS.label}">${edificio} — Seleziona reparto:</div><div style="display:flex;flex-wrap:wrap;gap:4px">`;
+  Object.entries(repartiMap).forEach(([nome, ids]) => {
+    h += `<button style="${_DS.navBtn}" onclick="deskAltriReparto('${formKey}','${nome}','${edificio}')">${nome} (${ids.length})</button>`;
+  });
+  h += '</div><div id="deskAltriRibalte_' + formKey + '"></div>';
+  sub.innerHTML = h;
+};
+
+window.deskAltriReparto = function(formKey, repartoNome, edificio) {
+  const wrap = document.getElementById('deskAltriRibalte_' + formKey);
+  if (!wrap) return;
+  const libereAll = _getRibalteLibereAll();
+  const mieDestin = new Set(_getRibalteLibere().PNT1.concat(_getRibalteLibere().PNT2));
+  const ids = (window._REPARTI && window._REPARTI[repartoNome]) ? window._REPARTI[repartoNome] : [];
+  const ribalte = libereAll.filter(d => !mieDestin.has(d) && ids.includes(d));
+
+  let h = `<div style="${_DS.label}">${repartoNome}:</div><div style="display:flex;flex-wrap:wrap;gap:4px">`;
+  ribalte.forEach(d => {
+    h += `<button id="deskRibBtn_${formKey}_${d}" onclick="deskScegliRibalta('${formKey}','${d}')" style="${_DS.ribBtn}">${d}</button>`;
+  });
+  h += '</div>';
+  wrap.innerHTML = h;
+};
 
 window.deskCambiaGruppo = function(formKey, gruppo) {
   _gruppoPickerDesk[formKey] = gruppo;
