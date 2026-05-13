@@ -1317,9 +1317,10 @@ onAuthStateChanged(auth, async (fbUser) => {
   if (fbUser) {
     // Leggi ruolo da Firestore
     const snap = await getDoc(doc(db,"users",fbUser.uid));
-    const role = snap.exists() ? snap.data().role : "autista";
-    const name = snap.exists() ? (snap.data().name || fbUser.email) : fbUser.email;
-    currentUser = { email: fbUser.email, uid: fbUser.uid, role, name };
+    const role    = snap.exists() ? snap.data().role : "autista";
+    const name    = snap.exists() ? (snap.data().name || fbUser.email) : fbUser.email;
+    const reparto = snap.exists() ? (snap.data().reparto || null) : null;
+    currentUser = { email: fbUser.email, uid: fbUser.uid, role, name, reparto };
     showApp();
   } else {
     currentUser = null;
