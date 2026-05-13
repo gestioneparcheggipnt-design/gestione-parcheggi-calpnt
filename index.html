@@ -755,10 +755,10 @@ if(!_forceDesktop && (window.innerWidth<=768||navigator.maxTouchPoints>0) && !lo
           </div>
           <div id="pren-mezzo-feedback" class="pren-feedback"></div>
         </div>
-        <div class="pren-field">
-          <label for="pren-destinazione">Destinazione</label>
-          <input type="text" id="pren-destinazione" placeholder="Es. PNT1-01"
-                 oninput="this.value = this.value.toUpperCase(); validaDestinazione()" autocomplete="off" />
+        <div class="pren-field pren-field-full">
+          <label>Destinazione (ribalta)</label>
+          <input type="hidden" id="pren-destinazione" />
+          <div id="pren-ribalta-picker"></div>
           <div id="pren-dest-feedback" class="pren-feedback"></div>
         </div>
         <div class="pren-field">
@@ -2132,7 +2132,38 @@ window.deskScegliRibalta = function(formKey, dest) {
   });
   const inp = document.getElementById('deskRibInput_' + formKey);
   if (inp) inp.value = dest;
+  // Se è il picker del form principale, aggiorna il campo hidden e abilita Salva
+  if (formKey === 'prenForm') {
+    const hidden = document.getElementById('pren-destinazione');
+    if (hidden) hidden.value = dest;
+    _destinazioneValida = true;
+    const fb = document.getElementById('pren-dest-feedback');
+    if (fb) { fb.textContent = '✔ ' + dest + ' selezionata'; fb.className = 'pren-feedback ok'; }
+    _aggiornaBtnSalva();
+  }
 };
+
+// Inietta il picker nel form principale (chiamato dopo cercaMezzo e ad ogni aggiornamento ribalte)
+function _aggiornaPickerForm() {
+  const wrap = document.getElementById('pren-ribalta-picker');
+  if (!wrap) return;
+  // Se non c'è un mezzo cercato mostra messaggio placeholder
+  if (!_mezzoCorrente) {
+    wrap.innerHTML = '<div style="font-size:.82rem;color:var(--muted);padding:.4rem 0">🔍 Cerca prima il container per vedere le ribalte disponibili</div>';
+    return;
+  }
+  wrap.innerHTML = _ribaltaPickerHTMLDesk('prenForm');
+  // Ripristina selezione corrente se già scelta
+  const val = document.getElementById('pren-destinazione')?.value;
+  if (val) {
+    document.querySelectorAll('[id^="deskRibBtn_prenForm_"]').forEach(b => {
+      const sel = b.id === 'deskRibBtn_prenForm_' + val;
+      b.style.background = sel ? '#A4D200' : 'var(--surface2,#2e333d)';
+      b.style.color      = sel ? '#1C1F26' : '#A4D200';
+      b.style.border     = sel ? '2px solid #A4D200' : '1px solid var(--border,#3a4050)';
+    });
+  }
+}
 
 // ── Aggiorna vista tab in base alla modalità corrente ─────────────────────
 function _aggiornaVistaPrenotazioni() {
@@ -2249,6 +2280,7 @@ function initPrenotazioni() {
     snap => {
       _ribalteData = {};
       snap.docs.forEach(d => { _ribalteData[d.id] = { id: d.id, ...d.data() }; });
+      _aggiornaPickerForm();
     },
     err => console.error('Errore listener ribalte:', err)
   );
@@ -2305,6 +2337,7 @@ async function cercaMezzo() {
     occEl.textContent = data.occupied ? '🔴 Occupato' : '🟢 Libero';
     occEl.style.display = 'inline-block';
     infoBox.style.display = 'flex';
+    _aggiornaPickerForm();
     _aggiornaBtnSalva();
   } catch (err) {
     console.error('Errore ricerca mezzo:', err);
@@ -2486,6 +2519,8 @@ function resetFormPrenotazione() {
   document.getElementById('pren-btn-salva').textContent = '💾 Salva Prenotazione';
   _mezzoCorrente = null;
   _destinazioneValida = false;
+  _gruppoPickerDesk['prenForm'] = 'PNT1';
+  _aggiornaPickerForm();
   const now = new Date();
   now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
   document.getElementById('pren-data').value = now.toISOString().slice(0, 16);
