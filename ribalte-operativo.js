@@ -5,8 +5,17 @@
 
 import { db, doc, collection, query, orderBy, onSnapshot, setDoc, addDoc, serverTimestamp }
   from './firebase-config.js';
-import { DESTINAZIONI_VALIDE } from './spots-data.js';
 import { _esc, showToast, fmtDate, fmtDur } from './shared-utils.js';
+
+// getDestinazioniPerReparto è esposta su window da mobile.html
+function _getDestinazioni() {
+  if (typeof window.getDestinazioniPerReparto === 'function') {
+    const user = typeof window._getCurrentUser === 'function' ? window._getCurrentUser() : null;
+    const reparto = (user && user.role !== 'amministratore') ? user.reparto : null;
+    return window.getDestinazioniPerReparto(reparto);
+  }
+  return [];
+}
 
 // ── STATO INTERNO ─────────────────────────────────────────────────────────────
 let _getUser;
@@ -40,9 +49,10 @@ export function getRibalteLibere() {
   const occupate = new Set(
     Object.values(_ribalteData).filter(r => r.occupied).map(r => r.id)
   );
+  const dest = _getDestinazioni();
   return {
-    PNT1: DESTINAZIONI_VALIDE.filter(d => d.startsWith('PNT1') && !occupate.has(d)),
-    PNT2: DESTINAZIONI_VALIDE.filter(d => d.startsWith('PNT2') && !occupate.has(d))
+    PNT1: dest.filter(d => d.startsWith('PNT1') && !occupate.has(d)),
+    PNT2: dest.filter(d => d.startsWith('PNT2') && !occupate.has(d))
   };
 }
 
@@ -274,5 +284,5 @@ export function updateRibalteBox(freeSpots) {
 }
 
 export function isDestinazioneValida(dest) {
-  return DESTINAZIONI_VALIDE.includes((dest || '').toUpperCase());
+  return _getDestinazioni().includes((dest || '').toUpperCase());
 }
