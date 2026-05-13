@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Gestione Parcheggi Mobile</title>
-<link rel="stylesheet" href="mobile-styles.css?v=1778687696">
+<link rel="stylesheet" href="mobile-styles.css?v=1778688330">
 <script>
   // Service Worker: aggiornamenti automatici, zero cache manuale
   if ('serviceWorker' in navigator) {
@@ -282,6 +282,8 @@
   transition: background .15s;
 }
 .ribaltaItem:active { background: var(--surface2, #f3f4f6); }
+.ribaltaItem.ribaltaBack { color: var(--muted, #6b7280); font-size: 13px; }
+.ribaltaItem.ribaltaBack .ribaltaId { font-weight: 600; font-size: 13px; color: var(--muted, #6b7280); }
 .ribaltaId { font-weight: 700; font-size: 15px; }
 .ribaltaLibera { font-size: 12px; color: var(--green, #22c55e); }
 </style>
@@ -290,20 +292,20 @@
 <script type="module">
 import { auth, db, signInWithEmailAndPassword, signOut, onAuthStateChanged,
          doc, getDoc, collection, query, orderBy, limit, onSnapshot, where }
-  from './firebase-config.js?v=1778687696';
+  from './firebase-config.js?v=1778688330';
 
-import { SPOT_DEFS, getDestinazioniPerReparto } from './spots-data.js?v=1778687696';
-import { fmtDate, fmtDur, showToast } from './shared-utils.js?v=1778687696';
+import { SPOT_DEFS, REPARTI, getDestinazioniPerReparto } from './spots-data.js?v=1778688330';
+import { fmtDate, fmtDur, showToast } from './shared-utils.js?v=1778688330';
 
 import { initCheckin, updateCheckinUI, doCheckinRapido,
   renderPosti, openSpotDrawer, closeDrawer,
   assignFromDrawer, freeFromDrawer, toggleFullDrawer,
   addDamagedDrawer, removeDamagedDrawer,
   addUnusableDrawer, removeUnusableDrawer
-} from './checkin.js?v=1778687696';
+} from './checkin.js?v=1778688330';
 
-import { initPrenotazioni, renderPrenotazioni, completaSingola } from './prenotazioni-autista.js?v=1778687696';
-import { initRibalteOperativo, renderRibalte } from './ribalte-operativo.js?v=1778687696';
+import { initPrenotazioni, renderPrenotazioni, completaSingola } from './prenotazioni-autista.js?v=1778688330';
+import { initRibalteOperativo, renderRibalte } from './ribalte-operativo.js?v=1778688330';
 
 // ── STATO ─────────────────────────────────────────────────────────────────────
 let currentUser  = null;
@@ -595,10 +597,11 @@ function renderStorico() {
 
 // ── IMPORT DINAMICO per updateDoc/addDoc/serverTimestamp usati da ribalte-operativo ──
 import { updateDoc as _updateDoc, addDoc as _addDoc, serverTimestamp as _serverTimestamp }
-  from './firebase-config.js?v=1778687696';
+  from './firebase-config.js?v=1778688330';
 
 // ── EXPOSE GLOBALS ────────────────────────────────────────────────────────────
 window.getDestinazioniPerReparto = getDestinazioniPerReparto;
+window._REPARTI                  = REPARTI;
 window._getCurrentUser           = () => currentUser;
 window.doLogin              = doLogin;
 window.doLogout             = doLogout;

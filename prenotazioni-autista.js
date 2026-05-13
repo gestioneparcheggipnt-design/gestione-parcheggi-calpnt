@@ -729,48 +729,41 @@ showToast('Errore: ' + e.message, 'error');
 
 window.apriPopupRibalte = function(prenId) {
 
-const _destUtente = (typeof currentUser !== 'undefined' && currentUser && currentUser.role !== 'amministratore')
-  ? getDestinazioniPerReparto(currentUser.reparto)
-  : null;
-
-const ribalteLibere = Object.values(_ribalte)
-
-.filter(r => !r.occupied && (!_destUtente || _destUtente.includes(r.id)))
-
-.sort((a, b) => a.id.localeCompare(b.id));
-
 const overlay = document.getElementById('popupRibalteOverlay');
-
-const list = document.getElementById('popupRibalteList');
-
-const title = document.getElementById('popupRibalteTitle');
-
+const list    = document.getElementById('popupRibalteList');
+const title   = document.getElementById('popupRibalteTitle');
 if (!overlay || !list) return;
 
 const pren = _prenotazioni.find(p => p.id === prenId);
+const user = _getUser ? _getUser() : null;
 
-if (title) title.textContent = `Seleziona ribalta per cassa ${pren?.plate || ''}`;
+// Ruoli senza filtro reparto → vedono tutte le ribalte
+const noFilter = !user || ['autista', 'amministratore'].includes(user.role);
+
+// Per le prenotazioni container si usa il reparto di chi ha creato la prenotazione
+const repartoFiltro = noFilter ? null : (pren?.utenteReparto || null);
+
+const destConsentite = repartoFiltro
+  ? getDestinazioniPerReparto(repartoFiltro)
+  : null; // null = tutte
+
+const ribalteLibere = Object.values(_ribalte)
+  .filter(r => !r.occupied && (!destConsentite || destConsentite.includes(r.id)))
+  .sort((a, b) => a.id.localeCompare(b.id));
+
+if (title) title.textContent = `Seleziona ribalta per ${pren?.plate || ''}`;
 
 if (!ribalteLibere.length) {
-
-list.innerHTML = '<div style="padding:16px;text-align:center;color:var(--muted)">Nessuna ribalta libera al momento</div>';
-
+  list.innerHTML = '<div style="padding:16px;text-align:center;color:var(--muted)">Nessuna ribalta libera al momento</div>';
 } else {
-
-list.innerHTML = ribalteLibere.map(r => `
-
-<div class="ribaltaItem" onclick="selezionaRibalta('${prenId}','${r.id}')">
-
-<span class="ribaltaId">${_esc(r.id)}</span>
-
-<span class="ribaltaLibera">🟢 Libera</span>
-
+  list.innerHTML = ribalteLibere.map(r => `
+<div class="ribaltaItem" onclick="selezionaRibalta('${prenId}','${_esc(r.id)}')">
+  <span class="ribaltaId">${_esc(r.id)}</span>
+  <span class="ribaltaLibera">🟢 Libera</span>
 </div>`).join('');
-
 }
 
 overlay.classList.add('visible');
-
 overlay.dataset.prenId = prenId;
 
 };
@@ -783,49 +776,144 @@ if (overlay) overlay.classList.remove('visible');
 
 };
 
+// ── POPUP CASSE: stato navigazione gerarchica ─────────────────────────────────
+let _cassaPopupCtx = { spotId: null, plate: null, edificio: null, reparto: null };
+
 window.apriPopupRibalte_cassa = function(spotId, plate) {
+  const user = _getUser ? _getUser() : null;
+  // Ruoli senza filtro: vedono tutte le ribalte senza navigazione gerarchica
+  const noFilter = !user || ['autista', 'amministratore'].includes(user.role);
 
-const _destUtente = (typeof currentUser !== 'undefined' && currentUser && currentUser.role !== 'amministratore')
-  ? getDestinazioniPerReparto(currentUser.reparto)
-  : null;
+  _cassaPopupCtx = { spotId, plate, edificio: null, reparto: null };
 
-const ribalteLibere = Object.values(_ribalte)
+  const overlay = document.getElementById('popupRibalteOverlay');
+  const title   = document.getElementById('popupRibalteTitle');
+  if (!overlay) return;
 
-.filter(r => !r.occupied && (!_destUtente || _destUtente.includes(r.id)))
+  if (title) title.textContent = `Seleziona ribalta per cassa ${plate}`;
 
-.sort((a, b) => a.id.localeCompare(b.id));
+  if (noFilter) {
+    // Mostra direttamente tutte le ribalte libere
+    _popupCassaMostraRibalte(null);
+  } else {
+    // Inizia dal livello edificio
+    _popupCassaMostraEdifici();
+  }
 
-const overlay = document.getElementById('popupRibalteOverlay');
+  overlay.classList.add('visible');
+};
 
-const list = document.getElementById('popupRibalteList');
+function _popupCassaMostraEdifici() {
+  const list  = document.getElementById('popupRibalteList');
+  const title = document.getElementById('popupRibalteTitle');
+  if (!list) return;
+  if (title) title.textContent = `Cassa ${_cassaPopupCtx.plate} — Scegli edificio`;
 
-const title = document.getElementById('popupRibalteTitle');
+  // Edifici distinti presenti nelle ribalte libere
+  const repartiConLibere = new Set();
+  Object.values(_ribalte).filter(r => !r.occupied).forEach(r => {
+    Object.entries(window._REPARTI || {}).forEach(([rep, ids]) => {
+      if (ids.includes(r.id)) repartiConLibere.add(rep);
+    });
+  });
 
-if (!overlay || !list) return;
+  // Raggruppa reparti per edificio (PNT1 / PNT2)
+  const edificiDisponibili = new Set();
+  repartiConLibere.forEach(rep => {
+    const ids = (window._REPARTI || {})[rep] || [];
+    if (ids.some(id => id.startsWith('PNT1-'))) edificiDisponibili.add('PNT1');
+    if (ids.some(id => id.startsWith('PNT2-'))) edificiDisponibili.add('PNT2');
+  });
 
-if (title) title.textContent = `Seleziona ribalta per cassa ${plate}`;
+  if (!edificiDisponibili.size) {
+    list.innerHTML = '<div style="padding:16px;text-align:center;color:var(--muted)">Nessuna ribalta libera al momento</div>';
+    return;
+  }
 
-if (!ribalteLibere.length) {
-
-list.innerHTML = '<div style="padding:16px;text-align:center;color:var(--muted)">Nessuna ribalta libera al momento</div>';
-
-} else {
-
-list.innerHTML = ribalteLibere.map(r => `
-
-<div class="ribaltaItem" onclick="selezionaRibalta_cassa('${spotId}','${plate}','${r.id}')">
-
-<span class="ribaltaId">${_esc(r.id)}</span>
-
-<span class="ribaltaLibera">🟢 Libera</span>
-
+  list.innerHTML = [...edificiDisponibili].sort().map(ed => `
+<div class="ribaltaItem" onclick="_popupCassaSelEdificio('${ed}')">
+  <span class="ribaltaId">🏭 ${_esc(ed)}</span>
+  <span class="ribaltaLibera">›</span>
 </div>`).join('');
-
 }
 
-overlay.classList.add('visible');
+window._popupCassaSelEdificio = function(edificio) {
+  const list  = document.getElementById('popupRibalteList');
+  const title = document.getElementById('popupRibalteTitle');
+  if (!list) return;
+  _cassaPopupCtx.edificio = edificio;
+  if (title) title.textContent = `${edificio} — Scegli reparto`;
 
+  // Reparti di questo edificio che hanno almeno una ribalta libera
+  const repartiDisp = [];
+  Object.entries(window._REPARTI || {}).forEach(([rep, ids]) => {
+    const libereDelReparto = ids.filter(id =>
+      id.startsWith(edificio + '-') && _ribalte[id] && !_ribalte[id].occupied
+    );
+    if (libereDelReparto.length) repartiDisp.push({ rep, count: libereDelReparto.length });
+  });
+
+  if (!repartiDisp.length) {
+    list.innerHTML = '<div style="padding:16px;text-align:center;color:var(--muted)">Nessuna ribalta libera in questo edificio</div>';
+    return;
+  }
+
+  list.innerHTML =
+    `<div class="ribaltaItem ribaltaBack" onclick="_popupCassaMostraEdifici()">
+       <span class="ribaltaId">← Indietro</span>
+     </div>` +
+    repartiDisp.map(({ rep, count }) => `
+<div class="ribaltaItem" onclick="_popupCassaSelReparto('${_esc(rep)}')">
+  <span class="ribaltaId">${_esc(rep)}</span>
+  <span class="ribaltaLibera">${count} libere</span>
+</div>`).join('');
 };
+
+window._popupCassaSelReparto = function(reparto) {
+  _cassaPopupCtx.reparto = reparto;
+  _popupCassaMostraRibalte(reparto);
+};
+
+function _popupCassaMostraRibalte(reparto) {
+  const list  = document.getElementById('popupRibalteList');
+  const title = document.getElementById('popupRibalteTitle');
+  if (!list) return;
+
+  const edificio = _cassaPopupCtx.edificio;
+
+  let ribalteLibere;
+  if (reparto) {
+    const ids = (window._REPARTI || {})[reparto] || [];
+    ribalteLibere = Object.values(_ribalte)
+      .filter(r => !r.occupied && ids.includes(r.id))
+      .sort((a, b) => a.id.localeCompare(b.id));
+    if (title) title.textContent = `${reparto} — Scegli ribalta`;
+  } else {
+    ribalteLibere = Object.values(_ribalte)
+      .filter(r => !r.occupied)
+      .sort((a, b) => a.id.localeCompare(b.id));
+    if (title) title.textContent = `Seleziona ribalta per cassa ${_cassaPopupCtx.plate}`;
+  }
+
+  const { spotId, plate } = _cassaPopupCtx;
+
+  const backBtn = reparto
+    ? `<div class="ribaltaItem ribaltaBack" onclick="_popupCassaSelEdificio('${_esc(edificio)}')">
+         <span class="ribaltaId">← Indietro</span>
+       </div>`
+    : '';
+
+  if (!ribalteLibere.length) {
+    list.innerHTML = backBtn + '<div style="padding:16px;text-align:center;color:var(--muted)">Nessuna ribalta libera</div>';
+    return;
+  }
+
+  list.innerHTML = backBtn + ribalteLibere.map(r => `
+<div class="ribaltaItem" onclick="selezionaRibalta_cassa('${_esc(spotId)}','${_esc(plate)}','${_esc(r.id)}')">
+  <span class="ribaltaId">${_esc(r.id)}</span>
+  <span class="ribaltaLibera">🟢 Libera</span>
+</div>`).join('');
+}
 
 window.selezionaRibalta_cassa = async function(spotId, plate, ribaltaId) {
 
