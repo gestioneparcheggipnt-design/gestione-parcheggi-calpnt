@@ -679,6 +679,8 @@ if(!_forceDesktop && (window.innerWidth<=768||navigator.maxTouchPoints>0) && !lo
             <option value="">Tutti</option>
             <option value="libero">Libero</option>
             <option value="occupato">Occupato</option>
+            <option value="occupato-cassa">Occupato da cassa</option>
+            <option value="occupato-container">Occupato da container</option>
           </select></td>
           <td><input type="text" id="fTarga" placeholder="Targa" oninput="doSearch()"></td>
           <td></td>
@@ -1578,8 +1580,10 @@ function doSearch(){
   // column filters
   if(fPosto) res=res.filter(s=>s.id.includes(fPosto));
   if(fTarga) res=res.filter(s=>s.plate&&s.plate.includes(fTarga));
-  if(fStato==="libero")   res=res.filter(s=>!s.occupied);
-  if(fStato==="occupato") res=res.filter(s=>s.occupied);
+  if(fStato==="libero")             res=res.filter(s=>!s.occupied);
+  if(fStato==="occupato")           res=res.filter(s=>s.occupied);
+  if(fStato==="occupato-cassa")     res=res.filter(s=>s.occupied && s.plate && /^\d{3}$/.test(s.plate.trim()));
+  if(fStato==="occupato-container") res=res.filter(s=>s.occupied && s.plate && /^[A-Z]{4}\d{7}$/.test(s.plate.trim()));
   const fDanneggiato=(document.getElementById("fDanneggiato")?.value||"");
   if(fDanneggiato==="si")  res=res.filter(s=>s.damaged);
   if(fDanneggiato==="no")  res=res.filter(s=>!s.damaged);
