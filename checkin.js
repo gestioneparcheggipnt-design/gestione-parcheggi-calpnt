@@ -129,9 +129,11 @@ export function renderPosti() {
   if (pill === 'libero') {
     res = res.filter(s => !s.occupied);
   } else if (pill === 'occupato') {
-    // Filtra per modalità: se cassa mostra solo occupati con casse, se container solo container
-    // Attualmente il campo 'mode' non è su spots, ma possiamo filtrare semplicemente gli occupati
-    res = res.filter(s => s.occupied);
+    if (mode === 'cassa') {
+      res = res.filter(s => s.occupied && s.plate && /^\d{3}$/.test(s.plate.trim()));
+    } else {
+      res = res.filter(s => s.occupied && s.plate && /^[A-Z]{4}\d{7}$/.test(s.plate.trim().toUpperCase()));
+    }
   }
 
   if (fZona) res = res.filter(s => s.zone === fZona);
