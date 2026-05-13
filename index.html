@@ -2088,7 +2088,12 @@ let _ribalteData = {}; // { [id]: { occupied, plate } }
 const _gruppoPickerDesk = {}; // { [formKey]: 'PNT1'|'PNT2' }
 
 function _getRibalteLibere() {
+  // Escludi ribalte fisicamente occupate in Firestore
   const occupate = new Set(Object.values(_ribalteData).filter(r => r.occupied).map(r => r.id));
+  // Escludi ribalte già usate come destinazione in prenotazioni ancora aperte
+  _prenotazioni.forEach(p => {
+    if (p.stato === 'creata' && p.destinazione) occupate.add(p.destinazione.trim().toUpperCase());
+  });
   return {
     PNT1: _getDestinazioniUtente().filter(d => d.startsWith('PNT1') && !occupate.has(d)),
     PNT2: _getDestinazioniUtente().filter(d => d.startsWith('PNT2') && !occupate.has(d))
@@ -2291,6 +2296,7 @@ function initPrenotazioni() {
     snap => {
       _prenotazioni = snap.docs.map(d => ({ id: d.id, ...d.data() }));
       _aggiornaVistaPrenotazioni();
+      _aggiornaPickerForm();
     },
     err => console.error('Errore listener prenotazioni:', err)
   );
