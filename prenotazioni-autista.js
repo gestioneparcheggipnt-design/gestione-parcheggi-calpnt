@@ -17,6 +17,40 @@ import { showToast, _esc, validateDestination, isValidSpot, isValidRibalta } fro
 
 const RE_CASSA = /^\d{3}$/;
 
+// ── Helper ribalte libere ──────────────────────────────────────────────────────
+// Restituisce ribalte libere filtrate per reparto (null = tutte).
+// Esclude anche quelle impegnate in prenotazioni aperte.
+function _ribalteLiberePerReparto(reparto) {
+  const impegnate = new Set(
+    _prenotazioni
+      .filter(p => p.stato === 'creata' && p.destinazione)
+      .map(p => p.destinazione.trim().toUpperCase())
+  );
+  let ids;
+  if (reparto && window._REPARTI && window._REPARTI[reparto]) {
+    ids = window._REPARTI[reparto];
+  } else if (!reparto) {
+    ids = null; // tutte
+  } else {
+    ids = null;
+  }
+  return Object.values(_ribalte).filter(r =>
+    !r.occupied &&
+    !impegnate.has(r.id) &&
+    (!ids || ids.includes(r.id))
+  ).sort((a, b) => a.id.localeCompare(b.id));
+}
+
+// Stili inline condivisi
+const _S = {
+  ribaltaBtn: 'display:inline-block;margin:3px;padding:7px 13px;border-radius:8px;border:1.5px solid var(--accent);background:transparent;color:var(--accent);font-family:inherit;font-size:13px;font-weight:700;cursor:pointer',
+  ribaltaBtnSel: 'display:inline-block;margin:3px;padding:7px 13px;border-radius:8px;border:1.5px solid var(--accent);background:var(--accent);color:#1C1F26;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer',
+  navBtn: 'padding:6px 14px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-family:inherit;font-size:12px;font-weight:600;cursor:pointer;margin:3px',
+  navBtnSel: 'padding:6px 14px;border-radius:8px;border:2px solid var(--accent);background:var(--accent);color:#1C1F26;font-family:inherit;font-size:12px;font-weight:700;cursor:pointer;margin:3px',
+  sectionLabel: 'font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin:10px 0 5px',
+  undoBar: 'margin-top:10px;padding:10px 12px;background:var(--surface2);border-radius:9px;border:1px solid var(--border)',
+};
+
 let _unsubPren = null;
 
 let _unsubSpots = null;
@@ -293,7 +327,9 @@ let completaBtn = '';
 
 if (abilitato) {
 
-completaBtn = `<button class="btnCompletaOrange" onclick="apriPopupRibalte_cassa('${_esc(s.id)}','${_esc(s.plate)}')">✅ Completa missione</button>`;
+completaBtn = `<button class="btnCompletaOrange" onclick="aprirCompletaCassa('${_esc(s.id)}','${_esc(s.plate)}','cassa_${_esc(s.id)}')">✅ Completa missione</button>
+<div id="cfCassa_cassa_${_esc(s.id)}" style="display:none"></div>
+<div id="cfCassaUndo_cassa_${_esc(s.id)}" style="display:none"></div>`;
 
 } else {
 
@@ -374,41 +410,14 @@ const dataStr = d ? d.toLocaleString('it-IT', { day:'2-digit', month:'2-digit', 
 const statoVeicolo = p.fullAllaLibera ? '🟡 Piena' : '🟢 Vuota';
 
 const btnHTML = abilitato
-
-? `<button class="btnCompleta" onclick="aprirCompletaMissione('${p.id}')" style="margin-top:10px">
-
-✅ Completa missione
-
-</button>
-
+? `<button class="btnCompleta" onclick="aprirCompletaMissione('${p.id}')" style="margin-top:10px">✅ Completa missione</button>
 <div class="completaForm" id="completaForm_${p.id}" style="display:none">
-
-<div class="cfTitle">Dove hai posizionato il veicolo?</div>
-
-<label style="font-size:12px;font-weight:600;color:var(--muted);display:block;margin-bottom:5px">Posto parcheggio / Ribalta destinazione</label>
-
-<input class="cfInput" id="cfInput_${p.id}" type="text"
-
-placeholder="Es. A01 oppure R04"
-
-oninput="this.value=this.value.toUpperCase()">
-
-<div class="cfActions">
-
-<button class="btnCfConfirm" onclick="confermaMissione('${p.id}')">✓ Conferma</button>
-
-<button class="btnCfCancel" onclick="chiudiCompletaForm('${p.id}')">Annulla</button>
-
-</div>
-
+  <div data-step="picker" id="cfStep_${p.id}">
+    ${_buildContainerPicker(p)}
+  </div>
+  <div data-step="undo" id="cfUndo_${p.id}" style="display:none"></div>
 </div>`
-
-: `<button disabled style="width:100%;margin-top:8px;padding:11px 0;background:var(--surface2);border:1.5px solid var(--border);border-radius:9px;color:var(--muted);font-family:inherit;font-size:13px;font-weight:700;cursor:not-allowed;opacity:.6">
-
-🔒 In attesa
-
-</button>
-
+: `<button disabled style="width:100%;margin-top:8px;padding:11px 0;background:var(--surface2);border:1.5px solid var(--border);border-radius:9px;color:var(--muted);font-family:inherit;font-size:13px;font-weight:700;cursor:not-allowed;opacity:.6">🔒 In attesa</button>
 <div style="font-size:11px;color:var(--muted);margin-top:4px;font-style:italic">Disponibile dopo il completamento delle prime 3</div>`;
 
 return `
@@ -480,35 +489,12 @@ btnHTML = `${dove}`;
 } else if (abilitato) {
 
 btnHTML = `
-
-<button class="btnCompletaOrange" onclick="aprirCompletaForm('${p.id}')">
-
-✅ Completa
-
-</button>
-
+<button class="btnCompletaOrange" onclick="aprirCompletaForm('${p.id}')">✅ Completa</button>
 <div class="completaForm" id="completaForm_${p.id}" style="display:none">
-
-<div class="cfTitle">Dove hai posizionato il veicolo?</div>
-
-<label style="font-size:12px;font-weight:600;color:var(--muted);display:block;margin-bottom:5px">Posto parcheggio (es. A01) o ribalta (es. PNT1-07)</label>
-
-<input class="cfInput" id="cfInput_${p.id}" type="text"
-
-placeholder="Es. A01 oppure PNT1-07"
-
-oninput="this.value=this.value.toUpperCase()"
-
-onkeydown="if(event.key==='Enter')confermaCompletamento('${p.id}')">
-
-<div class="cfActions">
-
-<button class="btnCfConfirm" onclick="confermaCompletamento('${p.id}')">✓ Conferma</button>
-
-<button class="btnCfCancel" onclick="chiudiCompletaForm('${p.id}')">Annulla</button>
-
-</div>
-
+  <div data-step="picker" id="cfStep_${p.id}">
+    ${_buildContainerPicker(p)}
+  </div>
+  <div data-step="undo" id="cfUndo_${p.id}" style="display:none"></div>
 </div>`;
 
 } else {
@@ -564,6 +550,228 @@ ${btnHTML}
 </div>`;
 
 }
+
+// ── BUILD PICKER CONTAINER ────────────────────────────────────────────────────
+
+function _buildContainerPicker(p) {
+  const destSuggerita = (p.destinazione || '').trim().toUpperCase();
+  const reparto = p.utenteReparto || null;
+  const ribalteLibere = _ribalteLiberePerReparto(reparto);
+  const isSuggeritaLibera = destSuggerita && ribalteLibere.some(r => r.id === destSuggerita);
+
+  let html = `<div style="${_S.sectionLabel}">Ribalta destinazione</div>`;
+
+  if (destSuggerita) {
+    const style = isSuggeritaLibera ? _S.ribaltaBtn : 'display:inline-block;margin:3px;padding:7px 13px;border-radius:8px;border:1.5px solid var(--border);background:var(--surface2);color:var(--muted);font-family:inherit;font-size:13px;font-weight:700;cursor:not-allowed;text-decoration:line-through';
+    const label = isSuggeritaLibera ? `📍 ${destSuggerita}` : `📍 ${destSuggerita} (non disponibile)`;
+    const onclick = isSuggeritaLibera ? `onclick="confermaPicker('${p.id}','${destSuggerita}')"` : '';
+    html += `<div style="margin-bottom:8px"><div style="font-size:11px;color:var(--muted);margin-bottom:4px">Ribalta richiesta:</div>
+      <button style="${style}" ${onclick}>${label}</button></div>`;
+  }
+
+  html += `<div><button style="${_S.navBtn}" onclick="_espandiAltreRibalte('${p.id}','${reparto || ''}')">🔀 Altra ribalta</button></div>`;
+  html += `<div id="altreRibalte_${p.id}" style="display:none"></div>`;
+  html += `<button style="margin-top:8px;padding:6px 12px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--muted);font-family:inherit;font-size:12px;cursor:pointer" onclick="chiudiCompletaForm('${p.id}')">Annulla</button>`;
+  return html;
+}
+
+window._espandiAltreRibalte = function(prenId, reparto) {
+  const wrap = document.getElementById('altreRibalte_' + prenId);
+  if (!wrap) return;
+  const rep = reparto || null;
+  const libere = _ribalteLiberePerReparto(rep);
+  if (!libere.length) {
+    wrap.innerHTML = '<div style="font-size:12px;color:var(--muted);margin-top:6px">Nessuna ribalta libera disponibile</div>';
+  } else {
+    // Raggruppa per edificio
+    const pnt1 = libere.filter(r => r.id.startsWith('PNT1-'));
+    const pnt2 = libere.filter(r => r.id.startsWith('PNT2-'));
+    let h = `<div style="${_S.sectionLabel};margin-top:10px">Seleziona edificio:</div>`;
+    if (pnt1.length) h += `<button style="${_S.navBtn}" onclick="_mostraRibalteEdificio('${prenId}','PNT1','${rep || ''}')">🏭 PNT1 (${pnt1.length})</button>`;
+    if (pnt2.length) h += `<button style="${_S.navBtn}" onclick="_mostraRibalteEdificio('${prenId}','PNT2','${rep || ''}')">🏭 PNT2 (${pnt2.length})</button>`;
+    h += `<div id="altreRibalteList_${prenId}"></div>`;
+    wrap.innerHTML = h;
+  }
+  wrap.style.display = 'block';
+};
+
+window._mostraRibalteEdificio = function(prenId, edificio, reparto) {
+  const wrap = document.getElementById('altreRibalteList_' + prenId);
+  if (!wrap) return;
+  const rep = reparto || null;
+  const libere = _ribalteLiberePerReparto(rep).filter(r => r.id.startsWith(edificio + '-'));
+
+  // Raggruppa per reparto usando window._REPARTI
+  const repartiMap = {};
+  libere.forEach(r => {
+    let found = 'Altro';
+    if (window._REPARTI) {
+      for (const [nome, ids] of Object.entries(window._REPARTI)) {
+        if (ids.includes(r.id)) { found = nome; break; }
+      }
+    }
+    if (!repartiMap[found]) repartiMap[found] = [];
+    repartiMap[found].push(r);
+  });
+
+  let h = `<div style="${_S.sectionLabel}">Reparto — ${edificio}:</div>`;
+  Object.entries(repartiMap).forEach(([nome, rs]) => {
+    h += `<button style="${_S.navBtn}" onclick="_mostraRibalteReparto('${prenId}','${nome}','${edificio}','${rep || ''}')">
+      ${nome} (${rs.length})</button>`;
+  });
+  wrap.innerHTML = h;
+};
+
+window._mostraRibalteReparto = function(prenId, repartoNome, edificio, repartoFiltro) {
+  const wrap = document.getElementById('altreRibalteList_' + prenId);
+  if (!wrap) return;
+  const rep = repartoFiltro || null;
+  const libere = _ribalteLiberePerReparto(rep)
+    .filter(r => r.id.startsWith(edificio + '-'))
+    .filter(r => {
+      if (!window._REPARTI || !window._REPARTI[repartoNome]) return true;
+      return window._REPARTI[repartoNome].includes(r.id);
+    });
+
+  let h = `<button style="${_S.navBtn}" onclick="_mostraRibalteEdificio('${prenId}','${edificio}','${rep || ''}')" >← Indietro</button>`;
+  h += `<div style="${_S.sectionLabel}">${repartoNome}:</div>`;
+  h += `<div style="display:flex;flex-wrap:wrap">`;
+  libere.forEach(r => {
+    h += `<button style="${_S.ribaltaBtn}" onclick="confermaPicker('${prenId}','${r.id}')">${r.id}</button>`;
+  });
+  h += '</div>';
+  wrap.innerHTML = h;
+};
+
+// ── BUILD PICKER CASSE (inline, edificio > reparto > ribalte) ─────────────────
+
+window.aprirCompletaCassa = function(spotId, plate, key) {
+  const wrap = document.getElementById('cfCassa_' + key);
+  if (!wrap) return;
+  wrap.style.display = 'block';
+  _renderCassaEdifici(spotId, plate, key);
+};
+
+function _renderCassaEdifici(spotId, plate, key) {
+  const wrap = document.getElementById('cfCassa_' + key);
+  if (!wrap) return;
+  const libere = _ribalteLiberePerReparto(null);
+  const pnt1 = libere.filter(r => r.id.startsWith('PNT1-'));
+  const pnt2 = libere.filter(r => r.id.startsWith('PNT2-'));
+
+  let h = `<div style="${_S.sectionLabel}">Seleziona edificio:</div>`;
+  if (pnt1.length) h += `<button style="${_S.navBtn}" onclick="_renderCassaReparti('${spotId}','${plate}','${key}','PNT1')">🏭 PNT1 (${pnt1.length})</button>`;
+  if (pnt2.length) h += `<button style="${_S.navBtn}" onclick="_renderCassaReparti('${spotId}','${plate}','${key}','PNT2')">🏭 PNT2 (${pnt2.length})</button>`;
+  if (!pnt1.length && !pnt2.length) h += '<div style="font-size:12px;color:var(--muted);margin-top:6px">Nessuna ribalta libera</div>';
+  wrap.innerHTML = h;
+}
+
+window._renderCassaReparti = function(spotId, plate, key, edificio) {
+  const wrap = document.getElementById('cfCassa_' + key);
+  if (!wrap) return;
+  const libere = _ribalteLiberePerReparto(null).filter(r => r.id.startsWith(edificio + '-'));
+
+  const repartiMap = {};
+  libere.forEach(r => {
+    let found = 'Altro';
+    if (window._REPARTI) {
+      for (const [nome, ids] of Object.entries(window._REPARTI)) {
+        if (ids.includes(r.id)) { found = nome; break; }
+      }
+    }
+    if (!repartiMap[found]) repartiMap[found] = [];
+    repartiMap[found].push(r);
+  });
+
+  let h = `<button style="${_S.navBtn}" onclick="_renderCassaEdifici('${spotId}','${plate}','${key}')">← Indietro</button>`;
+  h += `<div style="${_S.sectionLabel}">Reparto — ${edificio}:</div>`;
+  Object.entries(repartiMap).forEach(([nome, rs]) => {
+    h += `<button style="${_S.navBtn}" onclick="_renderCassaRibalte('${spotId}','${plate}','${key}','${nome}','${edificio}')">
+      ${nome} (${rs.length})</button>`;
+  });
+  wrap.innerHTML = h;
+};
+
+window._renderCassaRibalte = function(spotId, plate, key, repartoNome, edificio) {
+  const wrap = document.getElementById('cfCassa_' + key);
+  if (!wrap) return;
+  const libere = _ribalteLiberePerReparto(null)
+    .filter(r => r.id.startsWith(edificio + '-'))
+    .filter(r => !window._REPARTI || !window._REPARTI[repartoNome] || window._REPARTI[repartoNome].includes(r.id));
+
+  let h = `<button style="${_S.navBtn}" onclick="_renderCassaReparti('${spotId}','${plate}','${key}','${edificio}')">← Indietro</button>`;
+  h += `<div style="${_S.sectionLabel}">${repartoNome}:</div>`;
+  h += '<div style="display:flex;flex-wrap:wrap">';
+  libere.forEach(r => {
+    h += `<button style="${_S.ribaltaBtn}" onclick="confermaCassaPicker('${spotId}','${plate}','${key}','${r.id}')">${r.id}</button>`;
+  });
+  h += '</div>';
+  wrap.innerHTML = h;
+};
+
+// ── UNDO TIMER ─────────────────────────────────────────────────────────────────
+const _undoTimers = {}; // { [key]: timeoutId }
+
+// Mostra barra undo (4 sec) poi esegue l'azione
+function _avviaUndo(key, ribaltaId, labelBox, eseguiCb) {
+  if (_undoTimers[key]) clearTimeout(_undoTimers[key]);
+
+  const undoEl = document.getElementById(key.startsWith('cassa_') ? 'cfCassaUndo_' + key : 'cfUndo_' + key);
+  if (!undoEl) { eseguiCb(); return; }
+
+  // Nascondi picker
+  const pickerEl = document.getElementById(key.startsWith('cassa_') ? 'cfCassa_' + key : 'cfStep_' + key);
+  if (pickerEl) pickerEl.style.display = 'none';
+
+  undoEl.style.display = 'block';
+  let sec = 4;
+  const render = () => {
+    undoEl.innerHTML = `<div style="${_S.undoBar}">
+      <div style="font-size:13px;font-weight:700;color:var(--accent);margin-bottom:6px">✅ ${ribaltaId} selezionata</div>
+      <div style="font-size:11px;color:var(--muted);margin-bottom:8px">Conferma automatica tra ${sec}s…</div>
+      <button style="padding:7px 16px;border-radius:8px;border:1.5px solid var(--red);background:transparent;color:var(--red);font-family:inherit;font-size:13px;font-weight:700;cursor:pointer"
+        onclick="_annullaUndo('${key}','${labelBox}')">✏️ Modifica</button>
+    </div>`;
+  };
+  render();
+  const tick = setInterval(() => { sec--; if (sec > 0) render(); else clearInterval(tick); }, 1000);
+  _undoTimers[key] = setTimeout(() => {
+    clearInterval(tick);
+    undoEl.innerHTML = '';
+    undoEl.style.display = 'none';
+    eseguiCb();
+  }, 4000);
+  // salva tick per poterlo cancellare
+  _undoTimers[key + '_tick'] = tick;
+}
+
+window._annullaUndo = function(key, labelBox) {
+  if (_undoTimers[key]) { clearTimeout(_undoTimers[key]); delete _undoTimers[key]; }
+  if (_undoTimers[key + '_tick']) { clearInterval(_undoTimers[key + '_tick']); }
+  const undoEl = document.getElementById(key.startsWith('cassa_') ? 'cfCassaUndo_' + key : 'cfUndo_' + key);
+  if (undoEl) { undoEl.style.display = 'none'; undoEl.innerHTML = ''; }
+  // Ri-mostra il picker
+  if (key.startsWith('cassa_')) {
+    const cfEl = document.getElementById('cfCassa_' + key);
+    if (cfEl) cfEl.style.display = 'block';
+  } else {
+    const stepEl = document.getElementById('cfStep_' + key);
+    if (stepEl) stepEl.style.display = 'block';
+  }
+};
+
+// Click ribalta container → undo → _completaConPosto
+window.confermaPicker = function(prenId, ribaltaId) {
+  _avviaUndo(prenId, ribaltaId, ribaltaId, () => _completaConPosto(prenId, ribaltaId));
+};
+
+// Click ribalta cassa → undo → selezionaRibalta_cassa
+window.confermaCassaPicker = function(spotId, plate, key, ribaltaId) {
+  _avviaUndo(key, ribaltaId, ribaltaId, () => {
+    const user = _getUser ? _getUser() : null;
+    selezionaRibalta_cassa_exec(spotId, plate, ribaltaId, user);
+  });
+};
 
 // ── LOGICA FORM COMPLETAMENTO ─────────────────────────────────────────────────
 
@@ -915,46 +1123,31 @@ function _popupCassaMostraRibalte(reparto) {
 </div>`).join('');
 }
 
-window.selezionaRibalta_cassa = async function(spotId, plate, ribaltaId) {
-
-chiudiPopupRibalte();
-
-const user = _getUser ? _getUser() : null;
-
-try {
-
-const ops = [];
-
-ops.push(setDoc(doc(db, 'spots', spotId), {
-
-occupied: false, plate: null, since: null, user: null, full: false
-
-}, { merge: true }));
-
-ops.push(setDoc(doc(db, 'ribalte', ribaltaId), {
-
-occupied: true, plate: plate || null, since: serverTimestamp(), user: user?.email || null, full: false,
-
-}, { merge: true }));
-
-ops.push(addDoc(collection(db, 'history'), {
-
-ts: serverTimestamp(), spot: ribaltaId, action: 'Missione cassa completata',
-
-plate: plate || null, user: user?.email || null, origine: spotId, destinazione: ribaltaId,
-
-}));
-
-await Promise.all(ops);
-
-showToast(`✅ ${plate} → ${ribaltaId}`, 'success');
-
-} catch (e) {
-
-showToast('Errore: ' + e.message, 'error');
-
+// Logica esecutiva separata (usata sia dal vecchio popup che dal nuovo picker)
+async function selezionaRibalta_cassa_exec(spotId, plate, ribaltaId, user) {
+  try {
+    const ops = [];
+    ops.push(setDoc(doc(db, 'spots', spotId), {
+      occupied: false, plate: null, since: null, user: null, full: false
+    }, { merge: true }));
+    ops.push(setDoc(doc(db, 'ribalte', ribaltaId), {
+      occupied: true, plate: plate || null, since: serverTimestamp(), user: user?.email || null, full: false,
+    }, { merge: true }));
+    ops.push(addDoc(collection(db, 'history'), {
+      ts: serverTimestamp(), spot: ribaltaId, action: 'Missione cassa completata',
+      plate: plate || null, user: user?.email || null, origine: spotId, destinazione: ribaltaId,
+    }));
+    await Promise.all(ops);
+    showToast(`✅ ${plate} → ${ribaltaId}`, 'success');
+  } catch (e) {
+    showToast('Errore: ' + e.message, 'error');
+  }
 }
 
+window.selezionaRibalta_cassa = async function(spotId, plate, ribaltaId) {
+  chiudiPopupRibalte();
+  const user = _getUser ? _getUser() : null;
+  await selezionaRibalta_cassa_exec(spotId, plate, ribaltaId, user);
 };
 
 window.selezionaRibalta = async function(prenId, ribaltaId) {
