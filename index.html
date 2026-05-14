@@ -2112,12 +2112,16 @@ const _DS = {
 
 // Restituisce tutte le ribalte libere (non filtrate per reparto utente), escludendo impegnate
 function _getRibalteLibereAll() {
+  // Stesso pattern di _getRibalteLibere ma senza filtro reparto
   const occupate = new Set(Object.values(_ribalteData).filter(r => r.occupied).map(r => r.id));
   _prenotazioni.forEach(p => {
     if (p.stato === 'creata' && p.destinazione) occupate.add(p.destinazione.trim().toUpperCase());
   });
   const all = window.getDestinazioniPerReparto ? window.getDestinazioniPerReparto(null) : [];
-  return all.filter(d => !occupate.has(d));
+  return {
+    PNT1: all.filter(d => d.startsWith('PNT1') && !occupate.has(d)),
+    PNT2: all.filter(d => d.startsWith('PNT2') && !occupate.has(d)),
+  };
 }
 
 function _ribaltaPickerHTMLDesk(formKey) {
@@ -2157,13 +2161,12 @@ function _ribaltaPickerHTMLDesk(formKey) {
 window.deskApriAltriReparti = function(formKey) {
   const wrap = document.getElementById('deskAltriReparti_' + formKey);
   if (!wrap) return;
-  const libereAll = _getRibalteLibereAll();
+  const { PNT1: allPNT1, PNT2: allPNT2 } = _getRibalteLibereAll();
   // Escludi destinazioni già del proprio reparto
   const mieDestin = new Set(_getRibalteLibere().PNT1.concat(_getRibalteLibere().PNT2));
-  const altreLibere = libereAll.filter(d => !mieDestin.has(d));
-
-  const pnt1 = altreLibere.filter(d => d.startsWith('PNT1-'));
-  const pnt2 = altreLibere.filter(d => d.startsWith('PNT2-'));
+  const pnt1 = allPNT1.filter(d => !mieDestin.has(d));
+  const pnt2 = allPNT2.filter(d => !mieDestin.has(d));
+  const altreLibere = pnt1.concat(pnt2);
 
   if (!altreLibere.length) {
     wrap.innerHTML = '<div style="font-size:12px;color:var(--text2)">Nessuna ribalta libera in altri reparti</div>';
@@ -2182,9 +2185,9 @@ window.deskApriAltriReparti = function(formKey) {
 window.deskAltriEdificio = function(formKey, edificio) {
   const sub = document.getElementById('deskAltriSub_' + formKey);
   if (!sub) return;
-  const libereAll = _getRibalteLibereAll();
+  const { PNT1: allPNT1, PNT2: allPNT2 } = _getRibalteLibereAll();
   const mieDestin = new Set(_getRibalteLibere().PNT1.concat(_getRibalteLibere().PNT2));
-  const altreLibere = libereAll.filter(d => !mieDestin.has(d) && d.startsWith(edificio + '-'));
+  const altreLibere = (edificio === 'PNT1' ? allPNT1 : allPNT2).filter(d => !mieDestin.has(d));
 
   // Raggruppa per reparto
   const repartiMap = {};
@@ -2208,10 +2211,10 @@ window.deskAltriEdificio = function(formKey, edificio) {
 window.deskAltriReparto = function(formKey, repartoNome, edificio) {
   const wrap = document.getElementById('deskAltriRibalte_' + formKey);
   if (!wrap) return;
-  const libereAll = _getRibalteLibereAll();
+  const { PNT1: allPNT1, PNT2: allPNT2 } = _getRibalteLibereAll();
   const mieDestin = new Set(_getRibalteLibere().PNT1.concat(_getRibalteLibere().PNT2));
   const ids = (window._REPARTI && window._REPARTI[repartoNome]) ? window._REPARTI[repartoNome] : [];
-  const ribalte = libereAll.filter(d => !mieDestin.has(d) && ids.includes(d));
+  const ribalte = allPNT1.concat(allPNT2).filter(d => !mieDestin.has(d) && ids.includes(d));
 
   let h = `<div style="${_DS.label}">${repartoNome}:</div><div style="display:flex;flex-wrap:wrap;gap:4px">`;
   ribalte.forEach(d => {

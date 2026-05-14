@@ -20,10 +20,10 @@ const RE_CASSA = /^\d{3}$/;
 // ── Helper ribalte libere ──────────────────────────────────────────────────────
 // Restituisce ribalte libere filtrate per reparto (null = tutte).
 // Esclude anche quelle impegnate in prenotazioni aperte.
-function _ribalteLiberePerReparto(reparto) {
+function _ribalteLiberePerReparto(reparto, escludiPrenId = null) {
   const impegnate = new Set(
     _prenotazioni
-      .filter(p => p.stato === 'creata' && p.destinazione)
+      .filter(p => p.stato === 'creata' && p.destinazione && p.id !== escludiPrenId)
       .map(p => p.destinazione.trim().toUpperCase())
   );
   let ids;
@@ -556,7 +556,7 @@ ${btnHTML}
 function _buildContainerPicker(p) {
   const destSuggerita = (p.destinazione || '').trim().toUpperCase();
   const reparto = p.utenteReparto || null;
-  const ribalteLibere = _ribalteLiberePerReparto(reparto);
+  const ribalteLibere = _ribalteLiberePerReparto(reparto, p.id);
   const isSuggeritaLibera = destSuggerita && ribalteLibere.some(r => r.id === destSuggerita);
 
   let html = `<div style="${_S.sectionLabel}">Ribalta destinazione</div>`;
