@@ -21,24 +21,31 @@ const RE_CASSA = /^\d{3}$/;
 // Restituisce ribalte libere filtrate per reparto (null = tutte).
 // Esclude anche quelle impegnate in prenotazioni aperte.
 function _ribalteLiberePerReparto(reparto, escludiPrenId = null) {
-  const impegnate = new Set(
-    _prenotazioni
-      .filter(p => p.stato === 'creata' && p.destinazione && p.id !== escludiPrenId)
-      .map(p => p.destinazione.trim().toUpperCase())
+  // Ribalte fisicamente occupate in Firestore
+  const occupate = new Set(
+    Object.values(_ribalte).filter(r => r.occupied).map(r => r.id)
   );
-  let ids;
+  // Ribalte impegnate in prenotazioni aperte (esclusa quella corrente)
+  _prenotazioni
+    .filter(p => p.stato === 'creata' && p.destinazione && p.id !== escludiPrenId)
+    .forEach(p => occupate.add(p.destinazione.trim().toUpperCase()));
+
+  // Lista completa delle destinazioni (da _REPARTI, non da _ribalte)
+  let tutte;
   if (reparto && window._REPARTI && window._REPARTI[reparto]) {
-    ids = window._REPARTI[reparto];
+    tutte = window._REPARTI[reparto];
   } else if (!reparto) {
-    ids = null; // tutte
+    tutte = window._REPARTI
+      ? Object.values(window._REPARTI).flat()
+      : [];
   } else {
-    ids = null;
+    tutte = window._REPARTI ? Object.values(window._REPARTI).flat() : [];
   }
-  return Object.values(_ribalte).filter(r =>
-    !r.occupied &&
-    !impegnate.has(r.id) &&
-    (!ids || ids.includes(r.id))
-  ).sort((a, b) => a.id.localeCompare(b.id));
+
+  return tutte
+    .filter(id => !occupate.has(id))
+    .map(id => ({ id }))
+    .sort((a, b) => a.id.localeCompare(b.id));
 }
 
 // Stili inline condivisi
