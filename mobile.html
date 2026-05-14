@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Gestione Parcheggi Mobile</title>
-<link rel="stylesheet" href="mobile-styles.css?v=1778775769">
+<link rel="stylesheet" href="mobile-styles.css?v=1778776978">
 <script>
   // Service Worker: aggiornamenti automatici, zero cache manuale
   if ('serviceWorker' in navigator) {
@@ -292,20 +292,20 @@
 <script type="module">
 import { auth, db, signInWithEmailAndPassword, signOut, onAuthStateChanged,
          doc, getDoc, collection, query, orderBy, limit, onSnapshot, where }
-  from './firebase-config.js?v=1778775769';
+  from './firebase-config.js?v=1778776978';
 
-import { SPOT_DEFS, REPARTI, getDestinazioniPerReparto } from './spots-data.js?v=1778775769';
-import { fmtDate, fmtDur, showToast } from './shared-utils.js?v=1778775769';
+import { SPOT_DEFS, REPARTI, getDestinazioniPerReparto } from './spots-data.js?v=1778776978';
+import { fmtDate, fmtDur, showToast } from './shared-utils.js?v=1778776978';
 
 import { initCheckin, updateCheckinUI, doCheckinRapido,
   renderPosti, openSpotDrawer, closeDrawer,
   assignFromDrawer, freeFromDrawer, toggleFullDrawer,
   addDamagedDrawer, removeDamagedDrawer,
   addUnusableDrawer, removeUnusableDrawer
-} from './checkin.js?v=1778775769';
+} from './checkin.js?v=1778776978';
 
-import { initPrenotazioni, renderPrenotazioni, completaSingola } from './prenotazioni-autista.js?v=1778775769';
-import { initRibalteOperativo, renderRibalte } from './ribalte-operativo.js?v=1778775769';
+import { initPrenotazioni, renderPrenotazioni, completaSingola } from './prenotazioni-autista.js?v=1778776978';
+import { initRibalteOperativo, renderRibalte } from './ribalte-operativo.js?v=1778776978';
 
 // ── STATO ─────────────────────────────────────────────────────────────────────
 let currentUser  = null;
@@ -597,7 +597,7 @@ function renderStorico() {
 
 // ── IMPORT DINAMICO per updateDoc/addDoc/serverTimestamp usati da ribalte-operativo ──
 import { updateDoc as _updateDoc, addDoc as _addDoc, serverTimestamp as _serverTimestamp }
-  from './firebase-config.js?v=1778775769';
+  from './firebase-config.js?v=1778776978';
 
 // ── EXPOSE GLOBALS ────────────────────────────────────────────────────────────
 window.getDestinazioniPerReparto = getDestinazioniPerReparto;
