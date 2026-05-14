@@ -2464,6 +2464,14 @@ async function cercaMezzo() {
       return;
     }
 
+    // Avviso se container vuoto
+    if (!data.full) {
+      feedback.textContent = '⚠️ Il container risulta vuoto.';
+      feedback.className = 'pren-feedback err';
+      _mezzoCorrente = null;
+      return;
+    }
+
     feedback.textContent = '✔ Container trovato!';
     feedback.className = 'pren-feedback ok';
     document.getElementById('pren-spot-id').textContent = docSnap.id;
