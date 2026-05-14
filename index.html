@@ -2112,12 +2112,16 @@ const _DS = {
 
 // Restituisce tutte le ribalte libere (non filtrate per reparto utente), escludendo impegnate
 function _getRibalteLibereAll() {
-  // Stesso pattern di _getRibalteLibere ma senza filtro reparto
+  // Ribalte fisicamente occupate in Firestore
   const occupate = new Set(Object.values(_ribalteData).filter(r => r.occupied).map(r => r.id));
+  // Ribalte impegnate in prenotazioni aperte
   _prenotazioni.forEach(p => {
     if (p.stato === 'creata' && p.destinazione) occupate.add(p.destinazione.trim().toUpperCase());
   });
-  const all = window.getDestinazioniPerReparto ? window.getDestinazioniPerReparto(null) : [];
+  // Usa REPARTI direttamente (disponibile nel bundle) — non window._REPARTI
+  const all = typeof REPARTI !== 'undefined'
+    ? Object.values(REPARTI).flat()
+    : (typeof getDestinazioniPerReparto === 'function' ? getDestinazioniPerReparto(null) : []);
   return {
     PNT1: all.filter(d => d.startsWith('PNT1') && !occupate.has(d)),
     PNT2: all.filter(d => d.startsWith('PNT2') && !occupate.has(d)),
@@ -2193,7 +2197,7 @@ window.deskAltriEdificio = function(formKey, edificio) {
   const repartiMap = {};
   altreLibere.forEach(d => {
     let found = 'Altro';
-    for (const [nome, ids] of Object.entries(window._REPARTI || {})) {
+    for (const [nome, ids] of Object.entries(typeof REPARTI !== 'undefined' ? REPARTI : {})) {
       if (ids.includes(d)) { found = nome; break; }
     }
     if (!repartiMap[found]) repartiMap[found] = [];
@@ -2213,7 +2217,7 @@ window.deskAltriReparto = function(formKey, repartoNome, edificio) {
   if (!wrap) return;
   const { PNT1: allPNT1, PNT2: allPNT2 } = _getRibalteLibereAll();
   const mieDestin = new Set(_getRibalteLibere().PNT1.concat(_getRibalteLibere().PNT2));
-  const ids = (window._REPARTI && window._REPARTI[repartoNome]) ? window._REPARTI[repartoNome] : [];
+  const ids = (typeof REPARTI !== 'undefined' && REPARTI[repartoNome]) ? REPARTI[repartoNome] : [];
   const ribalte = allPNT1.concat(allPNT2).filter(d => !mieDestin.has(d) && ids.includes(d));
 
   let h = `<div style="${_DS.label}">${repartoNome}:</div><div style="display:flex;flex-wrap:wrap;gap:4px">`;
@@ -2437,6 +2441,29 @@ async function cercaMezzo() {
     const docSnap = snap.docs[0];
     const data = docSnap.data();
     _mezzoCorrente = { spotId: docSnap.id, plate: data.plate, occupied: data.occupied };
+
+    // Controlla se il container è già alla ribalta
+    const ribalteSnap = await getDocs(query(collection(db, 'ribalte'), where('plate', '==', targa), limit(1)));
+    if (!ribalteSnap.empty) {
+      const ribData = ribalteSnap.docs[0].data();
+      if (ribData.occupied) {
+        feedback.textContent = `⚠️ "${targa}" è attualmente alla ribalta ${ribalteSnap.docs[0].id}.`;
+        feedback.className = 'pren-feedback err';
+        _mezzoCorrente = null;
+        return;
+      }
+    }
+
+    // Controlla se esiste già una prenotazione aperta per questo container
+    const prenAperta = _prenotazioni.find(p => p.plate === targa && p.stato === 'creata');
+    if (prenAperta) {
+      const dest = prenAperta.destinazione ? ` → ${prenAperta.destinazione}` : '';
+      feedback.textContent = `⚠️ "${targa}" ha già una prenotazione aperta${dest}.`;
+      feedback.className = 'pren-feedback err';
+      _mezzoCorrente = null;
+      return;
+    }
+
     feedback.textContent = '✔ Container trovato!';
     feedback.className = 'pren-feedback ok';
     document.getElementById('pren-spot-id').textContent = docSnap.id;
