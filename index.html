@@ -1442,18 +1442,22 @@ function startListeners(){
         }
       }
     });
-    renderMap();
-    updateMapStats();
-    renderSearch();
-    renderStatistiche();
+    if(currentUser?.role !== 'portineria'){
+      renderMap();
+      updateMapStats();
+      renderSearch();
+      renderStatistiche();
+    }
   });
 
   // Listener storico: ultimi 200 movimenti
   const hq = query(collection(db,"history"), orderBy("ts","desc"), limit(200));
   unsubHistory = onSnapshot(hq, (snapshot) => {
     historyCache = snapshot.docs.map(d => ({ ...d.data(), ts: d.data().ts?.toDate() }));
-    renderStorico();
-    renderStatistiche();
+    if(currentUser?.role !== 'portineria'){
+      renderStorico();
+      renderStatistiche();
+    }
   });
 }
 
