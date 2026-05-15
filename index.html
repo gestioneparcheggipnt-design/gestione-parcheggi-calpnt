@@ -519,7 +519,7 @@ if(!_forceDesktop && (window.innerWidth<=768||navigator.maxTouchPoints>0) && !lo
 .btn-elimina  { background:#ef444418; color:var(--red);   border:1px solid #ef444440; }
 
 /* ── PORTINERIA ─────────────────────────────────────────── */
-.port-container { max-width: 820px; }
+.port-container { max-width: 820px; margin: 0 auto; }
 .port-form-card {
   background: var(--surface);
   border: 1px solid var(--border);
@@ -1399,9 +1399,11 @@ function showApp(){
         btn.classList.add("hidden");
       }
     });
+    // Nascondi toggle modalità container/cassa (non serve alla portineria)
+    const modeToggleEl = document.getElementById("modeToggle");
+    if(modeToggleEl) modeToggleEl.style.display = "none";
     // Mostra tab Portineria
     document.getElementById("tabPortineria").classList.remove("hidden");
-    loadMode();
     startListeners();
     // Attiva pagina Portineria dopo aver preparato tutto
     showPage("Portineria", document.getElementById("tabPortineria"));
@@ -3026,10 +3028,13 @@ async function porteriaConferma() {
       spots[id].since    = now;
     }
 
-    document.getElementById('port-btn-conferma').textContent = '✔ Assegnato';
     showToast('Posto ' + id + ' assegnato a ' + veicolo);
-
-    // Disabilita conferma (già eseguita) ma lascia stampa attiva
+    // Resetta solo i campi input, mantieni risultato visibile per la stampa
+    document.getElementById('port-veicolo').value = '';
+    document.getElementById('port-stato').value   = 'pieno';
+    // Aggiorna testo bottone e lascia stampa attiva
+    document.getElementById('port-btn-conferma').textContent = '✔ Assegnato';
+    document.getElementById('port-btn-stampa').disabled = false;
     btn.disabled = true;
 
   } catch(e) {
@@ -3095,17 +3100,26 @@ function porteriaStampa() {
       const rw = Math.round(${RECT_LABEL.w} * scaleX);
       const rh = Math.round(${RECT_LABEL.h} * scaleY);
 
-      // Riempi rettangolo con nero (copre il bianco originale)
-      ctx.fillStyle = '#000000';
+      // Rettangolo: sfondo bianco/chiaro con bordo nero
+      ctx.fillStyle = '#f8f8f8';
       ctx.fillRect(rx, ry, rw, rh);
+      ctx.strokeStyle = '#000000';
+      ctx.lineWidth = Math.round(rw * 0.02);
+      ctx.strokeRect(rx, ry, rw, rh);
 
-      // Scrivi numero posto in bianco centrato nel rettangolo
-      const fontSize = Math.round(rh * 0.45);
-      ctx.fillStyle   = '#ffffff';
-      ctx.font        = 'bold ' + fontSize + 'px "Barlow Condensed", "DM Sans", Arial, sans-serif';
-      ctx.textAlign   = 'center';
+      // Testo nero centrato, font auto-fit per stare su una riga
+      const label = '${posto}';
+      ctx.fillStyle    = '#000000';
+      ctx.textAlign    = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText('${posto}', rx + rw/2, ry + rh/2);
+      // Calcola font size massimo che fa stare il testo su una riga
+      let fontSize = Math.round(rh * 0.55);
+      ctx.font = 'bold ' + fontSize + 'px "Barlow Condensed", Arial, sans-serif';
+      while (ctx.measureText(label).width > rw * 0.85 && fontSize > 10) {
+        fontSize -= 2;
+        ctx.font = 'bold ' + fontSize + 'px "Barlow Condensed", Arial, sans-serif';
+      }
+      ctx.fillText(label, rx + rw/2, ry + rh/2);
     };
     img.src = '${imgSrc}';
   <\/script>
