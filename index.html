@@ -642,6 +642,7 @@ if(!_forceDesktop && (window.innerWidth<=768||navigator.maxTouchPoints>0) && !lo
           <div class="legendItem"><div class="dot free"></div>Libero</div>
           <div class="legendItem"><div class="dot occ"></div>Occupato</div>
           <div class="legendItem"><div class="dot hl"></div>Selezionato</div>
+          <div class="legendItem"><div class="dot" style="background:#7c3aed55;border:2px solid #7c3aed;border-radius:3px;"></div>Inutilizzabile</div>
         </div>
         <div class="spotPanel" id="spotPanel">
           <div style="color:var(--muted);font-size:13px;text-align:center;padding:18px 0">Clicca un parcheggio sulla mappa</div>
@@ -670,6 +671,7 @@ if(!_forceDesktop && (window.innerWidth<=768||navigator.maxTouchPoints>0) && !lo
           <th>Tipo</th>
           <th class="sortable" onclick="sortTable('since')">Da</th>
           <th class="sortable" onclick="sortTable('damaged')">Danneg.</th>
+          <th>Inutiliz.</th>
           <th class="sortable" onclick="sortTable('full')">Pieno/Vuoto</th>
           <th>Utente</th>
         </tr>
@@ -690,6 +692,7 @@ if(!_forceDesktop && (window.innerWidth<=768||navigator.maxTouchPoints>0) && !lo
             <option value="si">SÃ¬</option>
             <option value="no">No</option>
           </select></td>
+          <td></td>
           <td><select id="fPieno" onchange="doSearch()">
             <option value="">Tutti</option>
             <option value="pieno">Pieno</option>
@@ -715,6 +718,7 @@ if(!_forceDesktop && (window.innerWidth<=768||navigator.maxTouchPoints>0) && !lo
       <div class="chartCard"><h4>Parcheggi piu occupati</h4><div id="chartTopSpots"></div></div>
       <div class="chartCard"><h4>Veicoli per durata</h4><div id="chartVehicles"></div></div>
       <div class="chartCard"><h4>â ï¸ Veicoli danneggiati</h4><div id="chartDamaged"></div></div>
+      <div class="chartCard"><h4>&#x1F6AB; Veicoli inutilizzabili</h4><div id="chartUnusable"></div></div>
       <div class="chartCard"><h4>Ore di punta</h4><div id="chartHours"></div></div>
     </div>
     <div class="chartCard" style="margin-top:14px">
@@ -1210,9 +1214,9 @@ function renderMap(){
   let s="";
   PATCHES.forEach(([px,py,pw,ph])=>{ s+=`<rect x="${px}" y="${py}" width="${pw}" height="${ph}" fill="white"/>`; });
   SPOT_DEFS.forEach(([id,,px,py,pw,ph])=>{
-    const sp=spots[id], cls=sp.occupied?"occupied":"free", hl=selectedSpotId===id?" highlight":"";
+    const sp=spots[id], cls=sp.occupied?"occupied":"free", hl=selectedSpotId===id?" highlight":"", unusCls=(!sp.occupied&&sp.unusable)?" unusable":"";
     const cx=px+pw/2, cy=py+ph/2, fs=Math.min(pw,ph)*0.44;
-    s+=`<g class="spot ${cls}${hl}" onclick="window._selectSpot('${id}')" data-id="${id}">` +
+    s+=`<g class="spot ${cls}${unusCls}${hl}" onclick="window._selectSpot('${id}')" data-id="${id}">` +
        `<rect x="${px}" y="${py}" width="${pw}" height="${ph}" rx="2"/>` +
        `<text x="${cx.toFixed(1)}" y="${cy.toFixed(1)}" style="font-size:${fs.toFixed(1)}px">${id}</text>` +
        `</g>`;
@@ -1246,6 +1250,7 @@ function selectSpot(id){
   const sp=spots[id], panel=document.getElementById("spotPanel");
   if(!sp){ return; }
   const puoGestire = currentUser && (currentUser.role === 'autista' || currentUser.role === 'amministratore');
+  const puoUnusable = currentUser && (currentUser.role === 'amministrativo' || currentUser.role === 'amministratore');
   const ml = _labelMezzo(sp.plate);
   const placeholderInput = currentMode === 'cassa' ? 'Es. 001' : 'Es. ABCD1234567';
   const inputLabel = currentMode === 'cassa' ? 'Numero cassa' : 'ID Container';
@@ -1297,6 +1302,7 @@ function selectSpot(id){
       <div style="margin-top:12px;line-height:2">
         <div style="${rowStyle}">${ml.icon} ${ml.label}: <span style="${valStyle}">${sp.plate}</span></div>
         ${sp.damaged ? `<div style="color:#ef4444;font-size:14px;font-weight:500;margin-top:4px">&#9888;&#65039; Veicolo danneggiato</div>` : ''}
+        ${sp.unusable ? `<div style="color:#a78bfa;font-size:14px;font-weight:500;margin-top:4px">&#x1F6AB; Veicolo inutilizzabile</div>` : ''}
         <div style="${rowStyle}">Stato: ${fullBadge}</div>
         <div style="${rowStyle}">Da: <span style="${valStyle}">${_fmtDateMap(sp.since)}</span></div>
         <div style="${rowStyle}">Durata: <span style="color:var(--accent);font-size:14px;font-weight:500">${_fmtDurMap(sp.since)}</span></div>
@@ -1309,7 +1315,11 @@ function selectSpot(id){
       ${sp.damaged
         ? `<button onclick="window._removeDamaged('${id}')" style="width:100%;background:linear-gradient(135deg,#f59e0b,#d97706);border:none;border-radius:8px;padding:9px;color:#fff;font-family:inherit;font-size:13px;font-weight:500;cursor:pointer;margin-bottom:7px;margin-top:8px">&#10003; Rimuovi segnalazione danno</button>`
         : `<button onclick="window._addDamaged('${id}')" style="width:100%;background:linear-gradient(135deg,#ef4444,#dc2626);border:none;border-radius:8px;padding:9px;color:#fff;font-family:inherit;font-size:13px;font-weight:500;cursor:pointer;margin-bottom:7px;margin-top:8px">&#9888;&#65039; Segnala veicolo danneggiato</button>`}
-      <button class="btnFreeInline" onclick="window._freeSpot('${id}')">&#10005; Libera Posto</button>` : ''}`;
+      <button class="btnFreeInline" onclick="window._freeSpot('${id}')">&#10005; Libera Posto</button>` : ''}
+      ${puoUnusable ? (sp.unusable
+        ? `<button class="btnUnusableRemove" onclick="window._removeUnusable('${id}')">&#10003; Rimuovi inutilizzabile</button>`
+        : `<button class="btnUnusable" onclick="window._addUnusable('${id}')">&#x1F6AB; Segna veicolo inutilizzabile</button>`
+      ) : ''}` ;
   }
 }
 
@@ -1634,6 +1644,7 @@ function doSearch(){
       <td>${tipoMezzo}</td>
       <td>${s.since?fmtDate(s.since):"&mdash;"}</td>
       <td style="text-align:center">${s.damaged ? '<span style="color:#ef4444;font-weight:600;font-size:13px">⚠️ Sì</span>' : '<span style="color:var(--muted);font-size:12px">&mdash;</span>'}</td>
+      <td style="text-align:center">${(!s.occupied && s.unusable) ? '<span style="color:#a78bfa;font-weight:600;font-size:13px">🚫 Sì</span>' : '<span style="color:var(--muted);font-size:12px">&mdash;</span>'}</td>
       <td style="text-align:center">${s.occupied ? (s.full ? '<span class="tagPieno">🔴 Piena/o</span>' : '<span class="tagVuoto">🟢 Vuota/o</span>') : '<span style="color:var(--muted);font-size:12px">&mdash;</span>'}</td>
       <td style="color:var(--muted);font-size:11px">${nomeUtente}</td>
     </tr>`;}).join("");
@@ -1712,6 +1723,27 @@ function renderStatistiche(){
           <div style="font-size:12px;color:#ef4444;font-weight:600;white-space:nowrap">${dur}</div>
         </div>`;
       }).join("");
+  const unusable=all.filter(s=>!s.occupied&&s.unusable&&s.since).sort((a,b)=>a.since-b.since);
+  const unusableEl=document.getElementById("chartUnusable");
+  if(unusableEl){
+    unusableEl.innerHTML=unusable.length===0
+      ? '<div style="color:var(--muted);font-size:13px">Nessun veicolo inutilizzabile</div>'
+      : unusable.map(s=>{
+          const tot=s.since?Date.now()-s.since:0;
+          const gg=Math.floor(tot/86400000);
+          const hh=Math.floor((tot%86400000)/3600000);
+          const mm=Math.floor((tot%3600000)/60000);
+          const dur=gg>0?`${gg}g ${hh}h`:hh>0?`${hh}h ${mm}m`:`${mm}m`;
+          return `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border)">
+            <div>
+              <span style="color:#a78bfa;font-size:13px;margin-right:6px">🚫</span>
+              <span class="mono" style="font-weight:600;font-size:14px">${s.plate||"—"}</span>
+              <span style="color:var(--muted);font-size:11px;margin-left:8px">Posto ${s.id}</span>
+            </div>
+            <div style="font-size:12px;color:#a78bfa;font-weight:600;white-space:nowrap">${dur}</div>
+          </div>`;
+        }).join("");
+  }
   const hrs=[8,9,10,11,12,13,14,15,16,17,18], pk=[3,8,12,14,10,9,13,15,11,7,4], mxp=Math.max(...pk);
   document.getElementById("chartHours").innerHTML=hrs.map((h,i)=>`
     <div class="barRow"><div class="barLabel">${h}:00</div>
@@ -2043,6 +2075,46 @@ async function addDamaged(id){
   }
 }
 window._addDamaged=addDamaged;
+
+async function addUnusable(id){
+  if(!currentUser||!["amministrativo","amministratore"].includes(currentUser.role)){
+    showToast("Permesso negato","error"); return;
+  }
+  try{
+    await updateDoc(doc(db,"spots",id),{ unusable: true });
+    await addDoc(collection(db,"history"),{
+      ts: serverTimestamp(), spot:id,
+      action:"Inutilizzabile segnalato", plate:spots[id].plate,
+      user: currentUser.name || currentUser.email,
+      userName: currentUser.name || currentUser.email
+    });
+    selectSpot(id);
+    showToast(`Veicolo segnato come inutilizzabile per posto ${id}`,"success");
+  }catch(e){
+    showToast("Errore: "+e.message,"error");
+  }
+}
+window._addUnusable=addUnusable;
+
+async function removeUnusable(id){
+  if(!currentUser||!["amministrativo","amministratore"].includes(currentUser.role)){
+    showToast("Permesso negato","error"); return;
+  }
+  try{
+    await updateDoc(doc(db,"spots",id),{ unusable: false });
+    await addDoc(collection(db,"history"),{
+      ts: serverTimestamp(), spot:id,
+      action:"Inutilizzabile rimosso", plate:spots[id].plate,
+      user: currentUser.name || currentUser.email,
+      userName: currentUser.name || currentUser.email
+    });
+    selectSpot(id);
+    showToast(`Segnalazione inutilizzabile rimossa per posto ${id}`,"success");
+  }catch(e){
+    showToast("Errore: "+e.message,"error");
+  }
+}
+window._removeUnusable=removeUnusable;
 
 function cancelSelect(){
   selectedSpotId=null; renderMap();
