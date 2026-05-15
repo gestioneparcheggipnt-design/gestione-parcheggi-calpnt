@@ -53,7 +53,7 @@ if(!_forceDesktop && (window.innerWidth<=768||navigator.maxTouchPoints>0) && !lo
   .formGroup input:focus,.formGroup select:focus{border-color:var(--accent);}
   .btnPrimary{width:100%;background:linear-gradient(135deg,var(--accent),var(--accent2));border:none;border-radius:10px;padding:14px;color:#1C1F26;font-family:inherit;font-size:15px;font-weight:700;cursor:pointer;margin-top:8px;letter-spacing:.5px;}
   .btnPrimary:hover{opacity:.9;}
-  #app{display:none;min-height:100vh;flex-direction:column;}
+  #app{display:none;height:100vh;flex-direction:column;overflow:hidden;position:relative;}
   nav{background:var(--surface);border-bottom:1px solid var(--border);padding:0 20px;display:flex;align-items:center;justify-content:space-between;height:58px;position:sticky;top:0;z-index:100;gap:8px;}
   .navLogo{font-weight:700;font-size:17px;display:flex;align-items:center;gap:7px;flex-shrink:0;}
   .navTabs{display:flex;gap:3px;overflow-x:auto;}
@@ -69,7 +69,7 @@ if(!_forceDesktop && (window.innerWidth<=768||navigator.maxTouchPoints>0) && !lo
   .roleBadge.amministratore{color:#A4D200;border-color:#A4D20044;background:#A4D20011;}
   .btnLogout{background:transparent;border:1px solid var(--border);border-radius:8px;padding:5px 11px;color:var(--muted);font-family:inherit;font-size:12px;cursor:pointer;}
   .btnLogout:hover{border-color:var(--red);color:var(--red);}
-  .page{display:none;padding:18px;flex:1;}
+  .page{display:none;padding:18px;overflow-y:auto;position:absolute;top:59px;left:0;right:0;bottom:0;}
   .page.active{display:block;}
   .pageHeader{font-size:19px;font-weight:700;margin-bottom:3px;}
   .pageSubtitle{font-size:13px;color:var(--muted);margin-bottom:16px;}
@@ -519,7 +519,7 @@ if(!_forceDesktop && (window.innerWidth<=768||navigator.maxTouchPoints>0) && !lo
 .btn-elimina  { background:#ef444418; color:var(--red);   border:1px solid #ef444440; }
 
 /* ── PORTINERIA ─────────────────────────────────────────── */
-.port-container { max-width: 820px; }
+.port-container { max-width: 820px; margin: 0 auto; }
 .port-form-card {
   background: var(--surface);
   border: 1px solid var(--border);
@@ -642,7 +642,6 @@ if(!_forceDesktop && (window.innerWidth<=768||navigator.maxTouchPoints>0) && !lo
           <div class="legendItem"><div class="dot free"></div>Libero</div>
           <div class="legendItem"><div class="dot occ"></div>Occupato</div>
           <div class="legendItem"><div class="dot hl"></div>Selezionato</div>
-          <div class="legendItem"><div class="dot" style="background:#7c3aed55;border:2px solid #7c3aed;border-radius:3px;"></div>Inutilizzabile</div>
         </div>
         <div class="spotPanel" id="spotPanel">
           <div style="color:var(--muted);font-size:13px;text-align:center;padding:18px 0">Clicca un parcheggio sulla mappa</div>
@@ -671,7 +670,6 @@ if(!_forceDesktop && (window.innerWidth<=768||navigator.maxTouchPoints>0) && !lo
           <th>Tipo</th>
           <th class="sortable" onclick="sortTable('since')">Da</th>
           <th class="sortable" onclick="sortTable('damaged')">Danneg.</th>
-          <th>Inutiliz.</th>
           <th class="sortable" onclick="sortTable('full')">Pieno/Vuoto</th>
           <th>Utente</th>
         </tr>
@@ -692,7 +690,6 @@ if(!_forceDesktop && (window.innerWidth<=768||navigator.maxTouchPoints>0) && !lo
             <option value="si">SÃ¬</option>
             <option value="no">No</option>
           </select></td>
-          <td></td>
           <td><select id="fPieno" onchange="doSearch()">
             <option value="">Tutti</option>
             <option value="pieno">Pieno</option>
@@ -718,7 +715,6 @@ if(!_forceDesktop && (window.innerWidth<=768||navigator.maxTouchPoints>0) && !lo
       <div class="chartCard"><h4>Parcheggi piu occupati</h4><div id="chartTopSpots"></div></div>
       <div class="chartCard"><h4>Veicoli per durata</h4><div id="chartVehicles"></div></div>
       <div class="chartCard"><h4>â ï¸ Veicoli danneggiati</h4><div id="chartDamaged"></div></div>
-      <div class="chartCard"><h4>&#x1F6AB; Veicoli inutilizzabili</h4><div id="chartUnusable"></div></div>
       <div class="chartCard"><h4>Ore di punta</h4><div id="chartHours"></div></div>
     </div>
     <div class="chartCard" style="margin-top:14px">
@@ -1054,21 +1050,10 @@ SPOT_DEFS.forEach(([id,zone,x,y,w,h]) => {
 // Ogni utente sceglie la propria vista (salvata in localStorage per UID)
 let currentMode = 'container'; // default
 
-const REPARTO_DEFAULT_MODE = {
-  ricevimento: 'container',
-  reverse:     'cassa',
-};
-
 function loadMode(){
   const uid = currentUser ? currentUser.uid : 'guest';
   const saved = localStorage.getItem('parkMode_'+uid);
-  if (saved === 'cassa' || saved === 'container') {
-    currentMode = saved;
-  } else {
-    // Nessuna scelta manuale salvata: usa default da reparto, altrimenti 'container'
-    const reparto = currentUser ? currentUser.reparto : null;
-    currentMode = (reparto && REPARTO_DEFAULT_MODE[reparto]) || 'container';
-  }
+  currentMode = saved === 'cassa' ? 'cassa' : 'container';
   _applyModeUI();
   // Aggiorna la vista tab prenotazioni se già inizializzata
   if (typeof _aggiornaVistaPrenotazioni === 'function') _aggiornaVistaPrenotazioni();
@@ -1214,9 +1199,9 @@ function renderMap(){
   let s="";
   PATCHES.forEach(([px,py,pw,ph])=>{ s+=`<rect x="${px}" y="${py}" width="${pw}" height="${ph}" fill="white"/>`; });
   SPOT_DEFS.forEach(([id,,px,py,pw,ph])=>{
-    const sp=spots[id], cls=sp.occupied?"occupied":"free", hl=selectedSpotId===id?" highlight":"", unusCls=(!sp.occupied&&sp.unusable)?" unusable":"";
+    const sp=spots[id], cls=sp.occupied?"occupied":"free", hl=selectedSpotId===id?" highlight":"";
     const cx=px+pw/2, cy=py+ph/2, fs=Math.min(pw,ph)*0.44;
-    s+=`<g class="spot ${cls}${unusCls}${hl}" onclick="window._selectSpot('${id}')" data-id="${id}">` +
+    s+=`<g class="spot ${cls}${hl}" onclick="window._selectSpot('${id}')" data-id="${id}">` +
        `<rect x="${px}" y="${py}" width="${pw}" height="${ph}" rx="2"/>` +
        `<text x="${cx.toFixed(1)}" y="${cy.toFixed(1)}" style="font-size:${fs.toFixed(1)}px">${id}</text>` +
        `</g>`;
@@ -1250,7 +1235,6 @@ function selectSpot(id){
   const sp=spots[id], panel=document.getElementById("spotPanel");
   if(!sp){ return; }
   const puoGestire = currentUser && (currentUser.role === 'autista' || currentUser.role === 'amministratore');
-  const puoUnusable = currentUser && (currentUser.role === 'amministrativo' || currentUser.role === 'amministratore');
   const ml = _labelMezzo(sp.plate);
   const placeholderInput = currentMode === 'cassa' ? 'Es. 001' : 'Es. ABCD1234567';
   const inputLabel = currentMode === 'cassa' ? 'Numero cassa' : 'ID Container';
@@ -1302,7 +1286,6 @@ function selectSpot(id){
       <div style="margin-top:12px;line-height:2">
         <div style="${rowStyle}">${ml.icon} ${ml.label}: <span style="${valStyle}">${sp.plate}</span></div>
         ${sp.damaged ? `<div style="color:#ef4444;font-size:14px;font-weight:500;margin-top:4px">&#9888;&#65039; Veicolo danneggiato</div>` : ''}
-        ${sp.unusable ? `<div style="color:#a78bfa;font-size:14px;font-weight:500;margin-top:4px">&#x1F6AB; Veicolo inutilizzabile</div>` : ''}
         <div style="${rowStyle}">Stato: ${fullBadge}</div>
         <div style="${rowStyle}">Da: <span style="${valStyle}">${_fmtDateMap(sp.since)}</span></div>
         <div style="${rowStyle}">Durata: <span style="color:var(--accent);font-size:14px;font-weight:500">${_fmtDurMap(sp.since)}</span></div>
@@ -1311,15 +1294,11 @@ function selectSpot(id){
       ${sp.full
         ? `<button class="fullToggleBtn pieno" style="margin-top:12px" onclick="window._toggleFull('${id}',false)">&#x1F7E2; Segna come Vuota/o</button>`
         : `<button class="fullToggleBtn vuoto" style="margin-top:12px" onclick="window._toggleFull('${id}',true)">&#x1F7E1; Segna come Piena/o</button>`}
-      ${puoUnusable ? (sp.unusable
-        ? `<button class="fullToggleBtn" style="margin-top:6px;background:linear-gradient(135deg,#7c3aed,#6d28d9)" onclick="window._removeUnusable('${id}')">&#x1F7E2; Rimuovi inutilizzabile</button>`
-        : `<button class="fullToggleBtn" style="margin-top:6px;background:linear-gradient(135deg,#7c3aed,#6d28d9)" onclick="window._addUnusable('${id}')">&#x1F6AB; Segna come inutilizzabile</button>`)
-      : ''}
-      ${puoUnusable ? (sp.damaged
-        ? `<button class="fullToggleBtn" style="margin-top:6px;background:linear-gradient(135deg,#f59e0b,#d97706)" onclick="window._removeDamaged('${id}')">&#10003; Rimuovi segnalazione guasto</button>`
-        : `<button class="fullToggleBtn" style="margin-top:6px;background:linear-gradient(135deg,#ef4444,#dc2626)" onclick="window._addDamaged('${id}')">&#9888;&#65039; Segna come guasto</button>`)
-      : ''}
-      ${puoGestire ? `<button class="btnFreeInline" onclick="window._freeSpot('${id}')">&#10005; Libera Posto</button>` : ''}` ;
+      ${puoGestire ? `
+      ${sp.damaged
+        ? `<button onclick="window._removeDamaged('${id}')" style="width:100%;background:linear-gradient(135deg,#f59e0b,#d97706);border:none;border-radius:8px;padding:9px;color:#fff;font-family:inherit;font-size:13px;font-weight:500;cursor:pointer;margin-bottom:7px;margin-top:8px">&#10003; Rimuovi segnalazione danno</button>`
+        : `<button onclick="window._addDamaged('${id}')" style="width:100%;background:linear-gradient(135deg,#ef4444,#dc2626);border:none;border-radius:8px;padding:9px;color:#fff;font-family:inherit;font-size:13px;font-weight:500;cursor:pointer;margin-bottom:7px;margin-top:8px">&#9888;&#65039; Segnala veicolo danneggiato</button>`}
+      <button class="btnFreeInline" onclick="window._freeSpot('${id}')">&#10005; Libera Posto</button>` : ''}`;
   }
 }
 
@@ -1420,9 +1399,11 @@ function showApp(){
         btn.classList.add("hidden");
       }
     });
+    // Nascondi toggle modalità container/cassa (non serve alla portineria)
+    const modeToggleEl = document.getElementById("modeToggle");
+    if(modeToggleEl) modeToggleEl.style.display = "none";
     // Mostra tab Portineria
     document.getElementById("tabPortineria").classList.remove("hidden");
-    loadMode();
     startListeners();
     // Attiva pagina Portineria dopo aver preparato tutto
     showPage("Portineria", document.getElementById("tabPortineria"));
@@ -1442,6 +1423,7 @@ function showApp(){
 }
 
 
+// ââ FIRESTORE LISTENERS âââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 function startListeners(){
   // Listener parcheggi: aggiornamento real-time
   unsubSpots = onSnapshot(collection(db,"spots"), (snapshot) => {
@@ -1485,6 +1467,8 @@ function stopListeners(){
   if(unsubSpots)  { unsubSpots();  unsubSpots=null;  }
   if(unsubHistory){ unsubHistory();unsubHistory=null; }
 }
+
+
 // ââ OPERAZIONI PARCHEGGI ââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 async function inlineAssign(id){
   const plate=(document.getElementById("inlineplate")?.value||"").trim().toUpperCase();
@@ -1644,7 +1628,6 @@ function doSearch(){
       <td>${tipoMezzo}</td>
       <td>${s.since?fmtDate(s.since):"&mdash;"}</td>
       <td style="text-align:center">${s.damaged ? '<span style="color:#ef4444;font-weight:600;font-size:13px">⚠️ Sì</span>' : '<span style="color:var(--muted);font-size:12px">&mdash;</span>'}</td>
-      <td style="text-align:center">${s.unusable ? '<span style="color:#a78bfa;font-weight:600;font-size:13px">🚫 Sì</span>' : '<span style="color:var(--muted);font-size:12px">&mdash;</span>'}</td>
       <td style="text-align:center">${s.occupied ? (s.full ? '<span class="tagPieno">🔴 Piena/o</span>' : '<span class="tagVuoto">🟢 Vuota/o</span>') : '<span style="color:var(--muted);font-size:12px">&mdash;</span>'}</td>
       <td style="color:var(--muted);font-size:11px">${nomeUtente}</td>
     </tr>`;}).join("");
@@ -1723,27 +1706,6 @@ function renderStatistiche(){
           <div style="font-size:12px;color:#ef4444;font-weight:600;white-space:nowrap">${dur}</div>
         </div>`;
       }).join("");
-  const unusable=all.filter(s=>!s.occupied&&s.unusable&&s.since).sort((a,b)=>a.since-b.since);
-  const unusableEl=document.getElementById("chartUnusable");
-  if(unusableEl){
-    unusableEl.innerHTML=unusable.length===0
-      ? '<div style="color:var(--muted);font-size:13px">Nessun veicolo inutilizzabile</div>'
-      : unusable.map(s=>{
-          const tot=s.since?Date.now()-s.since:0;
-          const gg=Math.floor(tot/86400000);
-          const hh=Math.floor((tot%86400000)/3600000);
-          const mm=Math.floor((tot%3600000)/60000);
-          const dur=gg>0?`${gg}g ${hh}h`:hh>0?`${hh}h ${mm}m`:`${mm}m`;
-          return `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border)">
-            <div>
-              <span style="color:#a78bfa;font-size:13px;margin-right:6px">🚫</span>
-              <span class="mono" style="font-weight:600;font-size:14px">${s.plate||"—"}</span>
-              <span style="color:var(--muted);font-size:11px;margin-left:8px">Posto ${s.id}</span>
-            </div>
-            <div style="font-size:12px;color:#a78bfa;font-weight:600;white-space:nowrap">${dur}</div>
-          </div>`;
-        }).join("");
-  }
   const hrs=[8,9,10,11,12,13,14,15,16,17,18], pk=[3,8,12,14,10,9,13,15,11,7,4], mxp=Math.max(...pk);
   document.getElementById("chartHours").innerHTML=hrs.map((h,i)=>`
     <div class="barRow"><div class="barLabel">${h}:00</div>
@@ -2075,46 +2037,6 @@ async function addDamaged(id){
   }
 }
 window._addDamaged=addDamaged;
-
-async function addUnusable(id){
-  if(!currentUser||!["amministrativo","amministratore"].includes(currentUser.role)){
-    showToast("Permesso negato","error"); return;
-  }
-  try{
-    await updateDoc(doc(db,"spots",id),{ unusable: true });
-    await addDoc(collection(db,"history"),{
-      ts: serverTimestamp(), spot:id,
-      action:"Inutilizzabile segnalato", plate:spots[id].plate,
-      user: currentUser.name || currentUser.email,
-      userName: currentUser.name || currentUser.email
-    });
-    selectSpot(id);
-    showToast(`Veicolo segnato come inutilizzabile per posto ${id}`,"success");
-  }catch(e){
-    showToast("Errore: "+e.message,"error");
-  }
-}
-window._addUnusable=addUnusable;
-
-async function removeUnusable(id){
-  if(!currentUser||!["amministrativo","amministratore"].includes(currentUser.role)){
-    showToast("Permesso negato","error"); return;
-  }
-  try{
-    await updateDoc(doc(db,"spots",id),{ unusable: false });
-    await addDoc(collection(db,"history"),{
-      ts: serverTimestamp(), spot:id,
-      action:"Inutilizzabile rimosso", plate:spots[id].plate,
-      user: currentUser.name || currentUser.email,
-      userName: currentUser.name || currentUser.email
-    });
-    selectSpot(id);
-    showToast(`Segnalazione inutilizzabile rimossa per posto ${id}`,"success");
-  }catch(e){
-    showToast("Errore: "+e.message,"error");
-  }
-}
-window._removeUnusable=removeUnusable;
 
 function cancelSelect(){
   selectedSpotId=null; renderMap();
@@ -3106,10 +3028,13 @@ async function porteriaConferma() {
       spots[id].since    = now;
     }
 
-    document.getElementById('port-btn-conferma').textContent = '✔ Assegnato';
     showToast('Posto ' + id + ' assegnato a ' + veicolo);
-
-    // Disabilita conferma (già eseguita) ma lascia stampa attiva
+    // Resetta solo i campi input, mantieni risultato visibile per la stampa
+    document.getElementById('port-veicolo').value = '';
+    document.getElementById('port-stato').value   = 'pieno';
+    // Aggiorna testo bottone e lascia stampa attiva
+    document.getElementById('port-btn-conferma').textContent = '✔ Assegnato';
+    document.getElementById('port-btn-stampa').disabled = false;
     btn.disabled = true;
 
   } catch(e) {
@@ -3175,17 +3100,26 @@ function porteriaStampa() {
       const rw = Math.round(${RECT_LABEL.w} * scaleX);
       const rh = Math.round(${RECT_LABEL.h} * scaleY);
 
-      // Riempi rettangolo con nero (copre il bianco originale)
-      ctx.fillStyle = '#000000';
+      // Rettangolo: sfondo bianco/chiaro con bordo nero
+      ctx.fillStyle = '#f8f8f8';
       ctx.fillRect(rx, ry, rw, rh);
+      ctx.strokeStyle = '#000000';
+      ctx.lineWidth = Math.round(rw * 0.02);
+      ctx.strokeRect(rx, ry, rw, rh);
 
-      // Scrivi numero posto in bianco centrato nel rettangolo
-      const fontSize = Math.round(rh * 0.45);
-      ctx.fillStyle   = '#ffffff';
-      ctx.font        = 'bold ' + fontSize + 'px "Barlow Condensed", "DM Sans", Arial, sans-serif';
-      ctx.textAlign   = 'center';
+      // Testo nero centrato, font auto-fit per stare su una riga
+      const label = '${posto}';
+      ctx.fillStyle    = '#000000';
+      ctx.textAlign    = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText('${posto}', rx + rw/2, ry + rh/2);
+      // Calcola font size massimo che fa stare il testo su una riga
+      let fontSize = Math.round(rh * 0.55);
+      ctx.font = 'bold ' + fontSize + 'px "Barlow Condensed", Arial, sans-serif';
+      while (ctx.measureText(label).width > rw * 0.85 && fontSize > 10) {
+        fontSize -= 2;
+        ctx.font = 'bold ' + fontSize + 'px "Barlow Condensed", Arial, sans-serif';
+      }
+      ctx.fillText(label, rx + rw/2, ry + rh/2);
     };
     img.src = '${imgSrc}';
   <\/script>
