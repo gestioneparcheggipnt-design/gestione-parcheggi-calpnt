@@ -2877,8 +2877,8 @@ const MAPPE_PERCORSO = {
 };
 
 // ── VALIDAZIONE FORMATO ─────────────────────────────────────────────────────
-const RE_CONTAINER = /^[A-Z]{4}\d{7}$/;
-const RE_CASSA     = /^\d{3}$/;
+const _PORT_RE_CONTAINER = /^[A-Z]{4}\d{7}$/;
+const _PORT_RE_CASSA     = /^\d{3}$/;
 
 // ── STATO MODULO ─────────────────────────────────────────────────────────────
 let _portSpotSuggerito = null;  // id posto suggerito corrente
@@ -2888,8 +2888,8 @@ let _portTipo          = null;  // 'container' | 'cassa'
 
 // ── HELPER: rileva tipo da id ────────────────────────────────────────────────
 function _portRilevaTipo(id) {
-  if (RE_CONTAINER.test(id)) return 'container';
-  if (RE_CASSA.test(id))     return 'cassa';
+  if (_PORT_RE_CONTAINER.test(id)) return 'container';
+  if (_PORT_RE_CASSA.test(id))     return 'cassa';
   return null;
 }
 
