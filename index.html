@@ -1311,15 +1311,15 @@ function selectSpot(id){
       ${sp.full
         ? `<button class="fullToggleBtn pieno" style="margin-top:12px" onclick="window._toggleFull('${id}',false)">&#x1F7E2; Segna come Vuota/o</button>`
         : `<button class="fullToggleBtn vuoto" style="margin-top:12px" onclick="window._toggleFull('${id}',true)">&#x1F7E1; Segna come Piena/o</button>`}
-      ${puoGestire ? `
-      ${sp.damaged
-        ? `<button onclick="window._removeDamaged('${id}')" style="width:100%;background:linear-gradient(135deg,#f59e0b,#d97706);border:none;border-radius:8px;padding:9px;color:#fff;font-family:inherit;font-size:13px;font-weight:500;cursor:pointer;margin-bottom:7px;margin-top:8px">&#10003; Rimuovi segnalazione danno</button>`
-        : `<button onclick="window._addDamaged('${id}')" style="width:100%;background:linear-gradient(135deg,#ef4444,#dc2626);border:none;border-radius:8px;padding:9px;color:#fff;font-family:inherit;font-size:13px;font-weight:500;cursor:pointer;margin-bottom:7px;margin-top:8px">&#9888;&#65039; Segnala veicolo danneggiato</button>`}
-      <button class="btnFreeInline" onclick="window._freeSpot('${id}')">&#10005; Libera Posto</button>` : ''}
       ${puoUnusable ? (sp.unusable
-        ? `<button class="btnUnusableRemove" onclick="window._removeUnusable('${id}')">&#10003; Rimuovi inutilizzabile</button>`
-        : `<button class="btnUnusable" onclick="window._addUnusable('${id}')">&#x1F6AB; Segna veicolo inutilizzabile</button>`
-      ) : ''}` ;
+        ? `<button class="fullToggleBtn" style="margin-top:6px;background:linear-gradient(135deg,#7c3aed,#6d28d9)" onclick="window._removeUnusable('${id}')">&#x1F7E2; Rimuovi inutilizzabile</button>`
+        : `<button class="fullToggleBtn" style="margin-top:6px;background:linear-gradient(135deg,#7c3aed,#6d28d9)" onclick="window._addUnusable('${id}')">&#x1F6AB; Segna come inutilizzabile</button>`)
+      : ''}
+      ${puoUnusable ? (sp.damaged
+        ? `<button class="fullToggleBtn" style="margin-top:6px;background:linear-gradient(135deg,#f59e0b,#d97706)" onclick="window._removeDamaged('${id}')">&#10003; Rimuovi segnalazione guasto</button>`
+        : `<button class="fullToggleBtn" style="margin-top:6px;background:linear-gradient(135deg,#ef4444,#dc2626)" onclick="window._addDamaged('${id}')">&#9888;&#65039; Segna come guasto</button>`)
+      : ''}
+      ${puoGestire ? `<button class="btnFreeInline" onclick="window._freeSpot('${id}')">&#10005; Libera Posto</button>` : ''}` ;
   }
 }
 
@@ -1644,7 +1644,7 @@ function doSearch(){
       <td>${tipoMezzo}</td>
       <td>${s.since?fmtDate(s.since):"&mdash;"}</td>
       <td style="text-align:center">${s.damaged ? '<span style="color:#ef4444;font-weight:600;font-size:13px">⚠️ Sì</span>' : '<span style="color:var(--muted);font-size:12px">&mdash;</span>'}</td>
-      <td style="text-align:center">${(!s.occupied && s.unusable) ? '<span style="color:#a78bfa;font-weight:600;font-size:13px">🚫 Sì</span>' : '<span style="color:var(--muted);font-size:12px">&mdash;</span>'}</td>
+      <td style="text-align:center">${s.unusable ? '<span style="color:#a78bfa;font-weight:600;font-size:13px">🚫 Sì</span>' : '<span style="color:var(--muted);font-size:12px">&mdash;</span>'}</td>
       <td style="text-align:center">${s.occupied ? (s.full ? '<span class="tagPieno">🔴 Piena/o</span>' : '<span class="tagVuoto">🟢 Vuota/o</span>') : '<span style="color:var(--muted);font-size:12px">&mdash;</span>'}</td>
       <td style="color:var(--muted);font-size:11px">${nomeUtente}</td>
     </tr>`;}).join("");
