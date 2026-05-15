@@ -53,7 +53,7 @@ if(!_forceDesktop && (window.innerWidth<=768||navigator.maxTouchPoints>0) && !lo
   .formGroup input:focus,.formGroup select:focus{border-color:var(--accent);}
   .btnPrimary{width:100%;background:linear-gradient(135deg,var(--accent),var(--accent2));border:none;border-radius:10px;padding:14px;color:#1C1F26;font-family:inherit;font-size:15px;font-weight:700;cursor:pointer;margin-top:8px;letter-spacing:.5px;}
   .btnPrimary:hover{opacity:.9;}
-  #app{display:none;height:100vh;flex-direction:column;overflow:hidden;position:relative;}
+  #app{display:none;min-height:100vh;flex-direction:column;}
   nav{background:var(--surface);border-bottom:1px solid var(--border);padding:0 20px;display:flex;align-items:center;justify-content:space-between;height:58px;position:sticky;top:0;z-index:100;gap:8px;}
   .navLogo{font-weight:700;font-size:17px;display:flex;align-items:center;gap:7px;flex-shrink:0;}
   .navTabs{display:flex;gap:3px;overflow-x:auto;}
@@ -69,7 +69,7 @@ if(!_forceDesktop && (window.innerWidth<=768||navigator.maxTouchPoints>0) && !lo
   .roleBadge.amministratore{color:#A4D200;border-color:#A4D20044;background:#A4D20011;}
   .btnLogout{background:transparent;border:1px solid var(--border);border-radius:8px;padding:5px 11px;color:var(--muted);font-family:inherit;font-size:12px;cursor:pointer;}
   .btnLogout:hover{border-color:var(--red);color:var(--red);}
-  .page{display:none;padding:18px;overflow-y:auto;position:absolute;top:59px;left:0;right:0;bottom:0;}
+  .page{display:none;padding:18px;flex:1;}
   .page.active{display:block;}
   .pageHeader{font-size:19px;font-weight:700;margin-bottom:3px;}
   .pageSubtitle{font-size:13px;color:var(--muted);margin-bottom:16px;}
@@ -519,7 +519,7 @@ if(!_forceDesktop && (window.innerWidth<=768||navigator.maxTouchPoints>0) && !lo
 .btn-elimina  { background:#ef444418; color:var(--red);   border:1px solid #ef444440; }
 
 /* ── PORTINERIA ─────────────────────────────────────────── */
-.port-container { max-width: 820px; margin: 0 auto; }
+.port-container { max-width: 820px; }
 .port-form-card {
   background: var(--surface);
   border: 1px solid var(--border);
@@ -1050,10 +1050,21 @@ SPOT_DEFS.forEach(([id,zone,x,y,w,h]) => {
 // Ogni utente sceglie la propria vista (salvata in localStorage per UID)
 let currentMode = 'container'; // default
 
+const REPARTO_DEFAULT_MODE = {
+  ricevimento: 'container',
+  reverse:     'cassa',
+};
+
 function loadMode(){
   const uid = currentUser ? currentUser.uid : 'guest';
   const saved = localStorage.getItem('parkMode_'+uid);
-  currentMode = saved === 'cassa' ? 'cassa' : 'container';
+  if (saved === 'cassa' || saved === 'container') {
+    currentMode = saved;
+  } else {
+    // Nessuna scelta manuale salvata: usa default da reparto, altrimenti 'container'
+    const reparto = currentUser ? currentUser.reparto : null;
+    currentMode = (reparto && REPARTO_DEFAULT_MODE[reparto]) || 'container';
+  }
   _applyModeUI();
   // Aggiorna la vista tab prenotazioni se già inizializzata
   if (typeof _aggiornaVistaPrenotazioni === 'function') _aggiornaVistaPrenotazioni();
@@ -1399,11 +1410,9 @@ function showApp(){
         btn.classList.add("hidden");
       }
     });
-    // Nascondi toggle modalità container/cassa (non serve alla portineria)
-    const modeToggleEl = document.getElementById("modeToggle");
-    if(modeToggleEl) modeToggleEl.style.display = "none";
     // Mostra tab Portineria
     document.getElementById("tabPortineria").classList.remove("hidden");
+    loadMode();
     startListeners();
     // Attiva pagina Portineria dopo aver preparato tutto
     showPage("Portineria", document.getElementById("tabPortineria"));
@@ -1423,7 +1432,6 @@ function showApp(){
 }
 
 
-// ââ FIRESTORE LISTENERS âââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 function startListeners(){
   // Listener parcheggi: aggiornamento real-time
   unsubSpots = onSnapshot(collection(db,"spots"), (snapshot) => {
@@ -1467,8 +1475,6 @@ function stopListeners(){
   if(unsubSpots)  { unsubSpots();  unsubSpots=null;  }
   if(unsubHistory){ unsubHistory();unsubHistory=null; }
 }
-
-
 // ââ OPERAZIONI PARCHEGGI ââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 async function inlineAssign(id){
   const plate=(document.getElementById("inlineplate")?.value||"").trim().toUpperCase();
@@ -3028,13 +3034,10 @@ async function porteriaConferma() {
       spots[id].since    = now;
     }
 
-    showToast('Posto ' + id + ' assegnato a ' + veicolo);
-    // Resetta solo i campi input, mantieni risultato visibile per la stampa
-    document.getElementById('port-veicolo').value = '';
-    document.getElementById('port-stato').value   = 'pieno';
-    // Aggiorna testo bottone e lascia stampa attiva
     document.getElementById('port-btn-conferma').textContent = '✔ Assegnato';
-    document.getElementById('port-btn-stampa').disabled = false;
+    showToast('Posto ' + id + ' assegnato a ' + veicolo);
+
+    // Disabilita conferma (già eseguita) ma lascia stampa attiva
     btn.disabled = true;
 
   } catch(e) {
@@ -3100,26 +3103,17 @@ function porteriaStampa() {
       const rw = Math.round(${RECT_LABEL.w} * scaleX);
       const rh = Math.round(${RECT_LABEL.h} * scaleY);
 
-      // Rettangolo: sfondo bianco/chiaro con bordo nero
-      ctx.fillStyle = '#f8f8f8';
+      // Riempi rettangolo con nero (copre il bianco originale)
+      ctx.fillStyle = '#000000';
       ctx.fillRect(rx, ry, rw, rh);
-      ctx.strokeStyle = '#000000';
-      ctx.lineWidth = Math.round(rw * 0.02);
-      ctx.strokeRect(rx, ry, rw, rh);
 
-      // Testo nero centrato, font auto-fit per stare su una riga
-      const label = '${posto}';
-      ctx.fillStyle    = '#000000';
-      ctx.textAlign    = 'center';
+      // Scrivi numero posto in bianco centrato nel rettangolo
+      const fontSize = Math.round(rh * 0.45);
+      ctx.fillStyle   = '#ffffff';
+      ctx.font        = 'bold ' + fontSize + 'px "Barlow Condensed", "DM Sans", Arial, sans-serif';
+      ctx.textAlign   = 'center';
       ctx.textBaseline = 'middle';
-      // Calcola font size massimo che fa stare il testo su una riga
-      let fontSize = Math.round(rh * 0.55);
-      ctx.font = 'bold ' + fontSize + 'px "Barlow Condensed", Arial, sans-serif';
-      while (ctx.measureText(label).width > rw * 0.85 && fontSize > 10) {
-        fontSize -= 2;
-        ctx.font = 'bold ' + fontSize + 'px "Barlow Condensed", Arial, sans-serif';
-      }
-      ctx.fillText(label, rx + rw/2, ry + rh/2);
+      ctx.fillText('${posto}', rx + rw/2, ry + rh/2);
     };
     img.src = '${imgSrc}';
   <\/script>
