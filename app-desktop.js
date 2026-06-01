@@ -294,10 +294,8 @@ function _labelMezzo(plate) {
 
 function initMap(){
   const img=document.getElementById("mapImg"),vp=document.getElementById("mapViewport");
-  img.onload=()=>requestAnimationFrame(()=>requestAnimationFrame(()=>{
-    renderMap(); initPanZoom();
-  }));
-  img.src=MAP_SRC;
+if(img.complete){ renderMap(); initPanZoom(); }
+  else { img.onload=()=>{ renderMap(); initPanZoom(); }; }
 }
 
 function renderMap(){
