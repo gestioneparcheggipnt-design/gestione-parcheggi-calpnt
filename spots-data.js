@@ -1,7 +1,3 @@
-// ── MAP DATA (immutabile) ─────────────────────────────────────────────────────
-// Nota: MAP_SRC (base64 JPEG della planimetria) è inline in index.html (riga 704)
-
-const IMG_W = 3000, IMG_H = 2250;
 
 const SPOT_DEFS=[
   ["A13","ZONA A",1291,351,29,87],
@@ -117,3 +113,58 @@ function getDestinazioniPerReparto(reparto) {
 
 // Export per ES Module (mobile) — ignorato dal bundle desktop (assemble.py)
 export { SPOT_DEFS, PATCHES, ZONES, REPARTI, getDestinazioniPerReparto };
+
+// ââ STATO LOCALE âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+const spots = {};
+SPOT_DEFS.forEach(([id,zone,x,y,w,h]) => {
+  spots[id] = {id,x,y,w,h,occupied:false,plate:null,since:null,user:null,full:false};
+});
+
+// ââ MODALITÃ CONTAINER / CASSA ââââââââââââââââââââââââââââââââââââââââââââââââ
+// Ogni utente sceglie la propria vista (salvata in localStorage per UID)
+let currentMode = 'container'; // default
+
+function loadMode(){
+  const uid = currentUser ? currentUser.uid : 'guest';
+  const saved = localStorage.getItem('parkMode_'+uid);
+  currentMode = saved === 'cassa' ? 'cassa' : 'container';
+  _applyModeUI();
+  // Aggiorna la vista tab prenotazioni se già inizializzata
+  if (typeof _aggiornaVistaPrenotazioni === 'function') _aggiornaVistaPrenotazioni();
+}
+
+function setMode(mode){
+  currentMode = mode;
+  const uid = currentUser ? currentUser.uid : 'guest';
+  localStorage.setItem('parkMode_'+uid, mode);
+  _applyModeUI();
+  renderMap();
+  selectSpot(selectedSpotId); // aggiorna pannello se c'è un posto selezionato
+  // Aggiorna la vista tab prenotazioni se visibile
+  if (typeof _aggiornaVistaPrenotazioni === 'function') _aggiornaVistaPrenotazioni();
+}
+
+function _applyModeUI(){
+  const btnC = document.getElementById('btnModeContainer');
+  const btnK = document.getElementById('btnModeCassa');
+  if(!btnC || !btnK) return;
+  if(currentMode === 'container'){
+    btnC.classList.add('active');
+    btnK.classList.remove('active');
+  } else {
+    btnK.classList.add('active');
+    btnC.classList.remove('active');
+  }
+}
+
+function getModeLabel(){
+  return currentMode === 'cassa' ? 'Cassa' : 'Container';
+}
+
+function getModeIcon(){
+  return currentMode === 'cassa' ? '&#x1F4E6;' : '&#x1F69B;';
+}
+
+window.setMode = setMode;
+
+let currentUser = null;   // { email, role, uid }
