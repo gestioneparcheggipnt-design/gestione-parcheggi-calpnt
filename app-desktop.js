@@ -8,7 +8,7 @@ import { getFirestore, doc, getDoc, setDoc, updateDoc, addDoc, collection,
 
 // ── FIREBASE CONFIG ─────────────────────────────────────────────────────────
 const firebaseConfig = {
-  apiKey: "...",
+  apiKey: "AIzaSyCJK372CJBjsBoGRLiOjCcwpYxDJ5hpyls",
   authDomain: "gestione-parcheggi-calpnt.firebaseapp.com",
   projectId: "gestione-parcheggi-calpnt",
   storageBucket: "gestione-parcheggi-calpnt.firebasestorage.app",
