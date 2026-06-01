@@ -7,7 +7,10 @@ import { getFirestore, doc, getDoc, setDoc, updateDoc, addDoc, collection,
   from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
 
 // ── FIREBASE CONFIG ─────────────────────────────────────────────────────────
-projectId: "gestione-parcheggi-calpnt",
+const firebaseConfig = {
+  apiKey: "...",
+  authDomain: "gestione-parcheggi-calpnt.firebaseapp.com",
+  projectId: "gestione-parcheggi-calpnt",
   storageBucket: "gestione-parcheggi-calpnt.firebasestorage.app",
   messagingSenderId: "977997780262",
   appId: "1:977997780262:web:759e979e5af89832049de7",
