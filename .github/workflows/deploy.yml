@@ -22,7 +22,7 @@ jobs:
       - name: Cache busting
         run: |
           HASH=$(date +%s)
-          sed -i -E "s/(\.js|\.css)([\"'])/\1?v=$HASH\2/g" index.html mobile.html index-shell.html
+          sed -i -E "s/(\.js|\.css)([\"'])/\1?v=$HASH\2/g" index.html mobile.html
 
       - uses: actions/configure-pages@v4
       - uses: actions/upload-pages-artifact@v3
