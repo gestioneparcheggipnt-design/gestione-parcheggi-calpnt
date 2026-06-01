@@ -61,10 +61,15 @@ function _labelMezzo(plate) {
 
 function initMap(){
   const img=document.getElementById("mapImg"),vp=document.getElementById("mapViewport");
-  img.onload=()=>requestAnimationFrame(()=>requestAnimationFrame(()=>{
-    renderMap(); initPanZoom();
-  }));
-  img.src=MAP_SRC;
+  if(img.complete && img.naturalWidth > 0){
+    requestAnimationFrame(()=>requestAnimationFrame(()=>{
+      renderMap(); initPanZoom();
+    }));
+  } else {
+    img.onload=()=>requestAnimationFrame(()=>requestAnimationFrame(()=>{
+      renderMap(); initPanZoom();
+    }));
+  }
 }
 
 function renderMap(){
