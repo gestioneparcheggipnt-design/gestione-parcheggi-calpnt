@@ -1,7 +1,7 @@
 // ── ribalte-operativo.js ──────────────────────────────────────────────────────
 // Gestione ribalte per ruolo operativo/portineria (mobile)
 // Le ribalte vivono nella collection Firestore 'ribalte'
-// Dipende da: firebase-config.js, shared-utils.js, spots-data.js
+// Dipende da: firebase-config.js, shared-utils.js, spots-data-mobile.js
 
 import { db, doc, collection, query, orderBy, onSnapshot, setDoc, addDoc, serverTimestamp }
   from './firebase-config.js';

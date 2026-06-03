@@ -8,7 +8,7 @@ import { db, collection, query, orderBy, onSnapshot, doc, updateDoc, setDoc, add
 
 from './firebase-config.js';
 
-// getDestinazioniPerReparto è esposta su window da mobile.html (importata da spots-data.js)
+// getDestinazioniPerReparto è esposta su window da mobile.html (importata da spots-data-mobile.js)
 function getDestinazioniPerReparto(reparto) {
   return window.getDestinazioniPerReparto ? window.getDestinazioniPerReparto(reparto) : [];
 }
