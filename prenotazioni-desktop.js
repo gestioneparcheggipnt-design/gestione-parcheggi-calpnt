@@ -307,6 +307,7 @@ function _aggiornaBtnSalva() {
 }
 
 function initPrenotazioni() {
+  if (currentUser && currentUser.role === 'portineria') return;
   const dtInput = document.getElementById('pren-data');
   if (dtInput) {
     const now = new Date();
