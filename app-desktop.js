@@ -1181,6 +1181,7 @@ function fmtDur(since){
   const m=Math.floor((Date.now()-new Date(since))/60000);
   return m<60?`${m} min`:`${Math.floor(m/60)}h ${m%60}m`;
 }
+let toastT;
 function showToast(msg,type="success"){
   const t=document.getElementById("toast");
   const icon = type==="success"?"✓ ":type==="error"?"✗ ":"ℹ ";
@@ -1508,6 +1509,7 @@ function _aggiornaBtnSalva() {
 }
 
 function initPrenotazioni() {
+  if (currentUser && currentUser.role === 'portineria') return;
   const dtInput = document.getElementById('pren-data');
   if (dtInput) {
     const now = new Date();
