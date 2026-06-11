@@ -600,6 +600,12 @@ async function inlineAssign(id){
   const plate=(document.getElementById("inlineplate")?.value||"").trim().toUpperCase();
   if(!plate){ showToast(`Inserisci ${getModeLabel().toLowerCase()} o identificativo`,"error"); return; }
 
+    // Check se il posto scelto e' gia' occupato
+  if(spots[id] && spots[id].occupied){
+    showToast(`⚠️ Il posto ${id} è già occupato da ${spots[id].plate || 'un veicolo'}`, "error");
+    return;
+  }
+
   // Check se la targa/ID Ã¨ giÃ  assegnata ad un altro posto
   const alreadySpot = Object.entries(spots).find(([sid, s]) => s.occupied && s.plate === plate && sid !== id);
   if(alreadySpot){
@@ -1602,9 +1608,17 @@ async function cercaMezzo() {
       return;
     }
 
-    // Avviso se container vuoto
+    // Blocco se non parcheggiato
+    if (!data.occupied) {
+      feedback.textContent = `⛔ "${targa}" non risulta parcheggiato in nessun posto. Impossibile prenotare.`;
+      feedback.className = 'pren-feedback err';
+      _mezzoCorrente = null;
+      return;
+    }
+
+    // Blocco se container vuoto
     if (!data.full) {
-      feedback.textContent = '⚠️ Il container risulta vuoto.';
+      feedback.textContent = `⛔ "${targa}" risulta vuoto. Prenotare solo container pieni.`;
       feedback.className = 'pren-feedback err';
       _mezzoCorrente = null;
       return;
@@ -2035,7 +2049,7 @@ function _portRilevaTipo(id) {
 }
 
 // ── CERCA POSTO ──────────────────────────────────────────────────────────────
-function portineriaCerca() {
+async function portineriaCerca() {
   const veicolo = (document.getElementById('port-veicolo').value || '').trim().toUpperCase();
   const stato   = document.getElementById('port-stato').value;
   const resEl   = document.getElementById('port-result');
@@ -2054,6 +2068,39 @@ function portineriaCerca() {
     resEl.innerHTML = '<div class="port-err">⚠ Formato non riconosciuto.<br>Container: 4 lettere + 7 cifre (es. MSCU1234567)<br>Cassa: 3 cifre (es. 042)</div>';
     return;
   }
+
+  // ── VERIFICA DUPLICATO ──────────────────────────────────────────
+  resEl.innerHTML = '<div class="port-err" style="opacity:.6">🔍 Verifica in corso…</div>';
+
+  // 1. Già in un parcheggio (spots locali)
+  const _portDupSpots = Object.entries(spots).filter(([, s]) => s.occupied && s.plate === veicolo);
+  if (_portDupSpots.length > 0) {
+    const _portDupPosto = _portDupSpots[0][0];
+    resEl.innerHTML = `<div class="port-err">⚠ <strong>${veicolo}</strong> è già parcheggiato nel posto <strong>${_portDupPosto}</strong>.<br>Impossibile assegnare un nuovo posto.</div>`;
+    return;
+  }
+
+  // 2. Già in una ribalta
+  try {
+    const _portRibSnap = await getDocs(query(collection(db, 'ribalte'), where('plate', '==', veicolo), limit(1)));
+    if (!_portRibSnap.empty && _portRibSnap.docs[0].data().occupied) {
+      const _portRibId = _portRibSnap.docs[0].id;
+      resEl.innerHTML = `<div class="port-err">⚠ <strong>${veicolo}</strong> è attualmente alla ribalta <strong>${_portRibId}</strong>.<br>Impossibile assegnare un posto parcheggio.</div>`;
+      return;
+    }
+  } catch (_portE) { /* ignora errori di rete, prosegui */ }
+
+  // 3. Ha una missione/prenotazione aperta
+  try {
+    const _portPrenSnap = await getDocs(query(collection(db, 'prenotazioni'), where('plate', '==', veicolo), where('stato', '==', 'creata'), limit(1)));
+    if (!_portPrenSnap.empty) {
+      const _portPd = _portPrenSnap.docs[0].data();
+      const _portDest = _portPd.destinazione ? ` → ${_portPd.destinazione}` : '';
+      resEl.innerHTML = `<div class="port-err">⚠ <strong>${veicolo}</strong> ha una missione aperta${_portDest}.<br>Impossibile assegnare un posto parcheggio.</div>`;
+      return;
+    }
+  } catch (_portE) { /* ignora errori di rete, prosegui */ }
+  // ─────────────────────────────────────────────────────────────────────────
 
   // Cerca primo posto libero compatibile
   const candidati = Object.entries(SPOT_CRITERI)

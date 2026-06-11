@@ -383,32 +383,35 @@ async function cercaMezzo() {
       return;
     }
 
-    // Raccoglie avvisi (non bloccanti) per ribalta, non parcheggiato, vuoto
-    const _prenAvvisi = [];
-
-    // Avviso se container in ribalta
+    // ── CONTROLLI BLOCCANTI ──────────────────────────────────────────────────
+    // Blocco se container in ribalta
     const ribalteSnap = await getDocs(query(collection(db, 'ribalte'), where('plate', '==', targa), limit(1)));
     if (!ribalteSnap.empty && ribalteSnap.docs[0].data().occupied) {
-      _prenAvvisi.push(`⚠️ Il container è attualmente alla ribalta ${ribalteSnap.docs[0].id}.`);
+      feedback.textContent = `⛔ "${targa}" è attualmente alla ribalta ${ribalteSnap.docs[0].id}. Impossibile prenotare.`;
+      feedback.className = 'pren-feedback err';
+      _mezzoCorrente = null;
+      return;
     }
 
-    // Avviso se non parcheggiato in un posto
+    // Blocco se non parcheggiato
     if (!data.occupied) {
-      _prenAvvisi.push('⚠️ Il container non risulta parcheggiato in nessun posto.');
+      feedback.textContent = `⛔ "${targa}" non risulta parcheggiato in nessun posto. Impossibile prenotare.`;
+      feedback.className = 'pren-feedback err';
+      _mezzoCorrente = null;
+      return;
     }
 
-    // Avviso se container vuoto
+    // Blocco se container vuoto
     if (!data.full) {
-      _prenAvvisi.push('⚠️ Il container risulta vuoto.');
+      feedback.textContent = `⛔ "${targa}" risulta vuoto. Prenotare solo container pieni.`;
+      feedback.className = 'pren-feedback err';
+      _mezzoCorrente = null;
+      return;
     }
+    // ─────────────────────────────────────────────────────────────────────────
 
-    if (_prenAvvisi.length > 0) {
-      feedback.innerHTML = _prenAvvisi.map(a => `<span>${a}</span>`).join('<br>');
-      feedback.className = 'pren-feedback warn';
-    } else {
-      feedback.textContent = '✔ Container trovato!';
-      feedback.className = 'pren-feedback ok';
-    }
+    feedback.textContent = '✔ Container trovato!';
+    feedback.className = 'pren-feedback ok';
     document.getElementById('pren-spot-id').textContent = docSnap.id;
     document.getElementById('pren-spot-plate').textContent = data.plate;
     const occEl = document.getElementById('pren-spot-occupied');

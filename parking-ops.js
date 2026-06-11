@@ -12,6 +12,12 @@ async function inlineAssign(id){
   const plate=(document.getElementById("inlineplate")?.value||"").trim().toUpperCase();
   if(!plate){ showToast(`Inserisci ${getModeLabel().toLowerCase()} o identificativo`,"error"); return; }
 
+  // Check se il posto scelto e' gia' occupato
+  if(spots[id] && spots[id].occupied){
+    showToast(`⚠️ Il posto ${id} è già occupato da ${spots[id].plate || 'un veicolo'}`, "error");
+    return;
+  }
+
   // Check se la targa/ID Ã¨ giÃ  assegnata ad un altro posto
   const alreadySpot = Object.entries(spots).find(([sid, s]) => s.occupied && s.plate === plate && sid !== id);
   if(alreadySpot){
