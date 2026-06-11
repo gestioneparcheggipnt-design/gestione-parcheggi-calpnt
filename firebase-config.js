@@ -3,7 +3,7 @@
 // Importato da mobile.html e index.html
 
 import { initializeApp }       from "https://www.gstatic.com/firebasejs/11.6.0/firebase-app.js";
-import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged }
+import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged, createUserWithEmailAndPassword }
                                 from "https://www.gstatic.com/firebasejs/11.6.0/firebase-auth.js";
 import { getFirestore, doc, getDoc, setDoc, updateDoc, collection,
          query, orderBy, limit, where, onSnapshot, addDoc, serverTimestamp, getDocs, deleteDoc }
@@ -24,8 +24,9 @@ const db   = getFirestore(app);
 
 export {
   app, auth, db,
+  initializeApp, getAuth,
   // re-export Firebase functions usate dagli altri moduli
-  signInWithEmailAndPassword, signOut, onAuthStateChanged,
+  signInWithEmailAndPassword, signOut, onAuthStateChanged, createUserWithEmailAndPassword,
   doc, getDoc, setDoc, updateDoc, collection,
   query, orderBy, limit, where, onSnapshot, addDoc, serverTimestamp, getDocs, deleteDoc
 };
