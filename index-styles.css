@@ -223,8 +223,9 @@
   margin-top: .3rem;
   min-height: 1.1rem;
 }
-.pren-feedback.ok  { color: var(--green); }
-.pren-feedback.err { color: var(--red); }
+.pren-feedback.ok   { color: var(--green); }
+.pren-feedback.err  { color: var(--red); }
+.pren-feedback.warn { color: #f59e0b; }
 
 /* ââ Info mezzo trovato ââ */
 .pren-mezzo-info {

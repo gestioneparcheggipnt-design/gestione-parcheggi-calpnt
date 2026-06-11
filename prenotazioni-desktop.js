@@ -373,19 +373,7 @@ async function cercaMezzo() {
     const data = docSnap.data();
     _mezzoCorrente = { spotId: docSnap.id, plate: data.plate, occupied: data.occupied };
 
-    // Controlla se il container è già alla ribalta
-    const ribalteSnap = await getDocs(query(collection(db, 'ribalte'), where('plate', '==', targa), limit(1)));
-    if (!ribalteSnap.empty) {
-      const ribData = ribalteSnap.docs[0].data();
-      if (ribData.occupied) {
-        feedback.textContent = `⚠️ "${targa}" è attualmente alla ribalta ${ribalteSnap.docs[0].id}.`;
-        feedback.className = 'pren-feedback err';
-        _mezzoCorrente = null;
-        return;
-      }
-    }
-
-    // Controlla se esiste già una prenotazione aperta per questo container
+    // Controlla se esiste già una prenotazione aperta per questo container (BLOCCO)
     const prenAperta = _prenotazioni.find(p => p.plate === targa && p.stato === 'creata');
     if (prenAperta) {
       const dest = prenAperta.destinazione ? ` → ${prenAperta.destinazione}` : '';
@@ -395,16 +383,32 @@ async function cercaMezzo() {
       return;
     }
 
-    // Avviso se container vuoto
-    if (!data.full) {
-      feedback.textContent = '⚠️ Il container risulta vuoto.';
-      feedback.className = 'pren-feedback err';
-      _mezzoCorrente = null;
-      return;
+    // Raccoglie avvisi (non bloccanti) per ribalta, non parcheggiato, vuoto
+    const _prenAvvisi = [];
+
+    // Avviso se container in ribalta
+    const ribalteSnap = await getDocs(query(collection(db, 'ribalte'), where('plate', '==', targa), limit(1)));
+    if (!ribalteSnap.empty && ribalteSnap.docs[0].data().occupied) {
+      _prenAvvisi.push(`⚠️ Il container è attualmente alla ribalta ${ribalteSnap.docs[0].id}.`);
     }
 
-    feedback.textContent = '✔ Container trovato!';
-    feedback.className = 'pren-feedback ok';
+    // Avviso se non parcheggiato in un posto
+    if (!data.occupied) {
+      _prenAvvisi.push('⚠️ Il container non risulta parcheggiato in nessun posto.');
+    }
+
+    // Avviso se container vuoto
+    if (!data.full) {
+      _prenAvvisi.push('⚠️ Il container risulta vuoto.');
+    }
+
+    if (_prenAvvisi.length > 0) {
+      feedback.innerHTML = _prenAvvisi.map(a => `<span>${a}</span>`).join('<br>');
+      feedback.className = 'pren-feedback warn';
+    } else {
+      feedback.textContent = '✔ Container trovato!';
+      feedback.className = 'pren-feedback ok';
+    }
     document.getElementById('pren-spot-id').textContent = docSnap.id;
     document.getElementById('pren-spot-plate').textContent = data.plate;
     const occEl = document.getElementById('pren-spot-occupied');
