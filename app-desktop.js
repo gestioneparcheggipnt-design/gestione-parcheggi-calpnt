@@ -1173,6 +1173,40 @@ async function addDamaged(id){
 }
 window._addDamaged=addDamaged;
 
+async function addUnusable(id){
+  try{
+    await updateDoc(doc(db,"spots",id),{ unusable: true });
+    await addDoc(collection(db,"history"),{
+      ts: serverTimestamp(), spot:id,
+      action:"Inutilizzabile segnalato", plate:spots[id].plate,
+      user: currentUser.name || currentUser.email,
+      userName: currentUser.name || currentUser.email
+    });
+    selectSpot(id);
+    showToast(`Veicolo segnato come inutilizzabile: posto ${id}`,"success");
+  }catch(e){
+    showToast("Errore: "+e.message,"error");
+  }
+}
+window._addUnusable=addUnusable;
+
+async function removeUnusable(id){
+  try{
+    await updateDoc(doc(db,"spots",id),{ unusable: false });
+    await addDoc(collection(db,"history"),{
+      ts: serverTimestamp(), spot:id,
+      action:"Inutilizzabile rimosso", plate:spots[id].plate,
+      user: currentUser.name || currentUser.email,
+      userName: currentUser.name || currentUser.email
+    });
+    selectSpot(id);
+    showToast(`Segnalazione inutilizzabile rimossa: posto ${id}`,"success");
+  }catch(e){
+    showToast("Errore: "+e.message,"error");
+  }
+}
+window._removeUnusable=removeUnusable;
+
 function cancelSelect(){
   selectedSpotId=null; renderMap();
   document.getElementById("spotPanel").innerHTML=
