@@ -62,6 +62,8 @@
   .spot.occupied rect{fill:rgba(239,68,68,.35);stroke:#dc2626;stroke-width:1.2;}
   .spot.occupied:hover rect{fill:rgba(239,68,68,.65);}
   .spot.highlight rect{stroke:#f59e0b!important;stroke-width:2.5!important;fill:rgba(245,158,11,.45)!important;}
+  .spot.unusable rect{fill:rgba(124,58,237,.35);stroke:#7c3aed;stroke-width:1.2;}
+  .spot.unusable:hover rect{fill:rgba(124,58,237,.55);}
   .spot text{font-family:'Barlow Condensed','DM Mono',monospace;fill:#fff;pointer-events:none;dominant-baseline:middle;text-anchor:middle;font-weight:700;}
   .mapSidebar{width:265px;display:flex;flex-direction:column;gap:12px;flex-shrink:0;}
   .sideCard{background:var(--surface);border:1px solid var(--border);border-radius:13px;padding:15px;}

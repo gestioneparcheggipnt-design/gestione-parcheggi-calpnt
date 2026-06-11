@@ -402,13 +402,14 @@ function selectSpot(id){
       ${sp.full
         ? `<button class="fullToggleBtn pieno" style="margin-top:12px" onclick="window._toggleFull('${id}',false)">&#x1F7E2; Segna come Vuota/o</button>`
         : `<button class="fullToggleBtn vuoto" style="margin-top:12px" onclick="window._toggleFull('${id}',true)">&#x1F7E1; Segna come Piena/o</button>`}
-      ${puoUnusable ? (sp.damaged
-        ? `<button class="fullToggleBtn" style="margin-top:6px;background:linear-gradient(135deg,#f59e0b,#d97706)" onclick="window._removeDamaged('${id}')">&#10003; Rimuovi segnalazione guasto</button>`
-        : `<button class="fullToggleBtn" style="margin-top:6px;background:linear-gradient(135deg,#ef4444,#dc2626)" onclick="window._addDamaged('${id}')">&#9888;&#65039; Segna come guasto</button>`)
-      : ''}
       ${puoUnusable ? (sp.unusable
         ? `<button class="fullToggleBtn" style="margin-top:6px;background:linear-gradient(135deg,#7c3aed,#6d28d9)" onclick="window._removeUnusable('${id}')">&#10003; Rimuovi inutilizzabile</button>`
-        : `<button class="fullToggleBtn" style="margin-top:6px;background:linear-gradient(135deg,#7c3aed,#6d28d9)" onclick="window._addUnusable('${id}')">&#x1F6AB; Segna come inutilizzabile</button>`)
+        : sp.damaged
+          ? `<button class="fullToggleBtn" style="margin-top:6px;background:linear-gradient(135deg,#f59e0b,#d97706)" onclick="window._removeDamaged('${id}')">&#10003; Rimuovi segnalazione guasto</button>`
+          : `<span>
+              <button class="fullToggleBtn" style="margin-top:6px;background:linear-gradient(135deg,#ef4444,#dc2626)" onclick="window._addDamaged('${id}')">&#9888;&#65039; Segna come guasto</button>
+              <button class="fullToggleBtn" style="margin-top:6px;background:linear-gradient(135deg,#7c3aed,#6d28d9)" onclick="window._addUnusable('${id}')">&#x1F6AB; Segna come inutilizzabile</button>
+             </span>`)
       : ''}
       ${puoGestire ? `<button class="btnFreeInline" style="background:#fff;color:#1C1F26;border:1px solid var(--border);font-weight:700;margin-top:8px" onclick="window._freeSpot('${id}')">&#10005; Libera Posto</button>` : ''}`;
   }
@@ -557,6 +558,7 @@ function startListeners(){
         if(change.type==="removed"){
           spots[id].occupied=false; spots[id].plate=null;
           spots[id].since=null; spots[id].user=null; spots[id].full=false;
+          spots[id].damaged=false; spots[id].unusable=false;
         }else{
           spots[id].occupied = data.occupied||false;
           spots[id].plate    = data.plate||null;
@@ -564,6 +566,7 @@ function startListeners(){
           spots[id].user     = data.user||null;
           spots[id].damaged  = data.damaged||false;
           spots[id].full     = data.full||false;
+          spots[id].unusable = data.unusable||false;
         }
       }
     });
@@ -731,8 +734,9 @@ function doSearch(){
   if(fStato==="occupato-cassa")     res=res.filter(s=>s.occupied && s.plate && /^\d{3}$/.test(s.plate.trim()));
   if(fStato==="occupato-container") res=res.filter(s=>s.occupied && s.plate && /^[A-Z]{4}\d{7}$/.test(s.plate.trim()));
   const fDanneggiato=(document.getElementById("fDanneggiato")?.value||"");
-  if(fDanneggiato==="si")  res=res.filter(s=>s.damaged);
-  if(fDanneggiato==="no")  res=res.filter(s=>!s.damaged);
+  if(fDanneggiato==="si")        res=res.filter(s=>s.damaged);
+  if(fDanneggiato==="no")        res=res.filter(s=>!s.damaged && !s.unusable);
+  if(fDanneggiato==="inutilizzabile") res=res.filter(s=>s.unusable);
   const fPieno=(document.getElementById("fPieno")?.value||"");
   if(fPieno==="pieno") res=res.filter(s=>s.full);
   if(fPieno==="vuoto") res=res.filter(s=>!s.full);
@@ -762,7 +766,7 @@ function doSearch(){
       <td class="mono">${s.plate||"&mdash;"}</td>
       <td>${tipoMezzo}</td>
       <td>${s.since?fmtDate(s.since):"&mdash;"}</td>
-      <td style="text-align:center">${s.damaged ? '<span style="color:#ef4444;font-weight:600;font-size:13px">⚠️ Sì</span>' : '<span style="color:var(--muted);font-size:12px">&mdash;</span>'}</td>
+      <td style="text-align:center">${s.unusable ? '<span style="color:#a78bfa;font-weight:600;font-size:13px">🚫 Inutilizzabile</span>' : s.damaged ? '<span style="color:#ef4444;font-weight:600;font-size:13px">⚠️ Guasto</span>' : '<span style="color:var(--muted);font-size:12px">&mdash;</span>'}</td>
       <td style="text-align:center">${s.occupied ? (s.full ? '<span class="tagPieno">🔴 Piena/o</span>' : '<span class="tagVuoto">🟢 Vuota/o</span>') : '<span style="color:var(--muted);font-size:12px">&mdash;</span>'}</td>
       <td style="color:var(--muted);font-size:11px">${nomeUtente}</td>
     </tr>`;}).join("");
@@ -1619,6 +1623,14 @@ async function cercaMezzo() {
     const docSnap = snap.docs[0];
     const data = docSnap.data();
     _mezzoCorrente = { spotId: docSnap.id, plate: data.plate, occupied: data.occupied };
+
+    // Blocco se container inutilizzabile e vuoto
+    if (data.unusable && !data.full) {
+      feedback.textContent = `⛔ "${targa}" è inutilizzabile e vuoto. Non può essere assegnato a nessuna missione.`;
+      feedback.className = 'pren-feedback err';
+      _mezzoCorrente = null;
+      return;
+    }
 
     // Controlla se il container è già alla ribalta
     const ribalteSnap = await getDocs(query(collection(db, 'ribalte'), where('plate', '==', targa), limit(1)));

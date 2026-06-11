@@ -17,6 +17,7 @@ function startListeners(){
         if(change.type==="removed"){
           spots[id].occupied=false; spots[id].plate=null;
           spots[id].since=null; spots[id].user=null; spots[id].full=false;
+          spots[id].damaged=false; spots[id].unusable=false;
         }else{
           spots[id].occupied = data.occupied||false;
           spots[id].plate    = data.plate||null;
@@ -24,6 +25,7 @@ function startListeners(){
           spots[id].user     = data.user||null;
           spots[id].damaged  = data.damaged||false;
           spots[id].full     = data.full||false;
+          spots[id].unusable = data.unusable||false;
         }
       }
     });

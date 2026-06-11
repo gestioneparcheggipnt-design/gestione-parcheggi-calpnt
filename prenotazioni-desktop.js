@@ -373,6 +373,14 @@ async function cercaMezzo() {
     const data = docSnap.data();
     _mezzoCorrente = { spotId: docSnap.id, plate: data.plate, occupied: data.occupied };
 
+    // Blocco se container inutilizzabile e vuoto
+    if (data.unusable && !data.full) {
+      feedback.textContent = `⛔ "${targa}" è inutilizzabile e vuoto. Non può essere assegnato a nessuna missione.`;
+      feedback.className = 'pren-feedback err';
+      _mezzoCorrente = null;
+      return;
+    }
+
     // Controlla se esiste già una prenotazione aperta per questo container (BLOCCO)
     const prenAperta = _prenotazioni.find(p => p.plate === targa && p.stato === 'creata');
     if (prenAperta) {
