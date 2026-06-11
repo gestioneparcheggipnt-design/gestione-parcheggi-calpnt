@@ -425,6 +425,11 @@ window.resetZoom    = resetZoom;
 window.doLogin      = doLogin;
 window.doLogout     = doLogout;
 
+["loginEmail","loginPass"].forEach(id => {
+  const el = document.getElementById(id);
+  if(el) el.addEventListener("keydown", e => { if(e.key==="Enter") doLogin(); });
+});
+
 
 
 // ââ AUTH ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
