@@ -1,6 +1,6 @@
 // ── IMPORTS FIREBASE ─────────────────────────────────────────────────────────
 import { initializeApp }           from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
-import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged }
+import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged, createUserWithEmailAndPassword }
   from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
 import { getFirestore, doc, getDoc, setDoc, updateDoc, addDoc, collection,
          query, orderBy, limit, where, onSnapshot, serverTimestamp, getDocs, deleteDoc }
