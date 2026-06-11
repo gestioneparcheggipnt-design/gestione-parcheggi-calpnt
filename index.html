@@ -270,8 +270,34 @@ if(!_forceDesktop && (window.innerWidth<=768||navigator.maxTouchPoints>0) && !lo
   <!-- VISTA CASSE: lista ordinata per priorita e anzianita -->
   <div id="pren-view-casse" style="display:none;">
     <div class="pageSubtitle">Casse parcheggiate &#x2014; ordinate per priorit&#xE0; e anzianit&#xE0;</div>
-    <div id="casse-list-container" class="casse-list">
-      <div class="casse-empty">Caricamento&#x2026;</div>
+    <div class="casse-view-layout">
+      <div id="casse-list-container" class="casse-list">
+        <div class="casse-empty">Caricamento&#x2026;</div>
+      </div>
+      <!-- Riquadro target casse giornaliero (solo reparto REVERSE) -->
+      <div id="reverse-target-box" style="display:none;">
+        <div class="rtb-title">&#x1F3AF; Target Casse Giornaliero</div>
+        <div class="rtb-input-row">
+          <label class="rtb-label">Casse target</label>
+          <input type="number" id="reverse-target-input" min="0" placeholder="es. 120"
+                 oninput="aggiornaReverseTarget()" />
+        </div>
+        <div class="rtb-divider"></div>
+        <div class="rtb-stat-row">
+          <span class="rtb-stat-label">Scaricate oggi</span>
+          <span class="rtb-stat-value" id="reverse-scaricate">—</span>
+        </div>
+        <div class="rtb-stat-row rtb-stat-row-delta">
+          <span class="rtb-stat-label">Rimanenti</span>
+          <span class="rtb-stat-value" id="reverse-delta">—</span>
+        </div>
+        <div class="rtb-progress-wrap" id="reverse-progress-wrap" style="display:none;">
+          <div class="rtb-progress-bar">
+            <div class="rtb-progress-fill" id="reverse-progress-fill"></div>
+          </div>
+          <span class="rtb-progress-pct" id="reverse-progress-pct"></span>
+        </div>
+      </div>
     </div>
   </div>
 

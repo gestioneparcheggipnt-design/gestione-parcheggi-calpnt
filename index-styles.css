@@ -550,3 +550,111 @@
 
 
 
+
+/* ── Layout vista casse con riquadro target ── */
+.casse-view-layout {
+  display: flex;
+  gap: 1.2rem;
+  align-items: flex-start;
+}
+.casse-view-layout .casse-list {
+  flex: 1;
+  min-width: 0;
+}
+
+/* ── Riquadro Target Reverse ── */
+#reverse-target-box {
+  width: 220px;
+  flex-shrink: 0;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 1.1rem 1.2rem;
+  position: sticky;
+  top: 1rem;
+}
+.rtb-title {
+  font-size: .85rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  color: var(--accent);
+  margin-bottom: .9rem;
+}
+.rtb-label {
+  display: block;
+  font-size: .75rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  margin-bottom: .35rem;
+}
+.rtb-input-row input[type="number"] {
+  width: 100%;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  font-size: 1.3rem;
+  font-family: 'DM Mono', monospace;
+  font-weight: 700;
+  padding: .4rem .6rem;
+  box-sizing: border-box;
+  outline: none;
+  transition: border-color .15s;
+}
+.rtb-input-row input[type="number"]:focus {
+  border-color: var(--accent);
+}
+.rtb-input-row input[type="number"]::-webkit-inner-spin-button,
+.rtb-input-row input[type="number"]::-webkit-outer-spin-button {
+  opacity: .4;
+}
+.rtb-divider {
+  height: 1px;
+  background: var(--border);
+  margin: .9rem 0;
+}
+.rtb-stat-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: .55rem;
+}
+.rtb-stat-label {
+  font-size: .78rem;
+  color: var(--muted);
+}
+.rtb-stat-value {
+  font-size: 1.3rem;
+  font-family: 'DM Mono', monospace;
+  font-weight: 700;
+  color: var(--text);
+}
+.rtb-stat-row-delta .rtb-stat-value {
+  color: var(--accent);
+}
+.rtb-stat-row-delta .rtb-stat-value.negativo {
+  color: var(--red);
+}
+.rtb-progress-wrap {
+  margin-top: .8rem;
+}
+.rtb-progress-bar {
+  height: 7px;
+  background: var(--surface2);
+  border-radius: 99px;
+  overflow: hidden;
+  margin-bottom: .3rem;
+}
+.rtb-progress-fill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 99px;
+  transition: width .4s ease;
+}
+.rtb-progress-pct {
+  font-size: .75rem;
+  color: var(--muted);
+  font-family: 'DM Mono', monospace;
+}
