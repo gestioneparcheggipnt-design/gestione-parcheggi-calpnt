@@ -1,14 +1,4 @@
 import { addDoc, collection, doc, serverTimestamp, setDoc, updateDoc } from './firebase-config.js';
-// ── PARKING-OPS.JS ─────────────────────────────────────────────────────────
-}
-
-function stopListeners(){
-  if(window.unsubSpots)  { window.unsubSpots();  window.unsubSpots=null;  }
-  if(window.unsubHistory){ window.unsubHistory();window.unsubHistory=null; }
-}
-
-
-
 // ââ OPERAZIONI PARCHEGGI ââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 async function inlineAssign(id){
   const plate=(document.getElementById("inlineplate")?.value||"").trim().toUpperCase();

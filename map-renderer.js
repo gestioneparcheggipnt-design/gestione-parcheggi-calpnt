@@ -189,6 +189,6 @@ window._inlineAssign = inlineAssign;
 window._freeSpot    = freeSpot;
 
 
-// Esposizioni globali (richiamate da onclick HTML)
+// Esponi per onclick HTML
 window.zoom      = zoom;
 window.resetZoom = resetZoom;

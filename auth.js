@@ -115,3 +115,12 @@ function showApp(){
   loadMode();
   initMap();
 
+// ── FIRESTORE-LISTENERS.JS ─────────────────────────────────────────────────────────
+startListeners();
+  renderStatistiche();
+  renderUsers();
+  showPage("Mappa", document.querySelector(".navTab"));
+}
+
+
+

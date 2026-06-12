@@ -1,13 +1,4 @@
-import { collection, doc, onSnapshot } from './firebase-config.js';
-// ── FIRESTORE-LISTENERS.JS ─────────────────────────────────────────────────────────
-startListeners();
-  renderStatistiche();
-  renderUsers();
-  showPage("Mappa", document.querySelector(".navTab"));
-}
-
-
-
+import { collection, doc, limit, onSnapshot, orderBy, query } from './firebase-config.js';
 // ââ FIRESTORE LISTENERS âââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 function startListeners(){
   // Listener parcheggi: aggiornamento real-time
@@ -48,4 +39,14 @@ function startListeners(){
       renderStatistiche();
     }
   });
+
+// ── PARKING-OPS.JS ─────────────────────────────────────────────────────────
+}
+
+function stopListeners(){
+  if(window.unsubSpots)  { window.unsubSpots();  window.unsubSpots=null;  }
+  if(window.unsubHistory){ window.unsubHistory();window.unsubHistory=null; }
+}
+
+
 

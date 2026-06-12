@@ -1,6 +1,5 @@
-// ── app-desktop.js ────────────────────────────────────────────────────────────
-// Entry point: importa i moduli nell'ordine corretto.
-// NON modificare questo file — modifica i singoli moduli sorgente.
+// ── app-desktop.js ─ Entry point ────────────────────────────────────────────
+// NON modificare — modifica i singoli file sorgente.
 
 import './firebase-config.js';
 import './spots-data-desktop.js';
