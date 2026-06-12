@@ -1264,6 +1264,8 @@ let _prenotazioni = [];
 let _mezzoCorrente = null;
 let _prenListener = null;
 let _destinazioneValida = false;
+let _reverseHistoryListener = null;
+let _reverseScaricateOggi = 0;
 let _ribalteListener = null;
 let _ribalteData = {}; // { [id]: { occupied, plate } }
 const _gruppoPickerDesk = {}; // { [formKey]: 'PNT1'|'PNT2' }
@@ -1462,8 +1464,13 @@ function _aggiornaVistaPrenotazioni() {
   const isCassa = (currentMode === 'cassa');
   document.getElementById('pren-view-container').style.display = isCassa ? 'none' : 'block';
   document.getElementById('pren-view-casse').style.display     = isCassa ? 'block' : 'none';
-  if (isCassa) renderCasse();
-  else renderPrenotazioni();
+  if (isCassa) {
+    renderCasse();
+    _initReverseTarget();
+  } else {
+    renderPrenotazioni();
+    if (_reverseHistoryListener) { _reverseHistoryListener(); _reverseHistoryListener = null; }
+  }
 }
 
 // ── Vista CASSE: lista posti occupati da casse ────────────────────────────
@@ -1918,6 +1925,89 @@ window.salvaPrenotazione       = salvaPrenotazione;
 window.resetFormPrenotazione   = resetFormPrenotazione;
 window.cambiaStatoPrenotazione = cambiaStatoPrenotazione;
 window.eliminaPrenotazione     = eliminaPrenotazione;
+
+// ── Riquadro Target Casse Giornaliero (solo reparto REVERSE) ─────────────
+
+function _isReverseUser() {
+  return currentUser &&
+    (currentUser.reparto || '').trim().toUpperCase() === 'REVERSE';
+}
+
+function _reverseTargetKey() {
+  const d = new Date();
+  const ds = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  return `reverse_target_${ds}`;
+}
+
+function _initReverseTarget() {
+  const box = document.getElementById('reverse-target-box');
+  if (!box) return;
+  if (!_isReverseUser()) {
+    box.style.display = 'none';
+    if (_reverseHistoryListener) { _reverseHistoryListener(); _reverseHistoryListener = null; }
+    return;
+  }
+  box.style.display = 'block';
+  const input = document.getElementById('reverse-target-input');
+  const saved = localStorage.getItem(_reverseTargetKey());
+  if (input && saved !== null) input.value = saved;
+  _startReverseHistoryListener();
+}
+
+function _startReverseHistoryListener() {
+  if (_reverseHistoryListener) { _reverseHistoryListener(); _reverseHistoryListener = null; }
+  const oggi = new Date();
+  oggi.setHours(0, 0, 0, 0);
+  _reverseHistoryListener = onSnapshot(
+    query(collection(db, 'history'), where('ts', '>=', oggi), where('action', '==', 'Liberato')),
+    snap => {
+      const RE = /^\d{3}$/;
+      _reverseScaricateOggi = snap.docs.filter(d => {
+        const p = d.data().plate;
+        return p && RE.test(p.trim());
+      }).length;
+      _aggiornaReverseUI();
+    },
+    err => console.error('Errore listener reverse history:', err)
+  );
+}
+
+function _aggiornaReverseUI() {
+  const elScaricate = document.getElementById('reverse-scaricate');
+  const elDelta     = document.getElementById('reverse-delta');
+  const elPWrap     = document.getElementById('reverse-progress-wrap');
+  const elPFill     = document.getElementById('reverse-progress-fill');
+  const elPPct      = document.getElementById('reverse-progress-pct');
+  if (!elScaricate) return;
+  elScaricate.textContent = _reverseScaricateOggi;
+  const targetRaw = document.getElementById('reverse-target-input')?.value;
+  const target = parseInt(targetRaw, 10);
+  if (!targetRaw || isNaN(target) || target <= 0) {
+    elDelta.textContent = '—';
+    elDelta.classList.remove('negativo');
+    if (elPWrap) elPWrap.style.display = 'none';
+    return;
+  }
+  const rimanenti = target - _reverseScaricateOggi;
+  elDelta.textContent = rimanenti > 0 ? rimanenti : 0;
+  elDelta.classList.toggle('negativo', rimanenti < 0);
+  const pct = Math.min(100, Math.round((_reverseScaricateOggi / target) * 100));
+  if (elPWrap) {
+    elPWrap.style.display = 'block';
+    elPFill.style.width = pct + '%';
+    elPPct.textContent = pct + '%';
+    elPFill.style.background = pct >= 100 ? 'var(--green, #22c55e)' : 'var(--accent)';
+  }
+}
+
+window.aggiornaReverseTarget = function() {
+  const input = document.getElementById('reverse-target-input');
+  if (!input) return;
+  const val = input.value.trim();
+  if (val) localStorage.setItem(_reverseTargetKey(), val);
+  else localStorage.removeItem(_reverseTargetKey());
+  _aggiornaReverseUI();
+};
 
 // ── PORTINERIA-DESKTOP.JS ─────────────────────────────────────────────────────────
 window.renderPrenotazioni      = renderPrenotazioni;
