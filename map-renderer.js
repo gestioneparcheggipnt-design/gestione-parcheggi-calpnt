@@ -1,3 +1,4 @@
+// ── MAP-RENDERER.JS ─────────────────────────────────────────────────────────
 function initPanZoom(){
   const vp=document.getElementById("mapViewport");
   vp.addEventListener("wheel",e=>{
@@ -61,15 +62,8 @@ function _labelMezzo(plate) {
 
 function initMap(){
   const img=document.getElementById("mapImg"),vp=document.getElementById("mapViewport");
-  if(img.complete && img.naturalWidth > 0){
-    requestAnimationFrame(()=>requestAnimationFrame(()=>{
-      renderMap(); initPanZoom();
-    }));
-  } else {
-    img.onload=()=>requestAnimationFrame(()=>requestAnimationFrame(()=>{
-      renderMap(); initPanZoom();
-    }));
-  }
+if(img.complete){ renderMap(); initPanZoom(); }
+  else { img.onload=()=>{ renderMap(); initPanZoom(); }; }
 }
 
 function renderMap(){
@@ -78,7 +72,7 @@ function renderMap(){
   let s="";
   PATCHES.forEach(([px,py,pw,ph])=>{ s+=`<rect x="${px}" y="${py}" width="${pw}" height="${ph}" fill="white"/>`; });
   SPOT_DEFS.forEach(([id,,px,py,pw,ph])=>{
-    const sp=spots[id], cls=sp.occupied?"occupied":"free", hl=selectedSpotId===id?" highlight":"", unusCls=sp.unusable?" unusable":"";
+    const sp=window.spots[id], cls=sp.occupied?"occupied":"free", hl=window.selectedSpotId===id?" highlight":"", unusCls=sp.unusable?" unusable":"";
     const cx=px+pw/2, cy=py+ph/2, fs=Math.min(pw,ph)*0.44;
     s+=`<g class="spot ${cls}${unusCls}${hl}" onclick="window._selectSpot('${id}')" data-id="${id}">` +
        `<rect x="${px}" y="${py}" width="${pw}" height="${ph}" rx="2"/>` +
@@ -110,15 +104,15 @@ function _fmtDateMap(ts){
 
 function selectSpot(id){
   if(!id) return;
-  selectedSpotId=id; renderMap();
-  const sp=spots[id], panel=document.getElementById("spotPanel");
+  window.selectedSpotId=id; renderMap();
+  const sp=window.spots[id], panel=document.getElementById("spotPanel");
   if(!sp){ return; }
-  const puoGestire  = currentUser && currentUser.role === 'amministratore';
-  const puoUnusable = currentUser && (currentUser.role === 'amministrativo' || currentUser.role === 'amministratore');
-  const puoAssegna  = currentUser && (currentUser.role === 'autista' || currentUser.role === 'amministratore');
+  const puoGestire  = window.currentUser && window.currentUser.role === 'amministratore';
+  const puoUnusable = window.currentUser && (window.currentUser.role === 'amministrativo' || window.currentUser.role === 'amministratore');
+  const puoAssegna  = window.currentUser && (window.currentUser.role === 'autista' || window.currentUser.role === 'amministratore');
   const ml = _labelMezzo(sp.plate);
-  const placeholderInput = currentMode === 'cassa' ? 'Es. 001' : 'Es. ABCD1234567';
-  const inputLabel = currentMode === 'cassa' ? 'Numero cassa' : 'ID Container';
+  const placeholderInput = window.currentMode === 'cassa' ? 'Es. 001' : 'Es. ABCD1234567';
+  const inputLabel = window.currentMode === 'cassa' ? 'Numero cassa' : 'ID Container';
 
   // Stili condivisi per le righe info
   const rowStyle = 'margin-top:6px;font-size:14px;color:var(--text);font-weight:400;';
@@ -176,13 +170,14 @@ function selectSpot(id){
       ${sp.full
         ? `<button class="fullToggleBtn pieno" style="margin-top:12px" onclick="window._toggleFull('${id}',false)">&#x1F7E2; Segna come Vuota/o</button>`
         : `<button class="fullToggleBtn vuoto" style="margin-top:12px" onclick="window._toggleFull('${id}',true)">&#x1F7E1; Segna come Piena/o</button>`}
-      ${puoUnusable ? (sp.damaged
-        ? `<button class="fullToggleBtn" style="margin-top:6px;background:linear-gradient(135deg,#f59e0b,#d97706)" onclick="window._removeDamaged('${id}')">&#10003; Rimuovi segnalazione guasto</button>`
-        : `<button class="fullToggleBtn" style="margin-top:6px;background:linear-gradient(135deg,#ef4444,#dc2626)" onclick="window._addDamaged('${id}')">&#9888;&#65039; Segna come guasto</button>`)
-      : ''}
       ${puoUnusable ? (sp.unusable
         ? `<button class="fullToggleBtn" style="margin-top:6px;background:linear-gradient(135deg,#7c3aed,#6d28d9)" onclick="window._removeUnusable('${id}')">&#10003; Rimuovi inutilizzabile</button>`
-        : `<button class="fullToggleBtn" style="margin-top:6px;background:linear-gradient(135deg,#7c3aed,#6d28d9)" onclick="window._addUnusable('${id}')">&#x1F6AB; Segna come inutilizzabile</button>`)
+        : sp.damaged
+          ? `<button class="fullToggleBtn" style="margin-top:6px;background:linear-gradient(135deg,#f59e0b,#d97706)" onclick="window._removeDamaged('${id}')">&#10003; Rimuovi segnalazione guasto</button>`
+          : `<span>
+              <button class="fullToggleBtn" style="margin-top:6px;background:linear-gradient(135deg,#ef4444,#dc2626)" onclick="window._addDamaged('${id}')">&#9888;&#65039; Segna come guasto</button>
+              <button class="fullToggleBtn" style="margin-top:6px;background:linear-gradient(135deg,#7c3aed,#6d28d9)" onclick="window._addUnusable('${id}')">&#x1F6AB; Segna come inutilizzabile</button>
+             </span>`)
       : ''}
       ${puoGestire ? `<button class="btnFreeInline" style="background:#fff;color:#1C1F26;border:1px solid var(--border);font-weight:700;margin-top:8px" onclick="window._freeSpot('${id}')">&#10005; Libera Posto</button>` : ''}`;
   }
@@ -192,3 +187,8 @@ function selectSpot(id){
 window._selectSpot  = selectSpot;
 window._inlineAssign = inlineAssign;
 window._freeSpot    = freeSpot;
+
+
+// Esposizioni globali (richiamate da onclick HTML)
+window.zoom      = zoom;
+window.resetZoom = resetZoom;

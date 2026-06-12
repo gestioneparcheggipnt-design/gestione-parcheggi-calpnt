@@ -1,30 +1,27 @@
-window.zoom         = zoom;
-window.resetZoom    = resetZoom;
+import { doc, getDoc, onAuthStateChanged, signInWithEmailAndPassword, signOut } from './firebase-config.js';
+// ── AUTH.JS ─────────────────────────────────────────────────────────
 window.doLogin      = doLogin;
 window.doLogout     = doLogout;
 
-// Enter per login
-document.addEventListener("DOMContentLoaded", () => {
-  ["loginEmail","loginPass"].forEach(id => {
-    const el = document.getElementById(id);
-    if(el) el.addEventListener("keydown", e => { if(e.key==="Enter") doLogin(); });
-  });
+["loginEmail","loginPass"].forEach(id => {
+  const el = document.getElementById(id);
+  if(el) el.addEventListener("keydown", e => { if(e.key==="Enter") doLogin(); });
 });
 
 
 
 // ââ AUTH ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
-onAuthStateChanged(auth, async (fbUser) => {
+onAuthStateChanged(window.auth, async (fbUser) => {
   if (fbUser) {
     // Leggi ruolo da Firestore
-    const snap = await getDoc(doc(db,"users",fbUser.uid));
+    const snap = await getDoc(doc(window.db,"users",fbUser.uid));
     const role    = snap.exists() ? snap.data().role : "autista";
     const name    = snap.exists() ? (snap.data().name || fbUser.email) : fbUser.email;
     const reparto = snap.exists() ? (snap.data().reparto || null) : null;
-    currentUser = { email: fbUser.email, uid: fbUser.uid, role, name, reparto };
+    window.currentUser = { email: fbUser.email, uid: fbUser.uid, role, name, reparto };
     showApp();
   } else {
-    currentUser = null;
+    window.currentUser = null;
     showLogin();
     stopListeners();
   }
@@ -38,7 +35,7 @@ async function doLogin(){
   errEl.style.display="none";
   btn.textContent="Accesso in corso..."; btn.disabled=true;
   try {
-    await signInWithEmailAndPassword(auth, email, pass);
+    await signInWithEmailAndPassword(window.auth, email, pass);
     // onAuthStateChanged gestirÃ  il resto
   } catch(e) {
     let msg = "Credenziali non valide.";
@@ -52,7 +49,7 @@ async function doLogin(){
 }
 
 async function doLogout(){
-  await signOut(auth);
+  await signOut(window.auth);
 }
 
 function showLogin(){
@@ -75,11 +72,11 @@ function showLogin(){
 function showApp(){
   // Desktop accessibile ad amministratore, amministrativo e portineria
   const rolesDesktop = ["amministratore","amministrativo","portineria"];
-  if(!rolesDesktop.includes(currentUser.role)){
-    signOut(auth);
+  if(!rolesDesktop.includes(window.currentUser.role)){
+    signOut(window.auth);
     const errEl = document.getElementById("loginError");
     if(errEl){
-      errEl.textContent = 'Accesso non consentito da desktop per il ruolo "' + currentUser.role + '".';
+      errEl.textContent = 'Accesso non consentito da desktop per il ruolo "' + window.currentUser.role + '".';
       errEl.style.display = "block";
     }
     return;
@@ -87,12 +84,12 @@ function showApp(){
   document.getElementById("loginScreen").style.display="none";
   document.getElementById("app").style.display="flex";
   const rb=document.getElementById("navRole");
-  rb.textContent=currentUser.role; rb.className="roleBadge "+currentUser.role;
+  rb.textContent=window.currentUser.role; rb.className="roleBadge "+window.currentUser.role;
   const un=document.getElementById("navUserName");
-  if(un) un.textContent=currentUser.name||currentUser.email;
+  if(un) un.textContent=window.currentUser.name||window.currentUser.email;
 
   // ── PORTINERIA ──────────────────────────────────────────────────────────────
-  if(currentUser.role === "portineria"){
+  if(window.currentUser.role === "portineria"){
     // Nascondi tab Mappa/Ricerca/Storico (non servono alla portineria)
     document.querySelectorAll(".navTab").forEach(btn=>{
       const pg = btn.getAttribute("onclick") && btn.getAttribute("onclick").match(/'(\w+)'/);
@@ -113,7 +110,8 @@ function showApp(){
 
   // ── AMMINISTRATORE / AMMINISTRATIVO ────────────────────────────────────────
   document.getElementById("tabStats").classList.remove("hidden");
-  if(currentUser.role==="amministratore") document.getElementById("tabUtenti").classList.remove("hidden");
+  if(window.currentUser.role==="amministratore") document.getElementById("tabUtenti").classList.remove("hidden");
   document.getElementById("tabPrenotazioni").classList.remove("hidden");
   loadMode();
   initMap();
+

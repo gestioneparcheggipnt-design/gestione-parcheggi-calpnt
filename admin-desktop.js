@@ -1,4 +1,6 @@
-    });
+import { addDoc, collection, createUserWithEmailAndPassword, deleteDoc, doc, getDocs, serverTimestamp, setDoc, updateDoc } from './firebase-config.js';
+// ── ADMIN-DESKTOP.JS ─────────────────────────────────────────────────────────
+});
     showToast(`Posto ${id} ${newFull?"segnato come pieno":"segnato come vuoto"}`,"success");
     selectSpot(id);
   }catch(e){
@@ -18,7 +20,7 @@ if (id === 'Prenotazioni') initPrenotazioni();
 window.showPage = showPage;
 
 function updateMapStats(){
-  const all=Object.values(spots), occ=all.filter(s=>s.occupied).length;
+  const all=Object.values(window.spots), occ=all.filter(s=>s.occupied).length;
   document.getElementById("mapStats").innerHTML=`
     <div class="statCard blue"><div class="val">${all.length}</div><div class="lbl">Totali</div></div>
     <div class="statCard green"><div class="val">${all.length-occ}</div><div class="lbl">Liberi</div></div>
@@ -51,7 +53,7 @@ function doSearch(){
   const fPosto=(document.getElementById("fPosto")?.value||"").trim().toUpperCase();
   const fTarga=(document.getElementById("fTarga")?.value||"").trim().toUpperCase();
   const fStato=(document.getElementById("fStato")?.value||"");
-  let res=Object.values(spots);
+  let res=Object.values(window.spots);
   // global search bar
   if(q) res=res.filter(s=>type==="posto"?s.id.includes(q):s.plate&&s.plate.includes(q));
   // column filters
@@ -62,8 +64,9 @@ function doSearch(){
   if(fStato==="occupato-cassa")     res=res.filter(s=>s.occupied && s.plate && /^\d{3}$/.test(s.plate.trim()));
   if(fStato==="occupato-container") res=res.filter(s=>s.occupied && s.plate && /^[A-Z]{4}\d{7}$/.test(s.plate.trim()));
   const fDanneggiato=(document.getElementById("fDanneggiato")?.value||"");
-  if(fDanneggiato==="si")  res=res.filter(s=>s.damaged);
-  if(fDanneggiato==="no")  res=res.filter(s=>!s.damaged);
+  if(fDanneggiato==="si")        res=res.filter(s=>s.damaged);
+  if(fDanneggiato==="no")        res=res.filter(s=>!s.damaged && !s.unusable);
+  if(fDanneggiato==="inutilizzabile") res=res.filter(s=>s.unusable);
   const fPieno=(document.getElementById("fPieno")?.value||"");
   if(fPieno==="pieno") res=res.filter(s=>s.full);
   if(fPieno==="vuoto") res=res.filter(s=>!s.full);
@@ -93,7 +96,7 @@ function doSearch(){
       <td class="mono">${s.plate||"&mdash;"}</td>
       <td>${tipoMezzo}</td>
       <td>${s.since?fmtDate(s.since):"&mdash;"}</td>
-      <td style="text-align:center">${s.damaged ? '<span style="color:#ef4444;font-weight:600;font-size:13px">⚠️ Sì</span>' : '<span style="color:var(--muted);font-size:12px">&mdash;</span>'}</td>
+      <td style="text-align:center">${s.unusable ? '<span style="color:#a78bfa;font-weight:600;font-size:13px">🚫 Inutilizzabile</span>' : s.damaged ? '<span style="color:#ef4444;font-weight:600;font-size:13px">⚠️ Guasto</span>' : '<span style="color:var(--muted);font-size:12px">&mdash;</span>'}</td>
       <td style="text-align:center">${s.occupied ? (s.full ? '<span class="tagPieno">🔴 Piena/o</span>' : '<span class="tagVuoto">🟢 Vuota/o</span>') : '<span style="color:var(--muted);font-size:12px">&mdash;</span>'}</td>
       <td style="color:var(--muted);font-size:11px">${nomeUtente}</td>
     </tr>`;}).join("");
@@ -117,7 +120,7 @@ function renderStorico(){
     if(action==="Segnato Vuoto") return '<span style="color:#22c55e;font-size:11px;font-weight:600;background:#22c55e13;padding:2px 8px;border-radius:20px">🟢 Vuoto</span>';
     return `<span style="color:var(--muted);font-size:11px">${action}</span>`;
   };
-  document.getElementById("storicoBody").innerHTML=historyCache.map(h=>{
+  document.getElementById("storicoBody").innerHTML=window.historyCache.map(h=>{
     const tipoMezzo = h.plate
       ? (/^\d{3}$/.test(String(h.plate).trim()) ? '<span style="color:#f59e0b;font-size:11px;font-weight:600">📦 Cassa</span>'
         : (/^[A-Z]{4}\d{7}$/.test(String(h.plate).trim()) ? '<span style="color:#60a5fa;font-size:11px;font-weight:600">🚢 Container</span>' : '<span style="color:var(--muted);font-size:11px">&mdash;</span>'))
@@ -135,14 +138,14 @@ function renderStorico(){
 }
 
 function renderStatistiche(){
-  const all=Object.values(spots), occ=all.filter(s=>s.occupied).length;
+  const all=Object.values(window.spots), occ=all.filter(s=>s.occupied).length;
   document.getElementById("globalStats").innerHTML=`
     <div class="statCard blue"><div class="val">${all.length}</div><div class="lbl">Totali</div></div>
     <div class="statCard green"><div class="val">${all.length-occ}</div><div class="lbl">Liberi</div></div>
     <div class="statCard red"><div class="val">${occ}</div><div class="lbl">Occupati</div></div>
     <div class="statCard orange"><div class="val">${historyCache.length}</div><div class="lbl">Movimenti</div></div>`;
   const cnt={};
-  historyCache.filter(h=>h.action==="Assegnato").forEach(h=>{cnt[h.spot]=(cnt[h.spot]||0)+1;});
+  window.historyCache.filter(h=>h.action==="Assegnato").forEach(h=>{cnt[h.spot]=(cnt[h.spot]||0)+1;});
   const top=Object.entries(cnt).sort((a,b)=>b[1]-a[1]).slice(0,8), mx=top[0]?.[1]||1;
   document.getElementById("chartTopSpots").innerHTML=top.map(([id,n])=>`
     <div class="barRow"><div class="barLabel">${id}</div>
@@ -243,8 +246,8 @@ function renderHeatmap(cnt){
 
 // ── GESTIONE UTENTI (solo amministratore) ────────────────────────────────
 async function renderUsers(){
-  if(!currentUser||currentUser.role!=="amministratore") return;
-  const snap = await getDocs(collection(db,"users"));
+  if(!window.currentUser||window.currentUser.role!=="amministratore") return;
+  const snap = await getDocs(collection(window.db,"users"));
   const users = snap.docs.map(d=>({uid:d.id,...d.data()}));
   document.getElementById("userList").innerHTML=users.map(u=>`
     <div class="userCard">
@@ -366,7 +369,7 @@ window._saveUserField = async function(uid, field, inputId, spanId) {
     if (field === 'password') {
       showToast("La modifica password richiede che l'utente effettui il reset dal login","info");
     } else {
-      await updateDoc(doc(db,"users",uid), { [field]: newVal });
+      await updateDoc(doc(window.db,"users",uid), { [field]: newVal });
       const span = document.getElementById(spanId);
       if (span) span.textContent = newVal;
       showToast(field === 'name' ? "Nome aggiornato" : "Email aggiornata","success");
@@ -405,14 +408,14 @@ window._cancelEditField = function(uid, field, spanId) {
 };
 
 async function changeRole(uid,role){
-  await updateDoc(doc(db,"users",uid),{role});
+  await updateDoc(doc(window.db,"users",uid),{role});
   showToast("Ruolo aggiornato","success");
   renderUsers();
 }
 window._changeRole=changeRole;
 
 async function changeReparto(uid, reparto) {
-  await updateDoc(doc(db,"users",uid), { reparto: reparto || null });
+  await updateDoc(doc(window.db,"users",uid), { reparto: reparto || null });
   showToast("Reparto aggiornato","success");
 }
 window._changeReparto = changeReparto;
@@ -421,7 +424,7 @@ window.renderUsers=renderUsers;
 async function deleteUser(uid, nome) {
   if(!confirm(`Eliminare l'utente "${nome}"? Questa operazione non Ã¨ reversibile.`)) return;
   try {
-    await deleteDoc(doc(db,"users",uid));
+    await deleteDoc(doc(window.db,"users",uid));
     showToast("Utente eliminato","success");
     renderUsers();
   } catch(e) {
@@ -447,7 +450,7 @@ window.addUser = async function(){
     const cred = await createUserWithEmailAndPassword(secondaryAuth, email, pass);
     const uid = cred.user.uid;
     // Salva profilo su Firestore
-    await setDoc(doc(db, "users", uid), { name, email, role, reparto: reparto || null });
+    await setDoc(doc(window.db, "users", uid), { name, email, role, reparto: reparto || null });
     // Disconnetti e distruggi l'istanza secondaria
     await signOut(secondaryAuth);
     await secondaryApp.delete();
@@ -472,12 +475,12 @@ window.addUser = async function(){
 
 async function removeDamaged(id){
   try{
-    await updateDoc(doc(db,"spots",id),{ damaged: false });
-    await addDoc(collection(db,"history"),{
+    await updateDoc(doc(window.db,"spots",id),{ damaged: false });
+    await addDoc(collection(window.db,"history"),{
       ts: serverTimestamp(), spot:id,
-      action:"Danno rimosso", plate:spots[id].plate,
-      user: currentUser.name || currentUser.email,
-      userName: currentUser.name || currentUser.email
+      action:"Danno rimosso", plate:window.spots[id].plate,
+      user: window.currentUser.name || window.currentUser.email,
+      userName: window.currentUser.name || window.currentUser.email
     });
     selectSpot(id);
     showToast(`Segnalazione danno rimossa per posto ${id}`,"success");
@@ -489,12 +492,12 @@ window._removeDamaged=removeDamaged;
 
 async function addDamaged(id){
   try{
-    await updateDoc(doc(db,"spots",id),{ damaged: true });
-    await addDoc(collection(db,"history"),{
+    await updateDoc(doc(window.db,"spots",id),{ damaged: true });
+    await addDoc(collection(window.db,"history"),{
       ts: serverTimestamp(), spot:id,
-      action:"Danno segnalato", plate:spots[id].plate,
-      user: currentUser.name || currentUser.email,
-      userName: currentUser.name || currentUser.email
+      action:"Danno segnalato", plate:window.spots[id].plate,
+      user: window.currentUser.name || window.currentUser.email,
+      userName: window.currentUser.name || window.currentUser.email
     });
     selectSpot(id);
     showToast(`Veicolo danneggiato segnalato per posto ${id}`,"success");
@@ -504,8 +507,42 @@ async function addDamaged(id){
 }
 window._addDamaged=addDamaged;
 
+async function addUnusable(id){
+  try{
+    await updateDoc(doc(window.db,"spots",id),{ unusable: true });
+    await addDoc(collection(window.db,"history"),{
+      ts: serverTimestamp(), spot:id,
+      action:"Inutilizzabile segnalato", plate:window.spots[id].plate,
+      user: window.currentUser.name || window.currentUser.email,
+      userName: window.currentUser.name || window.currentUser.email
+    });
+    selectSpot(id);
+    showToast(`Veicolo segnato come inutilizzabile: posto ${id}`,"success");
+  }catch(e){
+    showToast("Errore: "+e.message,"error");
+  }
+}
+window._addUnusable=addUnusable;
+
+async function removeUnusable(id){
+  try{
+    await updateDoc(doc(window.db,"spots",id),{ unusable: false });
+    await addDoc(collection(window.db,"history"),{
+      ts: serverTimestamp(), spot:id,
+      action:"Inutilizzabile rimosso", plate:window.spots[id].plate,
+      user: window.currentUser.name || window.currentUser.email,
+      userName: window.currentUser.name || window.currentUser.email
+    });
+    selectSpot(id);
+    showToast(`Segnalazione inutilizzabile rimossa: posto ${id}`,"success");
+  }catch(e){
+    showToast("Errore: "+e.message,"error");
+  }
+}
+window._removeUnusable=removeUnusable;
+
 function cancelSelect(){
-  selectedSpotId=null; renderMap();
+  window.selectedSpotId=null; renderMap();
   document.getElementById("spotPanel").innerHTML=
     '<div style="color:var(--muted);font-size:13px;text-align:center;padding:18px 0">Clicca un parcheggio sulla mappa</div>';
 }
@@ -541,3 +578,4 @@ function riconosciTipoMezzo(id) {
   if (RE_CONTAINER.test(id)) return 'container';
   return null;
 }
+

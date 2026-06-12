@@ -1,10 +1,11 @@
-
+import { addDoc, collection, deleteDoc, doc, getDocs, limit, onSnapshot, orderBy, query, serverTimestamp, setDoc, updateDoc, where } from './firebase-config.js';
+// ── PRENOTAZIONI-DESKTOP.JS ─────────────────────────────────────────────────────────
 // ── Stato locale prenotazioni ─────────────────────────────────────────────
 // DESTINAZIONI_VALIDE è dinamico: dipende dal reparto dell'utente corrente.
 // Amministratore → tutte; altri → solo quelle del proprio reparto.
 function _getDestinazioniUtente() {
-  const reparto = (typeof currentUser !== 'undefined' && currentUser)
-    ? (currentUser.role === 'amministratore' ? null : currentUser.reparto)
+  const reparto = (typeof window.currentUser !== 'undefined' && window.currentUser)
+    ? (window.currentUser.role === 'amministratore' ? null : window.currentUser.reparto)
     : null;
   return getDestinazioniPerReparto(reparto);
 }
@@ -69,8 +70,8 @@ function _ribaltaPickerHTMLDesk(formKey) {
        : `border:1px solid var(--border,#3a4050);background:var(--surface2,#2e333d);color:var(--text,#e8eaf0)`);
 
   // Pulsante "altri reparti" solo se l'utente non è amministratore
-  const mostraAltri = (typeof currentUser !== 'undefined' && currentUser &&
-    currentUser.role !== 'amministratore' && currentUser.reparto);
+  const mostraAltri = (typeof window.currentUser !== 'undefined' && window.currentUser &&
+    window.currentUser.role !== 'amministratore' && window.currentUser.reparto);
   const altriBtnHTML = mostraAltri
     ? `<button onclick="deskApriAltriReparti('${formKey}')" style="${_DS.altriBtn}">🔀 Ribalte altri reparti</button>`
     : '';
@@ -210,7 +211,7 @@ function _aggiornaPickerForm() {
 
 // ── Aggiorna vista tab in base alla modalità corrente ─────────────────────
 function _aggiornaVistaPrenotazioni() {
-  const isCassa = (currentMode === 'cassa');
+  const isCassa = (window.currentMode === 'cassa');
   document.getElementById('pren-view-container').style.display = isCassa ? 'none' : 'block';
   document.getElementById('pren-view-casse').style.display     = isCassa ? 'block' : 'none';
   if (isCassa) {
@@ -218,7 +219,6 @@ function _aggiornaVistaPrenotazioni() {
     _initReverseTarget();
   } else {
     renderPrenotazioni();
-    // Ferma listener reverse se si esce dalla vista casse
     if (_reverseHistoryListener) { _reverseHistoryListener(); _reverseHistoryListener = null; }
   }
 }
@@ -229,7 +229,7 @@ function renderCasse() {
   if (!container) return;
 
   // Filtra i posti occupati da casse piene (plate = 3 cifre + flag full)
-  const casseOccupate = Object.values(spots).filter(s =>
+  const casseOccupate = Object.values(window.spots).filter(s =>
     s.occupied && s.full && s.plate && RE_CASSA.test(s.plate.trim())
   );
 
@@ -315,7 +315,7 @@ function _aggiornaBtnSalva() {
 }
 
 function initPrenotazioni() {
-  if (currentUser && currentUser.role === 'portineria') return;
+  if (window.currentUser && window.currentUser.role === 'portineria') return;
   const dtInput = document.getElementById('pren-data');
   if (dtInput) {
     const now = new Date();
@@ -326,7 +326,7 @@ function initPrenotazioni() {
   // Listener ribalte
   if (_ribalteListener) _ribalteListener();
   _ribalteListener = onSnapshot(
-    query(collection(db, 'ribalte'), orderBy('__name__')),
+    query(collection(window.db, 'ribalte'), orderBy('__name__')),
     snap => {
       _ribalteData = {};
       snap.docs.forEach(d => { _ribalteData[d.id] = { id: d.id, ...d.data() }; });
@@ -336,7 +336,7 @@ function initPrenotazioni() {
   );
   if (_prenListener) _prenListener();
   _prenListener = onSnapshot(
-    query(collection(db, 'prenotazioni'), orderBy('dataOra', 'desc')),
+    query(collection(window.db, 'prenotazioni'), orderBy('dataOra', 'desc')),
     snap => {
       _prenotazioni = snap.docs.map(d => ({ id: d.id, ...d.data() }));
       _aggiornaVistaPrenotazioni();
@@ -371,7 +371,7 @@ async function cercaMezzo() {
   feedback.textContent = 'Ricerca in corso…';
   feedback.className = 'pren-feedback';
   try {
-    const snap = await getDocs(query(collection(db, 'spots'), where('plate', '==', targa), limit(1)));
+    const snap = await getDocs(query(collection(window.db, 'spots'), where('plate', '==', targa), limit(1)));
     if (snap.empty) {
       feedback.textContent = '⚠️ Nessun container trovato con ID "' + targa + '".';
       feedback.className = 'pren-feedback err';
@@ -389,21 +389,23 @@ async function cercaMezzo() {
       return;
     }
 
-    // Controlla se esiste già una prenotazione aperta per questo container (BLOCCO)
+    // Controlla se il container è già alla ribalta
+    const ribalteSnap = await getDocs(query(collection(window.db, 'ribalte'), where('plate', '==', targa), limit(1)));
+    if (!ribalteSnap.empty) {
+      const ribData = ribalteSnap.docs[0].data();
+      if (ribData.occupied) {
+        feedback.textContent = `⚠️ "${targa}" è attualmente alla ribalta ${ribalteSnap.docs[0].id}.`;
+        feedback.className = 'pren-feedback err';
+        _mezzoCorrente = null;
+        return;
+      }
+    }
+
+    // Controlla se esiste già una prenotazione aperta per questo container
     const prenAperta = _prenotazioni.find(p => p.plate === targa && p.stato === 'creata');
     if (prenAperta) {
       const dest = prenAperta.destinazione ? ` → ${prenAperta.destinazione}` : '';
       feedback.textContent = `⚠️ "${targa}" ha già una prenotazione aperta${dest}.`;
-      feedback.className = 'pren-feedback err';
-      _mezzoCorrente = null;
-      return;
-    }
-
-    // ── CONTROLLI BLOCCANTI ──────────────────────────────────────────────────
-    // Blocco se container in ribalta
-    const ribalteSnap = await getDocs(query(collection(db, 'ribalte'), where('plate', '==', targa), limit(1)));
-    if (!ribalteSnap.empty && ribalteSnap.docs[0].data().occupied) {
-      feedback.textContent = `⛔ "${targa}" è attualmente alla ribalta ${ribalteSnap.docs[0].id}. Impossibile prenotare.`;
       feedback.className = 'pren-feedback err';
       _mezzoCorrente = null;
       return;
@@ -424,7 +426,6 @@ async function cercaMezzo() {
       _mezzoCorrente = null;
       return;
     }
-    // ─────────────────────────────────────────────────────────────────────────
 
     feedback.textContent = '✔ Container trovato!';
     feedback.className = 'pren-feedback ok';
@@ -450,16 +451,16 @@ async function salvaPrenotazione() {
   const urgente = document.getElementById('pren-urgente').checked;
   if (!destinazione || !_getDestinazioniUtente().includes(destinazione)) { alert('Destinazione non valida.'); return; }
   if (!dataOra) { alert('Inserisci data e ora dello spostamento.'); return; }
-  const user = auth.currentUser;
+  const user = window.auth.currentUser;
   const btnSalva = document.getElementById('pren-btn-salva');
   btnSalva.disabled = true;
   btnSalva.textContent = '⏳ Salvataggio…';
   try {
     // Recupera nome completo dall'utente corrente
-    const operatoreNome = (typeof currentUser !== 'undefined' && currentUser && currentUser.name)
-      ? currentUser.name
+    const operatoreNome = (typeof window.currentUser !== 'undefined' && window.currentUser && window.currentUser.name)
+      ? window.currentUser.name
       : (user ? user.email : null);
-    await addDoc(collection(db, 'prenotazioni'), {
+    await addDoc(collection(window.db, 'prenotazioni'), {
       spotId: _mezzoCorrente.spotId,
       plate: _mezzoCorrente.plate,
       tipoMezzo: 'container',
@@ -485,7 +486,7 @@ async function cambiaStatoPrenotazione(id, nuovoStato) {
   try {
     const aggiornamento = { stato: nuovoStato };
     if (nuovoStato === 'completata') aggiornamento.completedAt = serverTimestamp();
-    await updateDoc(doc(db, 'prenotazioni', id), aggiornamento);
+    await updateDoc(doc(window.db, 'prenotazioni', id), aggiornamento);
   } catch (err) {
     console.error('Errore aggiornamento stato:', err);
     alert('Errore durante l\'aggiornamento. Riprova.');
@@ -495,7 +496,7 @@ async function cambiaStatoPrenotazione(id, nuovoStato) {
 async function eliminaPrenotazione(id) {
   if (!confirm('Eliminare questa prenotazione? L\'operazione non è reversibile.')) return;
   try {
-    await deleteDoc(doc(db, 'prenotazioni', id));
+    await deleteDoc(doc(window.db, 'prenotazioni', id));
   } catch (err) {
     console.error('Errore eliminazione:', err);
     alert('Errore durante l\'eliminazione. Riprova.');
@@ -543,9 +544,9 @@ function renderPrenotazioni() {
       ? '<span style="color:#ef4444;font-weight:700;font-size:1rem">🚨 Sì</span>'
       : '<span style="color:var(--muted);font-size:.9rem">—</span>';
     let azioni = '';
-    const isOwn = currentUser && p.operatoreUid === currentUser.uid;
-    const isAmministratore = currentUser && currentUser.role === 'amministratore';
-    const canDelete = isAmministratore || (currentUser && currentUser.role === 'amministrativo' && isOwn);
+    const isOwn = window.currentUser && p.operatoreUid === window.currentUser.uid;
+    const isAmministratore = window.currentUser && window.currentUser.role === 'amministratore';
+    const canDelete = isAmministratore || (window.currentUser && window.currentUser.role === 'amministrativo' && isOwn);
     if (p.stato === 'creata' && isAmministratore) {
       const destConf = p.destinazione && p.destinazione !== '—' ? p.destinazione : null;
       const picker   = _ribaltaPickerHTMLDesk('desk_' + p.id);
@@ -649,19 +650,19 @@ window.confermaDeskCompleta = async function(id) {
     const pren  = _prenotazioni.find(p => p.id === id);
     const plate = pren?.plate || '—';
     // Aggiorna prenotazione
-    await updateDoc(doc(db, 'prenotazioni', id), {
+    await updateDoc(doc(window.db, 'prenotazioni', id), {
       stato: 'completata', completedAt: serverTimestamp(), postoFine: dest
     });
     // Libera posto parcheggio origine
     if (pren?.spotId && !pren.spotId.startsWith('PNT')) {
-      await setDoc(doc(db, 'spots', pren.spotId), {
+      await setDoc(doc(window.db, 'spots', pren.spotId), {
         occupied: false, plate: null, since: null, user: null, full: false
       });
     }
     // Occupa ribalta destinazione
-    await setDoc(doc(db, 'ribalte', dest), {
+    await setDoc(doc(window.db, 'ribalte', dest), {
       occupied: true, plate, since: serverTimestamp(),
-      user: auth.currentUser?.email || '—', full: false
+      user: window.auth.currentUser?.email || '—', full: false
     });
   } catch(err) {
     console.error('Errore completamento:', err);
@@ -669,15 +670,20 @@ window.confermaDeskCompleta = async function(id) {
   }
 };
 
+window.cercaMezzo              = cercaMezzo;
+window.salvaPrenotazione       = salvaPrenotazione;
+window.resetFormPrenotazione   = resetFormPrenotazione;
+window.cambiaStatoPrenotazione = cambiaStatoPrenotazione;
+window.eliminaPrenotazione     = eliminaPrenotazione;
+
 // ── Riquadro Target Casse Giornaliero (solo reparto REVERSE) ─────────────
 
 function _isReverseUser() {
-  return currentUser &&
-    (currentUser.reparto || '').trim().toUpperCase() === 'REVERSE';
+  return window.currentUser &&
+    (window.currentUser.reparto || '').trim().toUpperCase() === 'REVERSE';
 }
 
 function _reverseTargetKey() {
-  // Chiave localStorage per il target del giorno corrente
   const d = new Date();
   const ds = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
   return `reverse_target_${ds}`;
@@ -686,39 +692,25 @@ function _reverseTargetKey() {
 function _initReverseTarget() {
   const box = document.getElementById('reverse-target-box');
   if (!box) return;
-
   if (!_isReverseUser()) {
     box.style.display = 'none';
     if (_reverseHistoryListener) { _reverseHistoryListener(); _reverseHistoryListener = null; }
     return;
   }
-
   box.style.display = 'block';
-
-  // Ripristina il target salvato per oggi
   const input = document.getElementById('reverse-target-input');
   const saved = localStorage.getItem(_reverseTargetKey());
   if (input && saved !== null) input.value = saved;
-
-  // Avvia listener history per casse scaricate oggi
   _startReverseHistoryListener();
 }
 
 function _startReverseHistoryListener() {
   if (_reverseHistoryListener) { _reverseHistoryListener(); _reverseHistoryListener = null; }
-
-  // Inizio giornata odierna
   const oggi = new Date();
   oggi.setHours(0, 0, 0, 0);
-
   _reverseHistoryListener = onSnapshot(
-    query(
-      collection(db, 'history'),
-      where('ts', '>=', oggi),
-      where('action', '==', 'Liberato')
-    ),
+    query(collection(window.db, 'history'), where('ts', '>=', oggi), where('action', '==', 'Liberato')),
     snap => {
-      // Conta solo le liberazioni di casse (plate 3 cifre) di oggi
       const RE = /^\d{3}$/;
       _reverseScaricateOggi = snap.docs.filter(d => {
         const p = d.data().plate;
@@ -737,24 +729,18 @@ function _aggiornaReverseUI() {
   const elPFill     = document.getElementById('reverse-progress-fill');
   const elPPct      = document.getElementById('reverse-progress-pct');
   if (!elScaricate) return;
-
   elScaricate.textContent = _reverseScaricateOggi;
-
   const targetRaw = document.getElementById('reverse-target-input')?.value;
   const target = parseInt(targetRaw, 10);
-
   if (!targetRaw || isNaN(target) || target <= 0) {
     elDelta.textContent = '—';
     elDelta.classList.remove('negativo');
     if (elPWrap) elPWrap.style.display = 'none';
     return;
   }
-
   const rimanenti = target - _reverseScaricateOggi;
   elDelta.textContent = rimanenti > 0 ? rimanenti : 0;
   elDelta.classList.toggle('negativo', rimanenti < 0);
-
-  // Barra progresso
   const pct = Math.min(100, Math.round((_reverseScaricateOggi / target) * 100));
   if (elPWrap) {
     elPWrap.style.display = 'block';
@@ -764,19 +750,12 @@ function _aggiornaReverseUI() {
   }
 }
 
-function aggiornaReverseTarget() {
+window.aggiornaReverseTarget = function() {
   const input = document.getElementById('reverse-target-input');
   if (!input) return;
   const val = input.value.trim();
   if (val) localStorage.setItem(_reverseTargetKey(), val);
   else localStorage.removeItem(_reverseTargetKey());
   _aggiornaReverseUI();
-}
+};
 
-window.cercaMezzo              = cercaMezzo;
-window.salvaPrenotazione       = salvaPrenotazione;
-window.resetFormPrenotazione   = resetFormPrenotazione;
-window.cambiaStatoPrenotazione = cambiaStatoPrenotazione;
-window.eliminaPrenotazione     = eliminaPrenotazione;
-window.aggiornaReverseTarget   = aggiornaReverseTarget;
-window._initReverseTarget      = _initReverseTarget;

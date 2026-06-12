@@ -1,4 +1,6 @@
-  startListeners();
+import { collection, doc, onSnapshot } from './firebase-config.js';
+// ── FIRESTORE-LISTENERS.JS ─────────────────────────────────────────────────────────
+startListeners();
   renderStatistiche();
   renderUsers();
   showPage("Mappa", document.querySelector(".navTab"));
@@ -9,27 +11,27 @@
 // ââ FIRESTORE LISTENERS âââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 function startListeners(){
   // Listener parcheggi: aggiornamento real-time
-  unsubSpots = onSnapshot(collection(db,"spots"), (snapshot) => {
+  window.unsubSpots = onSnapshot(collection(window.db,"spots"), (snapshot) => {
     snapshot.docChanges().forEach(change => {
       const data = change.doc.data();
       const id = change.doc.id;
-      if(spots[id]){
+      if(window.spots[id]){
         if(change.type==="removed"){
-          spots[id].occupied=false; spots[id].plate=null;
-          spots[id].since=null; spots[id].user=null; spots[id].full=false;
-          spots[id].damaged=false; spots[id].unusable=false;
+          window.spots[id].occupied=false; window.spots[id].plate=null;
+          window.spots[id].since=null; window.spots[id].user=null; window.spots[id].full=false;
+          window.spots[id].damaged=false; window.spots[id].unusable=false;
         }else{
-          spots[id].occupied = data.occupied||false;
-          spots[id].plate    = data.plate||null;
-          spots[id].since    = data.since?.toDate()||null;
-          spots[id].user     = data.user||null;
-          spots[id].damaged  = data.damaged||false;
-          spots[id].full     = data.full||false;
-          spots[id].unusable = data.unusable||false;
+          window.spots[id].occupied = data.occupied||false;
+          window.spots[id].plate    = data.plate||null;
+          window.spots[id].since    = data.since?.toDate()||null;
+          window.spots[id].user     = data.user||null;
+          window.spots[id].damaged  = data.damaged||false;
+          window.spots[id].full     = data.full||false;
+          window.spots[id].unusable = data.unusable||false;
         }
       }
     });
-    if(currentUser?.role !== 'portineria'){
+    if(window.currentUser?.role !== 'portineria'){
       renderMap();
       updateMapStats();
       renderSearch();
@@ -38,11 +40,12 @@ function startListeners(){
   });
 
   // Listener storico: ultimi 200 movimenti
-  const hq = query(collection(db,"history"), orderBy("ts","desc"), limit(200));
-  unsubHistory = onSnapshot(hq, (snapshot) => {
-    historyCache = snapshot.docs.map(d => ({ ...d.data(), ts: d.data().ts?.toDate() }));
-    if(currentUser?.role !== 'portineria'){
+  const hq = query(collection(window.db,"history"), orderBy("ts","desc"), limit(200));
+  window.unsubHistory = onSnapshot(hq, (snapshot) => {
+    window.historyCache = snapshot.docs.map(d => ({ ...d.data(), ts: d.data().ts?.toDate() }));
+    if(window.currentUser?.role !== 'portineria'){
       renderStorico();
       renderStatistiche();
     }
   });
+

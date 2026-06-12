@@ -1,8 +1,10 @@
+import { addDoc, collection, doc, serverTimestamp, setDoc, updateDoc } from './firebase-config.js';
+// ── PARKING-OPS.JS ─────────────────────────────────────────────────────────
 }
 
 function stopListeners(){
-  if(unsubSpots)  { unsubSpots();  unsubSpots=null;  }
-  if(unsubHistory){ unsubHistory();unsubHistory=null; }
+  if(window.unsubSpots)  { window.unsubSpots();  window.unsubSpots=null;  }
+  if(window.unsubHistory){ window.unsubHistory();window.unsubHistory=null; }
 }
 
 
@@ -12,14 +14,14 @@ async function inlineAssign(id){
   const plate=(document.getElementById("inlineplate")?.value||"").trim().toUpperCase();
   if(!plate){ showToast(`Inserisci ${getModeLabel().toLowerCase()} o identificativo`,"error"); return; }
 
-  // Check se il posto scelto e' gia' occupato
-  if(spots[id] && spots[id].occupied){
-    showToast(`⚠️ Il posto ${id} è già occupato da ${spots[id].plate || 'un veicolo'}`, "error");
+    // Check se il posto scelto e' gia' occupato
+  if(window.spots[id] && window.spots[id].occupied){
+    showToast(`⚠️ Il posto ${id} è già occupato da ${window.spots[id].plate || 'un veicolo'}`, "error");
     return;
   }
 
   // Check se la targa/ID Ã¨ giÃ  assegnata ad un altro posto
-  const alreadySpot = Object.entries(spots).find(([sid, s]) => s.occupied && s.plate === plate && sid !== id);
+  const alreadySpot = Object.entries(window.spots).find(([sid, s]) => s.occupied && s.plate === plate && sid !== id);
   if(alreadySpot){
     showToast(`â ï¸ ${plate} giÃ  assegnato al posto ${alreadySpot[0]}`, "error");
     return;
@@ -30,13 +32,13 @@ async function inlineAssign(id){
   const btn=document.querySelector(".btnAssign");
   if(btn){ btn.textContent="Salvataggio..."; btn.disabled=true; }
   try{
-    await setDoc(doc(db,"spots",id), {
-      occupied: true, plate, since: serverTimestamp(), user: currentUser.email, damaged, full
+    await setDoc(doc(window.db,"spots",id), {
+      occupied: true, plate, since: serverTimestamp(), user: window.currentUser.email, damaged, full
     });
-    await addDoc(collection(db,"history"), {
+    await addDoc(collection(window.db,"history"), {
       ts: serverTimestamp(), spot:id,
-      action:"Assegnato", plate, user: currentUser.email, damaged,
-      mode: currentMode
+      action:"Assegnato", plate, user: window.currentUser.email, damaged,
+      mode: window.currentMode
     });
     selectSpot(id);
     showToast(`Posto ${id} assegnato a ${plate}${damaged?" â ï¸ danneggiato":""}${full?" ð¡ pieno":""}`, "success");
@@ -47,15 +49,15 @@ async function inlineAssign(id){
 }
 
 async function freeSpot(id){
-  const sp=spots[id];
+  const sp=window.spots[id];
   const btn=document.querySelector(".btnFreeInline");
   if(btn){ btn.textContent="Liberazione..."; btn.disabled=true; }
   try{
-    await addDoc(collection(db,"history"),{
+    await addDoc(collection(window.db,"history"),{
       ts: serverTimestamp(), spot:id,
-      action:"Liberato", plate:sp.plate, user: currentUser.email
+      action:"Liberato", plate:sp.plate, user: window.currentUser.email
     });
-    await setDoc(doc(db,"spots",id),{
+    await setDoc(doc(window.db,"spots",id),{
       occupied:false, plate:null, since:null, user:null, full:false
     });
     selectSpot(id);
@@ -70,10 +72,11 @@ async function freeSpot(id){
 // ââ TOGGLE PIENO/VUOTO ââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 async function toggleFull(id, newFull){
   try{
-    await updateDoc(doc(db,"spots",id),{ full: newFull });
-    await addDoc(collection(db,"history"),{
+    await updateDoc(doc(window.db,"spots",id),{ full: newFull });
+    await addDoc(collection(window.db,"history"),{
       ts: serverTimestamp(), spot:id,
       action: newFull ? "Segnato Pieno" : "Segnato Vuoto",
-      plate: spots[id].plate,
-      user: currentUser.name || currentUser.email,
-      userName: currentUser.name || currentUser.email
+      plate: window.spots[id].plate,
+      user: window.currentUser.name || window.currentUser.email,
+      userName: window.currentUser.name || window.currentUser.email
+

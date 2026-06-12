@@ -1,3 +1,5 @@
+import { collection, doc, getDocs, query, setDoc, where } from './firebase-config.js';
+// ── PORTINERIA-DESKTOP.JS ─────────────────────────────────────────────────────────
 window.renderPrenotazioni      = renderPrenotazioni;
 window.renderCasse             = renderCasse;
 window.resetFiltri             = resetFiltri;
@@ -197,7 +199,7 @@ async function portineriaCerca() {
   resEl.innerHTML = '<div class="port-err" style="opacity:.6">🔍 Verifica in corso…</div>';
 
   // 1. Già in un parcheggio (spots locali)
-  const _portDupSpots = Object.entries(spots).filter(([, s]) => s.occupied && s.plate === veicolo);
+  const _portDupSpots = Object.entries(window.spots).filter(([, s]) => s.occupied && s.plate === veicolo);
   if (_portDupSpots.length > 0) {
     const _portDupPosto = _portDupSpots[0][0];
     resEl.innerHTML = `<div class="port-err">⚠ <strong>${veicolo}</strong> è già parcheggiato nel posto <strong>${_portDupPosto}</strong>.<br>Impossibile assegnare un nuovo posto.</div>`;
@@ -206,7 +208,7 @@ async function portineriaCerca() {
 
   // 2. Già in una ribalta
   try {
-    const _portRibSnap = await getDocs(query(collection(db, 'ribalte'), where('plate', '==', veicolo), limit(1)));
+    const _portRibSnap = await getDocs(query(collection(window.db, 'ribalte'), where('plate', '==', veicolo), limit(1)));
     if (!_portRibSnap.empty && _portRibSnap.docs[0].data().occupied) {
       const _portRibId = _portRibSnap.docs[0].id;
       resEl.innerHTML = `<div class="port-err">⚠ <strong>${veicolo}</strong> è attualmente alla ribalta <strong>${_portRibId}</strong>.<br>Impossibile assegnare un posto parcheggio.</div>`;
@@ -216,7 +218,7 @@ async function portineriaCerca() {
 
   // 3. Ha una missione/prenotazione aperta
   try {
-    const _portPrenSnap = await getDocs(query(collection(db, 'prenotazioni'), where('plate', '==', veicolo), where('stato', '==', 'creata'), limit(1)));
+    const _portPrenSnap = await getDocs(query(collection(window.db, 'prenotazioni'), where('plate', '==', veicolo), where('stato', '==', 'creata'), limit(1)));
     if (!_portPrenSnap.empty) {
       const _portPd = _portPrenSnap.docs[0].data();
       const _portDest = _portPd.destinazione ? ` → ${_portPd.destinazione}` : '';
@@ -232,7 +234,7 @@ async function portineriaCerca() {
     .map(([id]) => id)
     .sort(); // ordine alfanumerico: A01, A02 ... D15
 
-  const posto = candidati.find(id => spots[id] && !spots[id].occupied);
+  const posto = candidati.find(id => window.spots[id] && !window.spots[id].occupied);
 
   if (!posto) {
     resEl.innerHTML = `<div class="port-err">⚠ Nessun posto libero disponibile per ${tipo} <strong>${stato}</strong>.<br>Tutti i posti compatibili sono occupati.</div>`;
@@ -297,7 +299,7 @@ async function porteriaConferma() {
   const btn    = document.getElementById('port-btn-conferma');
 
   // Verifica che il posto sia ancora libero (race condition)
-  if (spots[id] && spots[id].occupied) {
+  if (window.spots[id] && window.spots[id].occupied) {
     document.getElementById('port-result').innerHTML =
       '<div class="port-err">⚠ Il posto è stato occupato nel frattempo. Clicca "Cerca Posto" per un nuovo suggerimento.</div>';
     _portSpotSuggerito = null;
@@ -311,27 +313,27 @@ async function porteriaConferma() {
 
   try {
     const now = new Date();
-    await setDoc(doc(db, 'spots', id), {
+    await setDoc(doc(window.db, 'spots', id), {
       occupied: true,
       plate:    veicolo,
       since:    now,
-      user:     currentUser.email,
+      user:     window.currentUser.email,
       full:     _portStato === 'pieno',
     });
-    await addDoc(collection(db, 'history'), {
+    await addDoc(collection(window.db, 'history'), {
       ts:          now,
       spot:        id,
       action:      'checkin',
       plate:       veicolo,
-      user:        currentUser.email,
+      user:        window.currentUser.email,
       origine:     'portineria',
     });
 
     // Aggiorna stato locale subito (il listener aggiornerà dopo)
-    if (spots[id]) {
-      spots[id].occupied = true;
-      spots[id].plate    = veicolo;
-      spots[id].since    = now;
+    if (window.spots[id]) {
+      window.spots[id].occupied = true;
+      window.spots[id].plate    = veicolo;
+      window.spots[id].since    = now;
     }
 
     showToast('Posto ' + id + ' assegnato a ' + veicolo);
@@ -439,5 +441,4 @@ window.portineriaCerca   = portineriaCerca;
 window.porteriaReset     = porteriaReset;
 window.porteriaConferma  = porteriaConferma;
 window.porteriaStampa    = porteriaStampa;
-
 

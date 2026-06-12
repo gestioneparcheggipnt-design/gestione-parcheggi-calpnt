@@ -1,4 +1,4 @@
-
+// ── spots-data-desktop.js ─────────────────────────────────────────────────────────
 const SPOT_DEFS=[
   ["A13","ZONA A",1291,351,29,87],
   ["A01","ZONA A",1291,441,29,87],
@@ -115,31 +115,31 @@ function getDestinazioniPerReparto(reparto) {
 export { SPOT_DEFS, PATCHES, ZONES, REPARTI, getDestinazioniPerReparto };
 
 // ââ STATO LOCALE âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
-const spots = {};
+window.spots = {};
 SPOT_DEFS.forEach(([id,zone,x,y,w,h]) => {
-  spots[id] = {id,x,y,w,h,occupied:false,plate:null,since:null,user:null,full:false};
+  window.spots[id] = {id,x,y,w,h,occupied:false,plate:null,since:null,user:null,full:false};
 });
 
 // ââ MODALITÃ CONTAINER / CASSA ââââââââââââââââââââââââââââââââââââââââââââââââ
 // Ogni utente sceglie la propria vista (salvata in localStorage per UID)
-let currentMode = 'container'; // default
+window.currentMode = 'container'; // default
 
 function loadMode(){
-  const uid = currentUser ? currentUser.uid : 'guest';
+  const uid = window.currentUser ? window.currentUser.uid : 'guest';
   const saved = localStorage.getItem('parkMode_'+uid);
-  currentMode = saved === 'cassa' ? 'cassa' : 'container';
+  window.currentMode = saved === 'cassa' ? 'cassa' : 'container';
   _applyModeUI();
   // Aggiorna la vista tab prenotazioni se già inizializzata
   if (typeof _aggiornaVistaPrenotazioni === 'function') _aggiornaVistaPrenotazioni();
 }
 
 function setMode(mode){
-  currentMode = mode;
-  const uid = currentUser ? currentUser.uid : 'guest';
+  window.currentMode = mode;
+  const uid = window.currentUser ? window.currentUser.uid : 'guest';
   localStorage.setItem('parkMode_'+uid, mode);
   _applyModeUI();
   renderMap();
-  selectSpot(selectedSpotId); // aggiorna pannello se c'è un posto selezionato
+  selectSpot(window.selectedSpotId); // aggiorna pannello se c'è un posto selezionato
   // Aggiorna la vista tab prenotazioni se visibile
   if (typeof _aggiornaVistaPrenotazioni === 'function') _aggiornaVistaPrenotazioni();
 }
@@ -148,7 +148,7 @@ function _applyModeUI(){
   const btnC = document.getElementById('btnModeContainer');
   const btnK = document.getElementById('btnModeCassa');
   if(!btnC || !btnK) return;
-  if(currentMode === 'container'){
+  if(window.currentMode === 'container'){
     btnC.classList.add('active');
     btnK.classList.remove('active');
   } else {
@@ -158,13 +158,14 @@ function _applyModeUI(){
 }
 
 function getModeLabel(){
-  return currentMode === 'cassa' ? 'Cassa' : 'Container';
+  return window.currentMode === 'cassa' ? 'Cassa' : 'Container';
 }
 
 function getModeIcon(){
-  return currentMode === 'cassa' ? '&#x1F4E6;' : '&#x1F69B;';
+  return window.currentMode === 'cassa' ? '&#x1F4E6;' : '&#x1F69B;';
 }
 
 window.setMode = setMode;
 
-let currentUser = null;   // { email, role, uid }
+window.currentUser = null;   // { email, role, uid }
+
