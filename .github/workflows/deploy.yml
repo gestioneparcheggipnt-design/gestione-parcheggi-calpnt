@@ -22,7 +22,10 @@ jobs:
       - name: Cache busting
         run: |
           HASH=$(date +%s)
+          # Cache-bust i riferimenti .js/.css in index.html e mobile.html
           sed -i -E "s/(\.js|\.css)([\"'])/\1?v=$HASH\2/g" index.html mobile.html
+          # Cache-bust gli import in app-desktop.js
+          sed -i -E "s/(\.js)(\?v=[0-9]+)?'/\1?v=$HASH'/g" app-desktop.js
 
       - uses: actions/configure-pages@v4
       - uses: actions/upload-pages-artifact@v3
