@@ -51,9 +51,9 @@ function _getRibalteLibereAll() {
   _prenotazioni.forEach(p => {
     if (p.stato === 'creata' && p.destinazione) occupate.add(p.destinazione.trim().toUpperCase());
   });
-  // Usa REPARTI direttamente (disponibile nel bundle) — non window._REPARTI
-  const all = typeof REPARTI !== 'undefined'
-    ? Object.values(REPARTI).flat()
+  // Usa window.REPARTI direttamente (disponibile nel bundle) — non window._REPARTI
+  const all = typeof window.REPARTI !== 'undefined'
+    ? Object.values(window.REPARTI).flat()
     : (typeof getDestinazioniPerReparto === 'function' ? window.getDestinazioniPerReparto(null) : []);
   return {
     PNT1: all.filter(d => d.startsWith('PNT1') && !occupate.has(d)),
@@ -130,7 +130,7 @@ window.deskAltriEdificio = function(formKey, edificio) {
   const repartiMap = {};
   altreLibere.forEach(d => {
     let found = 'Altro';
-    for (const [nome, ids] of Object.entries(typeof REPARTI !== 'undefined' ? REPARTI : {})) {
+    for (const [nome, ids] of Object.entries(typeof window.REPARTI !== 'undefined' ? window.REPARTI : {})) {
       if (ids.includes(d)) { found = nome; break; }
     }
     if (!repartiMap[found]) repartiMap[found] = [];
@@ -150,7 +150,7 @@ window.deskAltriReparto = function(formKey, repartoNome, edificio) {
   if (!wrap) return;
   const { PNT1: allPNT1, PNT2: allPNT2 } = _getRibalteLibereAll();
   const mieDestin = new Set(_getRibalteLibere().PNT1.concat(_getRibalteLibere().PNT2));
-  const ids = (typeof REPARTI !== 'undefined' && REPARTI[repartoNome]) ? REPARTI[repartoNome] : [];
+  const ids = (typeof window.REPARTI !== 'undefined' && window.REPARTI[repartoNome]) ? window.REPARTI[repartoNome] : [];
   const ribalte = allPNT1.concat(allPNT2).filter(d => !mieDestin.has(d) && ids.includes(d));
 
   let h = `<div style="${_DS.label}">${repartoNome}:</div><div style="display:flex;flex-wrap:wrap;gap:4px">`;

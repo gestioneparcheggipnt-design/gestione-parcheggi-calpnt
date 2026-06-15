@@ -70,8 +70,8 @@ function renderMap(){
   const svg=document.getElementById("mapSvg");
   svg.setAttribute("viewBox",`0 0 ${window.IMG_W} ${window.IMG_H}`);
   let s="";
-  PATCHES.forEach(([px,py,pw,ph])=>{ s+=`<rect x="${px}" y="${py}" width="${pw}" height="${ph}" fill="white"/>`; });
-  SPOT_DEFS.forEach(([id,,px,py,pw,ph])=>{
+  window.PATCHES.forEach(([px,py,pw,ph])=>{ s+=`<rect x="${px}" y="${py}" width="${pw}" height="${ph}" fill="white"/>`; });
+  window.SPOT_DEFS.forEach(([id,,px,py,pw,ph])=>{
     const sp=window.spots[id], cls=sp.occupied?"occupied":"free", hl=window.selectedSpotId===id?" highlight":"", unusCls=sp.unusable?" unusable":"";
     const cx=px+pw/2, cy=py+ph/2, fs=Math.min(pw,ph)*0.44;
     s+=`<g class="spot ${cls}${unusCls}${hl}" onclick="window._selectSpot('${id}')" data-id="${id}">` +

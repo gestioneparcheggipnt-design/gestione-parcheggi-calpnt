@@ -219,7 +219,7 @@ function renderHeatmap(cnt){
     PATCHES_HM.forEach(([x,y,w,h])=>{
       html += `<rect x="${x*scX}" y="${y*scY}" width="${w*scX}" height="${h*scY}" fill="#aaaaaa" opacity="0.18" rx="2"/>`;
     });
-    SPOT_DEFS.forEach(([id,,x,y,w,h])=>{
+    window.SPOT_DEFS.forEach(([id,,x,y,w,h])=>{
       const val  = cnt ? (cnt[id]||0) : 0;
       const fill = heatColor(val, maxVal);
       const stroke = val > 0 ? `rgba(160,0,0,0.55)` : `rgba(120,120,120,0.25)`;

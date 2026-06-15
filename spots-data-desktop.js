@@ -1,7 +1,7 @@
 window.IMG_W = 3000; window.IMG_H = 2250;
 
 // ── spots-data-desktop.js ─────────────────────────────────────────────────────────
-const SPOT_DEFS=[
+window.SPOT_DEFS=[
   ["A13","ZONA A",1291,351,29,87],
   ["A01","ZONA A",1291,441,29,87],
   ["A14","ZONA A",1320,351,24,87],
@@ -66,7 +66,7 @@ const SPOT_DEFS=[
   ["D14","ZONA D",324,1901,89,23],
   ["D15","ZONA D",324,1926,89,24]
 ];
-const PATCHES=[
+window.PATCHES=[
   [1291, 351, 302, 177],
   [1658, 139, 221, 97],
   [324, 1012, 89, 384],
@@ -79,7 +79,7 @@ const PATCHES=[
   [413, 1563, 32, 388]
 ];
 
-const ZONES = {
+window.ZONES = {
   "ZONA A": SPOT_DEFS.filter(s=>s[1]==="ZONA A").map(s=>s[0]),
   "ZONA B": SPOT_DEFS.filter(s=>s[1]==="ZONA B").map(s=>s[0]),
   "ZONA C": SPOT_DEFS.filter(s=>s[1]==="ZONA C").map(s=>s[0]),
@@ -92,7 +92,7 @@ function _range(prefix, from, to) {
   for (let i = from; i <= to; i++) out.push(prefix + '-' + String(i).padStart(2,'0'));
   return out;
 }
-const REPARTI = {
+window.REPARTI = {
   "RICEVIMENTO": [..._range('PNT1', 1, 31)],
   "SPEDIZIONI":  [..._range('PNT1', 32, 61), ..._range('PNT1', 73, 81)],
   "CAPI APPESI": [..._range('PNT1', 62, 72)],
@@ -114,8 +114,6 @@ function getDestinazioniPerReparto(reparto) {
 }
 
 // Export per ES Module (mobile) — ignorato dal bundle desktop (assemble.py)
-export { SPOT_DEFS, PATCHES, ZONES, REPARTI, getDestinazioniPerReparto };
-
 // ââ STATO LOCALE âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 window.spots = {};
 SPOT_DEFS.forEach(([id,zone,x,y,w,h]) => {
