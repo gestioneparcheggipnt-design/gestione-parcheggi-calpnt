@@ -114,7 +114,6 @@ function showApp(){
   loadMode();
   initMap();
 
-// ── FIRESTORE-LISTENERS.JS ─────────────────────────────────────────────────────────
 startListeners();
   renderStatistiche();
   renderUsers();

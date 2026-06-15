@@ -40,7 +40,6 @@ function startListeners(){
     }
   });
 
-// ── PARKING-OPS.JS ─────────────────────────────────────────────────────────
 }
 
 function stopListeners(){

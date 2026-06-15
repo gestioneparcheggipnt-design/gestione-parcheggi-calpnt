@@ -69,7 +69,6 @@ async function toggleFull(id, newFull){
       user: window.currentUser.name || window.currentUser.email,
       userName: window.currentUser.name || window.currentUser.email
 
-// ── ADMIN-DESKTOP.JS ─────────────────────────────────────────────────────────
 });
     showToast(`Posto ${id} ${newFull?"segnato come pieno":"segnato come vuoto"}`,"success");
     selectSpot(id);
