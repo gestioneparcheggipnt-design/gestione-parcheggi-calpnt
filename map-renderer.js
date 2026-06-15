@@ -13,7 +13,7 @@ function initPanZoom(){
   });
   window.addEventListener("mousemove",e=>{
     if(!isPanning)return;
-    panX=pSPX+(e.clientX-pSX); panY=pSPY+(e.clientY-pSY); clampP(); applyT();
+    panX=pSPX+(e.clientX-pSX); panY=pSPY+(e.clientY-pSY); window.clampP(); window.applyT();
   });
   window.addEventListener("mouseup",()=>{
     isPanning=false;
@@ -37,7 +37,7 @@ function initPanZoom(){
     }else{
       panX=pSPX+(e.touches[0].clientX-t1x);
       panY=pSPY+(e.touches[0].clientY-t1y);
-      clampP(); applyT();
+      window.clampP(); window.applyT();
     }
   },{passive:false});
   vp.addEventListener("touchend",()=>{ ld=null; });
@@ -185,3 +185,7 @@ function selectSpot(id){
 
 // Esponi per onclick SVG
 window._selectSpot   = selectSpot;
+
+window.initMap = initMap;
+window.renderMap = renderMap;
+window.selectSpot = selectSpot;

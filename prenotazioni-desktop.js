@@ -7,7 +7,7 @@ function _getDestinazioniUtente() {
   const reparto = (typeof window.currentUser !== 'undefined' && window.currentUser)
     ? (window.currentUser.role === 'amministratore' ? null : window.currentUser.reparto)
     : null;
-  return getDestinazioniPerReparto(reparto);
+  return window.getDestinazioniPerReparto(reparto);
 }
 
 let _prenotazioni = [];
@@ -54,7 +54,7 @@ function _getRibalteLibereAll() {
   // Usa REPARTI direttamente (disponibile nel bundle) — non window._REPARTI
   const all = typeof REPARTI !== 'undefined'
     ? Object.values(REPARTI).flat()
-    : (typeof getDestinazioniPerReparto === 'function' ? getDestinazioniPerReparto(null) : []);
+    : (typeof getDestinazioniPerReparto === 'function' ? window.getDestinazioniPerReparto(null) : []);
   return {
     PNT1: all.filter(d => d.startsWith('PNT1') && !occupate.has(d)),
     PNT2: all.filter(d => d.startsWith('PNT2') && !occupate.has(d)),
@@ -360,7 +360,7 @@ async function cercaMezzo() {
     return;
   }
   // Validazione formato: deve essere un container
-  const tipo = riconosciTipoMezzo(targa);
+  const tipo = window.riconosciTipoMezzo(targa);
   if (tipo !== 'container') {
     feedback.textContent = tipo === 'cassa'
       ? '⚠️ Questo è un numero di cassa. Le prenotazioni riguardano solo container.'
@@ -759,3 +759,6 @@ window.aggiornaReverseTarget = function() {
   _aggiornaReverseUI();
 };
 
+window.initPrenotazioni = initPrenotazioni;
+window._aggiornaVistaPrenotazioni = _aggiornaVistaPrenotazioni;
+window.renderCasse = renderCasse;

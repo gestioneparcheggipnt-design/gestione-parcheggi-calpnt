@@ -35,3 +35,5 @@ function resetZoom(){ scale=1; panX=0; panY=0; applyT(); }
 
 window.zoom      = zoom;
 window.resetZoom = resetZoom;
+window.applyT  = applyT;
+window.clampP  = clampP;

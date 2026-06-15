@@ -99,7 +99,7 @@ window.clearSearch=()=>{document.getElementById("searchInput").value="";doSearch
 
 function goToSpot(id){
   showPage("Mappa",document.querySelectorAll(".navTab")[0]);
-  setTimeout(()=>selectSpot(id),80);
+  setTimeout(()=>window.selectSpot(id),80);
 }
 window._goToSpot=goToSpot;
 
@@ -475,7 +475,7 @@ async function removeDamaged(id){
       user: window.currentUser.name || window.currentUser.email,
       userName: window.currentUser.name || window.currentUser.email
     });
-    selectSpot(id);
+    window.selectSpot(id);
     showToast(`Segnalazione danno rimossa per posto ${id}`,"success");
   }catch(e){
     showToast("Errore: "+e.message,"error");
@@ -492,7 +492,7 @@ async function addDamaged(id){
       user: window.currentUser.name || window.currentUser.email,
       userName: window.currentUser.name || window.currentUser.email
     });
-    selectSpot(id);
+    window.selectSpot(id);
     showToast(`Veicolo danneggiato segnalato per posto ${id}`,"success");
   }catch(e){
     showToast("Errore: "+e.message,"error");
@@ -509,7 +509,7 @@ async function addUnusable(id){
       user: window.currentUser.name || window.currentUser.email,
       userName: window.currentUser.name || window.currentUser.email
     });
-    selectSpot(id);
+    window.selectSpot(id);
     showToast(`Veicolo segnato come inutilizzabile: posto ${id}`,"success");
   }catch(e){
     showToast("Errore: "+e.message,"error");
@@ -526,7 +526,7 @@ async function removeUnusable(id){
       user: window.currentUser.name || window.currentUser.email,
       userName: window.currentUser.name || window.currentUser.email
     });
-    selectSpot(id);
+    window.selectSpot(id);
     showToast(`Segnalazione inutilizzabile rimossa: posto ${id}`,"success");
   }catch(e){
     showToast("Errore: "+e.message,"error");
@@ -535,7 +535,7 @@ async function removeUnusable(id){
 window._removeUnusable=removeUnusable;
 
 function cancelSelect(){
-  window.selectedSpotId=null; renderMap();
+  window.selectedSpotId=null; window.renderMap();
   document.getElementById("spotPanel").innerHTML=
     '<div style="color:var(--muted);font-size:13px;text-align:center;padding:18px 0">Clicca un parcheggio sulla mappa</div>';
 }
@@ -572,3 +572,11 @@ function riconosciTipoMezzo(id) {
   return null;
 }
 
+window.renderStatistiche = renderStatistiche;
+window.renderUsers       = renderUsers;
+window.renderStorico     = renderStorico;
+window.updateMapStats    = updateMapStats;
+window.renderSearch      = renderSearch;
+window.showToast = showToast;
+window._esc = _esc;
+window.riconosciTipoMezzo = riconosciTipoMezzo;

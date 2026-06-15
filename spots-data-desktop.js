@@ -132,7 +132,7 @@ function loadMode(){
   window.currentMode = saved === 'cassa' ? 'cassa' : 'container';
   _applyModeUI();
   // Aggiorna la vista tab prenotazioni se già inizializzata
-  if (typeof _aggiornaVistaPrenotazioni === 'function') _aggiornaVistaPrenotazioni();
+  if (typeof _aggiornaVistaPrenotazioni === 'function') if(window._aggiornaVistaPrenotazioni) window._aggiornaVistaPrenotazioni();
 }
 
 function setMode(mode){
@@ -140,10 +140,10 @@ function setMode(mode){
   const uid = window.currentUser ? window.currentUser.uid : 'guest';
   localStorage.setItem('parkMode_'+uid, mode);
   _applyModeUI();
-  renderMap();
+  if(window.renderMap) window.renderMap();
   selectSpot(window.selectedSpotId); // aggiorna pannello se c'è un posto selezionato
   // Aggiorna la vista tab prenotazioni se visibile
-  if (typeof _aggiornaVistaPrenotazioni === 'function') _aggiornaVistaPrenotazioni();
+  if (typeof _aggiornaVistaPrenotazioni === 'function') if(window._aggiornaVistaPrenotazioni) window._aggiornaVistaPrenotazioni();
 }
 
 function _applyModeUI(){
@@ -169,3 +169,7 @@ function getModeIcon(){
 
 window.setMode = setMode;
 
+window.loadMode = loadMode;
+window.getModeLabel = getModeLabel;
+window.getModeIcon  = getModeIcon;
+window.getDestinazioniPerReparto = getDestinazioniPerReparto;

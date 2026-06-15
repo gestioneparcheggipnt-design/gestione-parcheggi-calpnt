@@ -1,10 +1,5 @@
 import { addDoc, collection, doc, getDocs, limit, query, setDoc, where } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
 // ── PORTINERIA-DESKTOP.JS ─────────────────────────────────────────────────────────
-window.renderPrenotazioni      = renderPrenotazioni;
-window.renderCasse             = renderCasse;
-window.resetFiltri             = resetFiltri;
-window.validaDestinazione      = validaDestinazione;
-window.riconosciTipoMezzo      = riconosciTipoMezzo;
 
 // Suggerimento posto in base a tipo veicolo + stato (pieno/vuoto)
 // Stampa mappa A4 con percorso e numero posto nel rettangolo in alto a sinistra
@@ -336,7 +331,7 @@ async function porteriaConferma() {
       window.spots[id].since    = now;
     }
 
-    showToast('Posto ' + id + ' assegnato a ' + veicolo);
+    window.showToast('Posto ' + id + ' assegnato a ' + veicolo);
     // Resetta solo i campi input, mantieni risultato visibile per la stampa
     document.getElementById('port-veicolo').value = '';
     document.getElementById('port-stato').value   = 'pieno';
@@ -347,7 +342,7 @@ async function porteriaConferma() {
 
   } catch(e) {
     console.error('Errore assegnazione portineria:', e);
-    showToast('Errore durante l\'assegnazione. Riprova.', 'error');
+    window.showToast('Errore durante l\'assegnazione. Riprova.', 'error');
     btn.disabled  = false;
     btn.textContent = '✔ Conferma Assegnazione';
   }
@@ -364,7 +359,7 @@ function porteriaStampa() {
   // Crea finestra di stampa con canvas: disegna immagine + etichetta posto
   const printWin = window.open('', '_blank', 'width=1200,height=900');
   if (!printWin) {
-    showToast('Popup bloccato. Abilita i popup per questo sito.', 'error');
+    window.showToast('Popup bloccato. Abilita i popup per questo sito.', 'error');
     return;
   }
 

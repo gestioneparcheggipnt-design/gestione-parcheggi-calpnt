@@ -1,18 +1,18 @@
 import { addDoc, collection, doc, serverTimestamp, setDoc, updateDoc } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
 async function inlineAssign(id){
   const plate=(document.getElementById("inlineplate")?.value||"").trim().toUpperCase();
-  if(!plate){ showToast(`Inserisci ${getModeLabel().toLowerCase()} o identificativo`,"error"); return; }
+  if(!plate){ window.showToast(`Inserisci ${window.getModeLabel().toLowerCase()} o identificativo`,"error"); return; }
 
     // Check se il posto scelto e' gia' occupato
   if(window.spots[id] && window.spots[id].occupied){
-    showToast(`⚠️ Il posto ${id} è già occupato da ${window.spots[id].plate || 'un veicolo'}`, "error");
+    window.showToast(`⚠️ Il posto ${id} è già occupato da ${window.spots[id].plate || 'un veicolo'}`, "error");
     return;
   }
 
   // Check se la targa/ID Ã¨ giÃ  assegnata ad un altro posto
   const alreadySpot = Object.entries(window.spots).find(([sid, s]) => s.occupied && s.plate === plate && sid !== id);
   if(alreadySpot){
-    showToast(`â ï¸ ${plate} giÃ  assegnato al posto ${alreadySpot[0]}`, "error");
+    window.showToast(`â ï¸ ${plate} giÃ  assegnato al posto ${alreadySpot[0]}`, "error");
     return;
   }
 
@@ -29,10 +29,10 @@ async function inlineAssign(id){
       action:"Assegnato", plate, user: window.currentUser.email, damaged,
       mode: window.currentMode
     });
-    selectSpot(id);
-    showToast(`Posto ${id} assegnato a ${plate}${damaged?" â ï¸ danneggiato":""}${full?" ð¡ pieno":""}`, "success");
+    window.selectSpot(id);
+    window.showToast(`Posto ${id} assegnato a ${plate}${damaged?" â ï¸ danneggiato":""}${full?" ð¡ pieno":""}`, "success");
   }catch(e){
-    showToast("Errore salvataggio: "+e.message,"error");
+    window.showToast("Errore salvataggio: "+e.message,"error");
     if(btn){ btn.textContent="â Assegna"; btn.disabled=false; }
   }
 }
@@ -49,10 +49,10 @@ async function freeSpot(id){
     await setDoc(doc(window.db,"spots",id),{
       occupied:false, plate:null, since:null, user:null, full:false
     });
-    selectSpot(id);
-    showToast(`Posto ${id} liberato`,"success");
+    window.selectSpot(id);
+    window.showToast(`Posto ${id} liberato`,"success");
   }catch(e){
-    showToast("Errore: "+e.message,"error");
+    window.showToast("Errore: "+e.message,"error");
     if(btn){ btn.textContent="â Libera Posto"; btn.disabled=false; }
   }
 }
@@ -70,10 +70,10 @@ async function toggleFull(id, newFull){
       userName: window.currentUser.name || window.currentUser.email
 
 });
-    showToast(`Posto ${id} ${newFull?"segnato come pieno":"segnato come vuoto"}`,"success");
-    selectSpot(id);
+    window.showToast(`Posto ${id} ${newFull?"segnato come pieno":"segnato come vuoto"}`,"success");
+    window.selectSpot(id);
   }catch(e){
-    showToast("Errore: "+e.message,"error");
+    window.showToast("Errore: "+e.message,"error");
   }
 }
 window._toggleFull = toggleFull;
