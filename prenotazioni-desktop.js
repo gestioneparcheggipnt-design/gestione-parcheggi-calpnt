@@ -762,3 +762,4 @@ window.aggiornaReverseTarget = function() {
 window.initPrenotazioni = initPrenotazioni;
 window._aggiornaVistaPrenotazioni = _aggiornaVistaPrenotazioni;
 window.renderCasse = renderCasse;
+window._esc = _esc;

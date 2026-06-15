@@ -8,7 +8,7 @@ function showPage(id,btn){
   document.querySelectorAll(".page").forEach(p=>p.classList.remove("active"));
   document.querySelectorAll(".navTab").forEach(t=>t.classList.remove("active"));
   document.getElementById("page"+id).classList.add("active"); btn.classList.add("active");
-if (id === 'Prenotazioni') initPrenotazioni();
+if (id === 'Prenotazioni') window.initPrenotazioni();
 }
 window.showPage = showPage;
 
@@ -578,5 +578,4 @@ window.renderStorico     = renderStorico;
 window.updateMapStats    = updateMapStats;
 window.renderSearch      = renderSearch;
 window.showToast = showToast;
-window._esc = _esc;
 window.riconosciTipoMezzo = riconosciTipoMezzo;
