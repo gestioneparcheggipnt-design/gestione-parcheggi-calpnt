@@ -1,4 +1,5 @@
-import { doc, getDoc, onAuthStateChanged, signInWithEmailAndPassword, signOut } from './firebase-config.js';
+import { onAuthStateChanged, signInWithEmailAndPassword, signOut } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
+import { doc, getDoc } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
 window.doLogin  = doLogin;
 window.doLogout = doLogout;
 
