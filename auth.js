@@ -1,7 +1,6 @@
 import { doc, getDoc, onAuthStateChanged, signInWithEmailAndPassword, signOut } from './firebase-config.js';
-// ── AUTH.JS ─────────────────────────────────────────────────────────
-window.doLogin      = doLogin;
-window.doLogout     = doLogout;
+window.doLogin  = doLogin;
+window.doLogout = doLogout;
 
 ["loginEmail","loginPass"].forEach(id => {
   const el = document.getElementById(id);

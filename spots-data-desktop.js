@@ -1,3 +1,5 @@
+const IMG_W = 3000, IMG_H = 2250;
+
 // ── spots-data-desktop.js ─────────────────────────────────────────────────────────
 const SPOT_DEFS=[
   ["A13","ZONA A",1291,351,29,87],
@@ -166,6 +168,4 @@ function getModeIcon(){
 }
 
 window.setMode = setMode;
-
-window.currentUser = null;   // { email, role, uid }
 

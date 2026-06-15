@@ -48,5 +48,3 @@ function stopListeners(){
   if(window.unsubHistory){ window.unsubHistory();window.unsubHistory=null; }
 }
 
-
-

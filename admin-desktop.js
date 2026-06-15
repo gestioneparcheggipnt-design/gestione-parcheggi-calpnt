@@ -1,14 +1,4 @@
 import { addDoc, collection, createUserWithEmailAndPassword, deleteDoc, doc, getDocs, serverTimestamp, setDoc, updateDoc } from './firebase-config.js';
-// ── ADMIN-DESKTOP.JS ─────────────────────────────────────────────────────────
-});
-    showToast(`Posto ${id} ${newFull?"segnato come pieno":"segnato come vuoto"}`,"success");
-    selectSpot(id);
-  }catch(e){
-    showToast("Errore: "+e.message,"error");
-  }
-}
-window._toggleFull = toggleFull;
-
 
 // ââ UI HELPERS ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 function showPage(id,btn){

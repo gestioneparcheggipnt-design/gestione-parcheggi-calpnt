@@ -1,5 +1,4 @@
 import { addDoc, collection, doc, serverTimestamp, setDoc, updateDoc } from './firebase-config.js';
-// ââ OPERAZIONI PARCHEGGI ââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 async function inlineAssign(id){
   const plate=(document.getElementById("inlineplate")?.value||"").trim().toUpperCase();
   if(!plate){ showToast(`Inserisci ${getModeLabel().toLowerCase()} o identificativo`,"error"); return; }
@@ -70,3 +69,14 @@ async function toggleFull(id, newFull){
       user: window.currentUser.name || window.currentUser.email,
       userName: window.currentUser.name || window.currentUser.email
 
+// ── ADMIN-DESKTOP.JS ─────────────────────────────────────────────────────────
+});
+    showToast(`Posto ${id} ${newFull?"segnato come pieno":"segnato come vuoto"}`,"success");
+    selectSpot(id);
+  }catch(e){
+    showToast("Errore: "+e.message,"error");
+  }
+}
+window._toggleFull = toggleFull;
+window._inlineAssign = inlineAssign;
+window._freeSpot     = freeSpot;

@@ -1,4 +1,4 @@
-// ── app-desktop.js ─ Entry point ────────────────────────────────────────────
+// ── app-desktop.js ─ Entry point ─────────────────────────────────────────────
 // NON modificare — modifica i singoli file sorgente.
 
 import './firebase-config.js';
