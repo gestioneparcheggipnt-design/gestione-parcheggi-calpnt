@@ -1,4 +1,4 @@
-import { addDoc, collection, deleteDoc, doc, getDocs, limit, onSnapshot, orderBy, query, serverTimestamp, setDoc, updateDoc, where } from './firebase-config.js';
+import { addDoc, collection, deleteDoc, doc, getDocs, limit, onSnapshot, orderBy, query, serverTimestamp, setDoc, updateDoc, where } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
 // ── PRENOTAZIONI-DESKTOP.JS ─────────────────────────────────────────────────────────
 // ── Stato locale prenotazioni ─────────────────────────────────────────────
 // DESTINAZIONI_VALIDE è dinamico: dipende dal reparto dell'utente corrente.

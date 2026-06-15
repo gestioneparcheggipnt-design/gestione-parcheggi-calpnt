@@ -1,4 +1,4 @@
-import { collection, doc, limit, onSnapshot, orderBy, query } from './firebase-config.js';
+import { collection, doc, limit, onSnapshot, orderBy, query } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
 // ââ FIRESTORE LISTENERS âââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 function startListeners(){
   // Listener parcheggi: aggiornamento real-time

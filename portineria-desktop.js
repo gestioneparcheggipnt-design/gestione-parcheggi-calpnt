@@ -1,4 +1,4 @@
-import { collection, doc, getDocs, query, setDoc, where } from './firebase-config.js';
+import { addDoc, collection, doc, getDocs, limit, query, setDoc, where } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
 // ── PORTINERIA-DESKTOP.JS ─────────────────────────────────────────────────────────
 window.renderPrenotazioni      = renderPrenotazioni;
 window.renderCasse             = renderCasse;
