@@ -248,12 +248,12 @@ async function renderUsers(){
       <div class="userInfo">
         <div class="userField">
           <span class="userFieldLabel">Nome</span>
-          <span class="userFieldValue" id="uname-${u.uid}">${_esc(u.name||"—")}</span>
+          <span class="userFieldValue" id="uname-${u.uid}">${window._esc(u.name||"—")}</span>
           <button class="btnEdit" title="Modifica nome" onclick="window._editUserField('${u.uid}','name','uname-${u.uid}','${(u.name||"").replace(/'/g,"\'")}')">✏️</button>
         </div>
         <div class="userField">
           <span class="userFieldLabel">Email</span>
-          <span class="userFieldValue" id="uemail-${u.uid}">${_esc(u.email||u.uid)}</span>
+          <span class="userFieldValue" id="uemail-${u.uid}">${window._esc(u.email||u.uid)}</span>
           <button class="btnEdit" title="Modifica email" onclick="window._editUserField('${u.uid}','email','uemail-${u.uid}','${(u.email||"").replace(/'/g,"\'")}')">✏️</button>
         </div>
         <div class="userField">

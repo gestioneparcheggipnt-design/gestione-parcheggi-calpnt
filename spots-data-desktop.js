@@ -1,4 +1,4 @@
-const IMG_W = 3000, IMG_H = 2250;
+window.IMG_W = 3000; window.IMG_H = 2250;
 
 // ── spots-data-desktop.js ─────────────────────────────────────────────────────────
 const SPOT_DEFS=[

@@ -68,7 +68,7 @@ if(img.complete){ renderMap(); initPanZoom(); }
 
 function renderMap(){
   const svg=document.getElementById("mapSvg");
-  svg.setAttribute("viewBox",`0 0 ${IMG_W} ${IMG_H}`);
+  svg.setAttribute("viewBox",`0 0 ${window.IMG_W} ${window.IMG_H}`);
   let s="";
   PATCHES.forEach(([px,py,pw,ph])=>{ s+=`<rect x="${px}" y="${py}" width="${pw}" height="${ph}" fill="white"/>`; });
   SPOT_DEFS.forEach(([id,,px,py,pw,ph])=>{
