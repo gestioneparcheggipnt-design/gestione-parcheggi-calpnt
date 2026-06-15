@@ -1,3 +1,5 @@
+window.currentUser = null;   // { email, role, uid }
+
 // ── SHARED-UTILS.JS ─────────────────────────────────────────────────────────
 window.selectedSpotId = null;
 window.unsubSpots = null;    // listener Firestore parcheggi
@@ -31,3 +33,5 @@ function zoom(delta,cx,cy){
 
 function resetZoom(){ scale=1; panX=0; panY=0; applyT(); }
 
+window.zoom      = zoom;
+window.resetZoom = resetZoom;

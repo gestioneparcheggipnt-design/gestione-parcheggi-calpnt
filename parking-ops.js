@@ -65,7 +65,7 @@ async function toggleFull(id, newFull){
     await addDoc(collection(window.db,"history"),{
       ts: serverTimestamp(), spot:id,
       action: newFull ? "Segnato Pieno" : "Segnato Vuoto",
-      plate: window.spots[id].plate,
+      plate: window.window.spots[id].plate,
       user: window.currentUser.name || window.currentUser.email,
       userName: window.currentUser.name || window.currentUser.email
 
@@ -77,5 +77,6 @@ async function toggleFull(id, newFull){
   }
 }
 window._toggleFull = toggleFull;
+
 window._inlineAssign = inlineAssign;
 window._freeSpot     = freeSpot;

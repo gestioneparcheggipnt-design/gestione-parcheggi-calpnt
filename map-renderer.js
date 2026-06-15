@@ -137,6 +137,7 @@ function selectSpot(id){
         <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:5px;text-transform:uppercase;letter-spacing:.5px">${inputLabel}</label>
         <input class="plateInput" id="inlineplate" type="text" placeholder="${placeholderInput}" maxlength="15"
           oninput="this.value=this.value.toUpperCase()"
+          onkeydown="if(event.key==='Enter')window._inlineAssign('${id}')">
       </div>
       <label style="display:flex;align-items:center;gap:9px;font-size:14px;color:var(--text);margin-bottom:9px;cursor:pointer;user-select:none;">
         <input type="checkbox" id="inlineDamaged" style="width:16px;height:16px;accent-color:#ef4444;cursor:pointer;">
@@ -146,6 +147,7 @@ function selectSpot(id){
         <input type="checkbox" id="inlineFull" style="width:16px;height:16px;accent-color:#f59e0b;cursor:pointer;">
         <span>&#x1F7E1; Piena/o (carico completo)</span>
       </label>
+      <button class="btnAssign" onclick="window._inlineAssign('${id}')">&#10003; Assegna</button>`;
     setTimeout(()=>document.getElementById("inlineplate")?.focus(),50);
   }else{
     const fullBadge = sp.full
@@ -177,6 +179,7 @@ function selectSpot(id){
               <button class="fullToggleBtn" style="margin-top:6px;background:linear-gradient(135deg,#7c3aed,#6d28d9)" onclick="window._addUnusable('${id}')">&#x1F6AB; Segna come inutilizzabile</button>
              </span>`)
       : ''}
+      ${puoGestire ? `<button class="btnFreeInline" style="background:#fff;color:#1C1F26;border:1px solid var(--border);font-weight:700;margin-top:8px" onclick="window._freeSpot('${id}')">&#10005; Libera Posto</button>` : ''}`;
   }
 }
 

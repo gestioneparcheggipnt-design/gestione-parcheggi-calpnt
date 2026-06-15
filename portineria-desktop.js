@@ -332,7 +332,7 @@ async function porteriaConferma() {
     // Aggiorna stato locale subito (il listener aggiornerà dopo)
     if (window.spots[id]) {
       window.spots[id].occupied = true;
-      window.spots[id].plate    = veicolo;
+      window.window.spots[id].plate    = veicolo;
       window.spots[id].since    = now;
     }
 

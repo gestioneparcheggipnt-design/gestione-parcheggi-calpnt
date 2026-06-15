@@ -22,7 +22,3 @@ const app  = initializeApp(firebaseConfig);
 window.auth = getAuth(app);
 window.db   = getFirestore(app);
 
-
-
-const IMG_W = 3000, IMG_H = 2250;
-

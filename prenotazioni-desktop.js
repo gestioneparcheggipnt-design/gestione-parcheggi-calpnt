@@ -662,7 +662,7 @@ window.confermaDeskCompleta = async function(id) {
     // Occupa ribalta destinazione
     await setDoc(doc(window.db, 'ribalte', dest), {
       occupied: true, plate, since: serverTimestamp(),
-      user: window.auth.currentUser?.email || '—', full: false
+      user: auth.currentUser?.email || '—', full: false
     });
   } catch(err) {
     console.error('Errore completamento:', err);

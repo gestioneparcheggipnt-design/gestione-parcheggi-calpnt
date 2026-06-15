@@ -8,12 +8,12 @@ function startListeners(){
       const id = change.doc.id;
       if(window.spots[id]){
         if(change.type==="removed"){
-          window.spots[id].occupied=false; window.spots[id].plate=null;
+          window.spots[id].occupied=false; window.window.spots[id].plate=null;
           window.spots[id].since=null; window.spots[id].user=null; window.spots[id].full=false;
           window.spots[id].damaged=false; window.spots[id].unusable=false;
         }else{
           window.spots[id].occupied = data.occupied||false;
-          window.spots[id].plate    = data.plate||null;
+          window.window.spots[id].plate    = data.plate||null;
           window.spots[id].since    = data.since?.toDate()||null;
           window.spots[id].user     = data.user||null;
           window.spots[id].damaged  = data.damaged||false;

@@ -468,7 +468,7 @@ async function removeDamaged(id){
     await updateDoc(doc(window.db,"spots",id),{ damaged: false });
     await addDoc(collection(window.db,"history"),{
       ts: serverTimestamp(), spot:id,
-      action:"Danno rimosso", plate:window.spots[id].plate,
+      action:"Danno rimosso", plate:window.window.spots[id].plate,
       user: window.currentUser.name || window.currentUser.email,
       userName: window.currentUser.name || window.currentUser.email
     });
@@ -485,7 +485,7 @@ async function addDamaged(id){
     await updateDoc(doc(window.db,"spots",id),{ damaged: true });
     await addDoc(collection(window.db,"history"),{
       ts: serverTimestamp(), spot:id,
-      action:"Danno segnalato", plate:window.spots[id].plate,
+      action:"Danno segnalato", plate:window.window.spots[id].plate,
       user: window.currentUser.name || window.currentUser.email,
       userName: window.currentUser.name || window.currentUser.email
     });
@@ -502,7 +502,7 @@ async function addUnusable(id){
     await updateDoc(doc(window.db,"spots",id),{ unusable: true });
     await addDoc(collection(window.db,"history"),{
       ts: serverTimestamp(), spot:id,
-      action:"Inutilizzabile segnalato", plate:window.spots[id].plate,
+      action:"Inutilizzabile segnalato", plate:window.window.spots[id].plate,
       user: window.currentUser.name || window.currentUser.email,
       userName: window.currentUser.name || window.currentUser.email
     });
@@ -519,7 +519,7 @@ async function removeUnusable(id){
     await updateDoc(doc(window.db,"spots",id),{ unusable: false });
     await addDoc(collection(window.db,"history"),{
       ts: serverTimestamp(), spot:id,
-      action:"Inutilizzabile rimosso", plate:window.spots[id].plate,
+      action:"Inutilizzabile rimosso", plate:window.window.spots[id].plate,
       user: window.currentUser.name || window.currentUser.email,
       userName: window.currentUser.name || window.currentUser.email
     });
