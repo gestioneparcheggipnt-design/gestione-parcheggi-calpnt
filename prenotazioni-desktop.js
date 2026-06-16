@@ -230,7 +230,7 @@ function renderCasse() {
 
   // Filtra i posti occupati da casse piene (plate = 3 cifre + flag full)
   const casseOccupate = Object.values(window.spots).filter(s =>
-    s.occupied && s.full && s.plate && RE_CASSA.test(s.plate.trim())
+    s.occupied && s.full && s.plate && window.RE_CASSA.test(s.plate.trim())
   );
 
   if (!casseOccupate.length) {

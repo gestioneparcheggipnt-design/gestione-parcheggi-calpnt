@@ -563,12 +563,12 @@ function showToast(msg,type="success"){
 }
 window.addEventListener("resize",()=>{ applyT(); });
 
-const RE_CASSA     = /^\d{3}$/;           // 3 cifre  → cassa
-const RE_CONTAINER = /^[A-Z]{4}\d{7}$/;  // 4 lettere + 7 cifre → container
+window.RE_CASSA     = /^\d{3}$/;
+window.RE_CONTAINER = /^[A-Z]{4}\d{7}$/;
 
 function riconosciTipoMezzo(id) {
-  if (RE_CASSA.test(id))     return 'cassa';
-  if (RE_CONTAINER.test(id)) return 'container';
+  if (window.RE_CASSA.test(id))     return 'cassa';
+  if (window.RE_CONTAINER.test(id)) return 'container';
   return null;
 }
 
