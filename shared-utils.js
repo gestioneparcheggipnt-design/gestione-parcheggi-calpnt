@@ -8,9 +8,9 @@ window.historyCache = [];    // cache locale storico
 
 
 // ââ PAN / ZOOM ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
-let scale=1, panX=0, panY=0, isPanning=false;
-let pSX=0, pSY=0, pSPX=0, pSPY=0;
-const MIN_S=0.3, MAX_S=5;
+window.scale=1; window.panX=0; window.panY=0; window.isPanning=false;
+window.pSX=0; window.pSY=0; window.pSPX=0; window.pSPY=0;
+window.MIN_S=0.3, MAX_S=5;
 
 function applyT(){
   document.getElementById("mapCanvas").style.transform=`translate(${panX}px,${panY}px) scale(${scale})`;

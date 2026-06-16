@@ -8,15 +8,15 @@ function initPanZoom(){
   },{passive:false});
   vp.addEventListener("mousedown",e=>{
     if(e.button!==0)return;
-    isPanning=true; pSX=e.clientX; pSY=e.clientY; pSPX=panX; pSPY=panY;
+    window.isPanning=true; window.pSX=e.clientX; window.pSY=e.clientY; window.pSPX=window.panX; window.pSPY=window.panY;
     vp.style.cursor="grabbing";
   });
   window.addEventListener("mousemove",e=>{
-    if(!isPanning)return;
-    panX=pSPX+(e.clientX-pSX); panY=pSPY+(e.clientY-pSY); window.clampP(); window.applyT();
+    if(!window.isPanning)return;
+    window.panX=window.pSPX+(e.clientX-window.pSX); window.panY=window.pSPY+(e.clientY-window.pSY); window.clampP(); window.applyT();
   });
   window.addEventListener("mouseup",()=>{
-    isPanning=false;
+    window.isPanning=false;
     const v=document.getElementById("mapViewport"); if(v) v.style.cursor="grab";
   });
   let ld=null,lmx=0,lmy=0,t1x=0,t1y=0;
@@ -26,7 +26,7 @@ function initPanZoom(){
       ld=Math.hypot(b.clientX-a.clientX,b.clientY-a.clientY);
       const r=vp.getBoundingClientRect();
       lmx=((a.clientX+b.clientX)/2)-r.left; lmy=((a.clientY+b.clientY)/2)-r.top;
-    }else{ t1x=e.touches[0].clientX; t1y=e.touches[0].clientY; pSPX=panX; pSPY=panY; }
+    }else{ t1x=e.touches[0].clientX; t1y=e.touches[0].clientY; window.pSPX=window.panX; window.pSPY=window.panY; }
   },{passive:true});
   vp.addEventListener("touchmove",e=>{
     e.preventDefault();
@@ -35,8 +35,8 @@ function initPanZoom(){
       const d=Math.hypot(b.clientX-a.clientX,b.clientY-a.clientY);
       if(ld) zoom((d-ld)*0.012,lmx,lmy); ld=d;
     }else{
-      panX=pSPX+(e.touches[0].clientX-t1x);
-      panY=pSPY+(e.touches[0].clientY-t1y);
+      window.panX=window.pSPX+(e.touches[0].clientX-t1x);
+      window.panY=window.pSPY+(e.touches[0].clientY-t1y);
       window.clampP(); window.applyT();
     }
   },{passive:false});
