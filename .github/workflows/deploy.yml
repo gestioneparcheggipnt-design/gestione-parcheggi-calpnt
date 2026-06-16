@@ -22,7 +22,9 @@ jobs:
       - name: Cache busting
         run: |
           HASH=$(date +%s)
-          sed -i -E "s/(\.js|\.css)([\"'])/\1?v=$HASH\2/g" index.html mobile.html app-desktop.js
+          # Aggiorna ?v= in index.html, mobile.html e app-desktop.js
+          # Il pattern gestisce sia .js' che .js?v=123' (sostituisce il vecchio hash)
+          sed -i -E "s/(\.js|\.css)(\?v=[^'\"]*)?([\"'])/\1?v=$HASH\3/g" index.html mobile.html app-desktop.js
 
       - uses: actions/configure-pages@v4
       - uses: actions/upload-pages-artifact@v3
