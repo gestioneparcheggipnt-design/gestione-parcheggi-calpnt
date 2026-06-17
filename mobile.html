@@ -596,9 +596,8 @@ function renderStorico() {
     </div>`).join('') || '<div class="emptyState">Nessun movimento</div>';
 }
 
-// ── IMPORT DINAMICO per updateDoc/addDoc/serverTimestamp usati da ribalte-operativo ──
 import { updateDoc as _updateDoc, addDoc as _addDoc, serverTimestamp as _serverTimestamp }
-  from './firebase-config.js?v=1778777806';
+  from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
 
 // ── EXPOSE GLOBALS ────────────────────────────────────────────────────────────
 window.getDestinazioniPerReparto = getDestinazioniPerReparto;
