@@ -1,13 +1,14 @@
 // ── app-desktop.js ─ Entry point ─────────────────────────────────────────────
 // NON modificare — modifica i singoli file sorgente.
+// Il deploy aggiorna automaticamente il ?v= ad ogni push.
 
-import './firebase-config.js?v=1781628986';
-import './spots-data-desktop.js?v=1781628986';
-import './shared-utils.js?v=1781628986';
-import './map-renderer.js?v=1781628986';
-import './auth.js?v=1781628986';
-import './firestore-listeners.js?v=1781628986';
-import './parking-ops.js?v=1781628986';
-import './admin-desktop.js?v=1781628986';
-import './prenotazioni-desktop.js?v=1781628986';
-import './portineria-desktop.js?v=1781628986';
+import './firebase-config.js';
+import './spots-data-desktop.js';
+import './shared-utils.js';
+import './map-renderer.js';
+import './auth.js';
+import './firestore-listeners.js';
+import './parking-ops.js';
+import './admin-desktop.js';
+import './prenotazioni-desktop.js';
+import './portineria-desktop.js';
