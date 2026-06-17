@@ -412,7 +412,7 @@ function showApp() {
     document.getElementById('navPrenotazioni').classList.add('hidden');
     initRibalteOperativo({
       getUser: () => currentUser,
-      window.db, collection, query, orderBy, onSnapshot, doc, updateDoc: _updateDoc, addDoc: _addDoc, serverTimestamp: _serverTimestamp
+      db: window.db, collection, query, orderBy, onSnapshot, doc, updateDoc: _updateDoc, addDoc: _addDoc, serverTimestamp: _serverTimestamp
     });
     startListeners();
     showPage('Ribalte', document.getElementById('navRibalte'));
