@@ -290,9 +290,10 @@
 
 <!-- ══ LOGICA APPLICAZIONE ════════════════════════════════════════════════════ -->
 <script type="module">
-import { auth, db, signInWithEmailAndPassword, signOut, onAuthStateChanged,
-         doc, getDoc, collection, query, orderBy, limit, onSnapshot, where }
-  from './firebase-config.js?v=1778777806';
+import { signInWithEmailAndPassword, signOut, onAuthStateChanged }
+  from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-window.auth.js';
+import { doc, getDoc, collection, query, orderBy, limit, onSnapshot, where }
+  from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
 
 import { SPOT_DEFS, REPARTI, getDestinazioniPerReparto } from './spots-data-mobile.js?v=1778777806';
 import { fmtDate, fmtDur, showToast } from './shared-utils.js?v=1778777806';
@@ -327,10 +328,10 @@ initCheckin({
 });
 
 // ── AUTH ──────────────────────────────────────────────────────────────────────
-onAuthStateChanged(auth, async fbUser => {
+onAuthStateChanged(window.auth, async fbUser => {
   if (fbUser) {
     try {
-      const snap = await getDoc(doc(db, 'users', fbUser.uid));
+      const snap = await getDoc(doc(window.db, 'users', fbUser.uid));
       const role  = snap.exists() ? (snap.data().role  || 'autista')    : 'autista';
       const name  = snap.exists() ? (snap.data().name  || fbUser.email) : fbUser.email;
       const reparto = snap.exists() ? (snap.data().reparto || null) : null;
@@ -358,7 +359,7 @@ async function doLogin() {
   if (!email || !pass) { errEl.textContent = 'Inserisci email e password.'; errEl.style.display = 'block'; return; }
   btn.textContent = 'Accesso…'; btn.disabled = true;
   try {
-    await signInWithEmailAndPassword(auth, email, pass);
+    await signInWithEmailAndPassword(window.auth, email, pass);
   } catch (e) {
     let msg = 'Credenziali non valide.';
     if (e.code === 'auth/invalid-credential' || e.code === 'auth/wrong-password') msg = 'Email o password errata.';
@@ -372,7 +373,7 @@ async function doLogin() {
   }
 }
 
-async function doLogout() { await signOut(auth); }
+async function doLogout() { await signOut(window.auth); }
 
 function showLogin() {
   document.getElementById('loginScreen').style.display = 'flex';
@@ -411,7 +412,7 @@ function showApp() {
     document.getElementById('navPrenotazioni').classList.add('hidden');
     initRibalteOperativo({
       getUser: () => currentUser,
-      db, collection, query, orderBy, onSnapshot, doc, updateDoc: _updateDoc, addDoc: _addDoc, serverTimestamp: _serverTimestamp
+      window.db, collection, query, orderBy, onSnapshot, doc, updateDoc: _updateDoc, addDoc: _addDoc, serverTimestamp: _serverTimestamp
     });
     startListeners();
     showPage('Ribalte', document.getElementById('navRibalte'));
@@ -519,7 +520,7 @@ window._getFilterPill = () => _filterPill;
 
 // ── LISTENERS ─────────────────────────────────────────────────────────────────
 function startListeners() {
-  unsubSpots = onSnapshot(collection(db, 'spots'), snap => {
+  unsubSpots = onSnapshot(collection(window.db, 'spots'), snap => {
     snap.docChanges().forEach(ch => {
       const data = ch.doc.data(), id = ch.doc.id;
       if (spots[id]) {
@@ -542,7 +543,7 @@ function startListeners() {
     if (currentUser?.role === 'operativo') renderRibalte();
   });
 
-  const hq = query(collection(db, 'history'), orderBy('ts', 'desc'), limit(100));
+  const hq = query(collection(window.db, 'history'), orderBy('ts', 'desc'), limit(100));
   unsubHistory = onSnapshot(hq, snap => {
     historyCache = snap.docs.map(d => ({ ...d.data(), ts: d.data().ts?.toDate() }));
     renderStorico();
