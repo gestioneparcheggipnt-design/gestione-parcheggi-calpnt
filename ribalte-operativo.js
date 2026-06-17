@@ -1,10 +1,9 @@
+import { addDoc, collection, doc, onSnapshot, orderBy, query, serverTimestamp, setDoc } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
 // ── ribalte-operativo.js ──────────────────────────────────────────────────────
 // Gestione ribalte per ruolo operativo/portineria (mobile)
 // Le ribalte vivono nella collection Firestore 'ribalte'
 // Dipende da: firebase-config.js, shared-utils.js, spots-data-mobile.js
 
-import { db, doc, collection, query, orderBy, onSnapshot, setDoc, addDoc, serverTimestamp }
-  from './firebase-config.js';
 import { _esc, showToast, fmtDate, fmtDur } from './shared-utils.js';
 
 // getDestinazioniPerReparto è esposta su window da mobile.html
@@ -30,7 +29,7 @@ export function initRibalteOperativo({ getUser }) {
   _getUser = getUser;
   if (_unsubRibalte) _unsubRibalte();
   _unsubRibalte = onSnapshot(
-    query(collection(db, 'ribalte'), orderBy('__name__')),
+    query(collection(window.db, 'ribalte'), orderBy('__name__')),
     snap => {
       _ribalteData = {};
       snap.docs.forEach(d => { _ribalteData[d.id] = { id: d.id, ...d.data() }; });
@@ -179,10 +178,10 @@ window.confermaLibera = async function(id) {
   const full  = (_liberaStato[id] || 'vuota') === 'piena';
   const plate = r.plate || '—';
   try {
-    await setDoc(doc(db, 'ribalte', id), {
+    await setDoc(doc(window.db, 'ribalte', id), {
       occupied: false, plate: null, since: null, user: null, full: false
     });
-    await addDoc(collection(db, 'prenotazioni'), {
+    await addDoc(collection(window.db, 'prenotazioni'), {
       plate,
       spotId:         id,
       destinazione:   '—',

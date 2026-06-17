@@ -1,12 +1,9 @@
+import { addDoc, collection, doc, onSnapshot, orderBy, query, serverTimestamp, setDoc, updateDoc } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
 // ── prenotazioni-autista.js ───────────────────────────────────────────────────
 
 // Gestione prenotazioni casse/container + missioni ribalta per autista (mobile)
 
 // Dipende da: firebase-config.js, shared-utils.js
-
-import { db, collection, query, orderBy, onSnapshot, doc, updateDoc, setDoc, addDoc, serverTimestamp, getDocs }
-
-from './firebase-config.js';
 
 // getDestinazioniPerReparto è esposta su window da mobile.html (importata da spots-data-mobile.js)
 function getDestinazioniPerReparto(reparto) {
@@ -86,7 +83,7 @@ if (_unsubPren) _unsubPren();
 
 _unsubPren = onSnapshot(
 
-query(collection(db, 'prenotazioni'), orderBy('dataOra', 'desc')),
+query(collection(window.db, 'prenotazioni'), orderBy('dataOra', 'desc')),
 
 snap => {
 
@@ -104,7 +101,7 @@ if (_unsubSpots) _unsubSpots();
 
 _unsubSpots = onSnapshot(
 
-collection(db, 'spots'),
+collection(window.db, 'spots'),
 
 snap => {
 
@@ -124,7 +121,7 @@ if (_unsubRibalte) _unsubRibalte();
 
 _unsubRibalte = onSnapshot(
 
-collection(db, 'ribalte'),
+collection(window.db, 'ribalte'),
 
 snap => {
 
@@ -842,7 +839,7 @@ try {
 
 const ops = [];
 
-ops.push(updateDoc(doc(db, 'prenotazioni', id), {
+ops.push(updateDoc(doc(window.db, 'prenotazioni', id), {
 
 stato: 'completata',
 
@@ -860,7 +857,7 @@ const dest = postoFine.trim().toUpperCase();
 
 if (isValidSpot(origine)) {
 
-ops.push(setDoc(doc(db, 'spots', origine), {
+ops.push(setDoc(doc(window.db, 'spots', origine), {
 
 occupied: false, plate: null, since: null, user: null, full: false
 
@@ -868,7 +865,7 @@ occupied: false, plate: null, since: null, user: null, full: false
 
 } else if (isValidRibalta(origine)) {
 
-ops.push(setDoc(doc(db, 'ribalte', origine), {
+ops.push(setDoc(doc(window.db, 'ribalte', origine), {
 
 occupied: false, plate: null, since: null, user: null
 
@@ -878,7 +875,7 @@ occupied: false, plate: null, since: null, user: null
 
 if (isValidSpot(dest)) {
 
-ops.push(setDoc(doc(db, 'spots', dest), {
+ops.push(setDoc(doc(window.db, 'spots', dest), {
 
 occupied: true,
 
@@ -892,7 +889,7 @@ user: pren.utenteEmail || null,
 
 } else if (isValidRibalta(dest)) {
 
-ops.push(setDoc(doc(db, 'ribalte', dest), {
+ops.push(setDoc(doc(window.db, 'ribalte', dest), {
 
 occupied: true,
 
@@ -906,7 +903,7 @@ user: pren.utenteEmail || null,
 
 }
 
-ops.push(addDoc(collection(db, 'history'), {
+ops.push(addDoc(collection(window.db, 'history'), {
 
 ts: serverTimestamp(),
 
@@ -1134,13 +1131,13 @@ function _popupCassaMostraRibalte(reparto) {
 async function selezionaRibalta_cassa_exec(spotId, plate, ribaltaId, user) {
   try {
     const ops = [];
-    ops.push(setDoc(doc(db, 'spots', spotId), {
+    ops.push(setDoc(doc(window.db, 'spots', spotId), {
       occupied: false, plate: null, since: null, user: null, full: false
     }, { merge: true }));
-    ops.push(setDoc(doc(db, 'ribalte', ribaltaId), {
+    ops.push(setDoc(doc(window.db, 'ribalte', ribaltaId), {
       occupied: true, plate: plate || null, since: serverTimestamp(), user: user?.email || null, full: false,
     }, { merge: true }));
-    ops.push(addDoc(collection(db, 'history'), {
+    ops.push(addDoc(collection(window.db, 'history'), {
       ts: serverTimestamp(), spot: ribaltaId, action: 'Missione cassa completata',
       plate: plate || null, user: user?.email || null, origine: spotId, destinazione: ribaltaId,
     }));
@@ -1169,7 +1166,7 @@ try {
 
 const ops = [];
 
-ops.push(updateDoc(doc(db, 'prenotazioni', prenId), {
+ops.push(updateDoc(doc(window.db, 'prenotazioni', prenId), {
 
 stato: 'completata', destinazione: ribaltaId, completataAt: serverTimestamp(), postoFine: ribaltaId,
 
@@ -1179,7 +1176,7 @@ const spotId = (pren.spotId || '').trim();
 
 if (spotId) {
 
-ops.push(setDoc(doc(db, 'spots', spotId), {
+ops.push(setDoc(doc(window.db, 'spots', spotId), {
 
 occupied: false, plate: null, since: null, user: null, full: false
 
@@ -1187,13 +1184,13 @@ occupied: false, plate: null, since: null, user: null, full: false
 
 }
 
-ops.push(setDoc(doc(db, 'ribalte', ribaltaId), {
+ops.push(setDoc(doc(window.db, 'ribalte', ribaltaId), {
 
 occupied: true, plate: pren.plate || null, since: serverTimestamp(), user: pren.operatoreEmail || null, full: false,
 
 }, { merge: true }));
 
-ops.push(addDoc(collection(db, 'history'), {
+ops.push(addDoc(collection(window.db, 'history'), {
 
 ts: serverTimestamp(), spot: ribaltaId, action: 'Missione cassa completata',
 
@@ -1235,7 +1232,7 @@ return;
 
 try {
 
-await updateDoc(doc(db, 'prenotazioni', id), { urgente: newVal });
+await updateDoc(doc(window.db, 'prenotazioni', id), { urgente: newVal });
 
 showToast(newVal ? '⚡ Urgenza impostata.' : 'Urgenza rimossa.', 'success');
 

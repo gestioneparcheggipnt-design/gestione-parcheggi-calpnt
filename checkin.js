@@ -1,9 +1,8 @@
+import { addDoc, collection, doc, serverTimestamp, setDoc, updateDoc } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
 // ── checkin.js ────────────────────────────────────────────────────────────────
 // Check-in rapido + lista posti per la vista Mobile
 // Dipende da: firebase-config.js, shared-utils.js, stato globale (spots, currentUser, currentMode)
 
-import { db, doc, setDoc, addDoc, collection, updateDoc, serverTimestamp }
-  from './firebase-config.js';
 import { fmtDate, fmtDur, showToast, validatePlate, checkVehicleNotDuplicate, checkSpotFree } from './shared-utils.js';
 
 // Riferimento allo stato condiviso (definito in mobile.html e passato a questo modulo)
@@ -90,11 +89,11 @@ export async function doCheckinRapido() {
   }
 
   try {
-    await setDoc(doc(db, 'spots', freeSpot.id), {
+    await setDoc(doc(window.db, 'spots', freeSpot.id), {
       occupied: true, plate, since: serverTimestamp(),
       user: user.email, damaged: false, full: false
     });
-    await addDoc(collection(db, 'history'), {
+    await addDoc(collection(window.db, 'history'), {
       ts: serverTimestamp(), spot: freeSpot.id,
       action: 'Assegnato', plate, user: user.email, mode
     });
@@ -256,12 +255,12 @@ export async function assignFromDrawer(id) {
 
   const full = document.getElementById('drawerFull')?.checked || false;
   try {
-    await setDoc(doc(db, 'spots', id), { occupied: true, plate, since: serverTimestamp(), user: user.email, damaged: false, full });
-    await addDoc(collection(db, 'history'), { ts: serverTimestamp(), spot: id, action: 'Assegnato', plate, user: user.email, mode });
+    await setDoc(doc(window.db, 'spots', id), { occupied: true, plate, since: serverTimestamp(), user: user.email, damaged: false, full });
+    await addDoc(collection(window.db, 'history'), { ts: serverTimestamp(), spot: id, action: 'Assegnato', plate, user: user.email, mode });
 
     // Se è una cassa piena, crea automaticamente una missione di prelievo
     if (mode === 'cassa' && full) {
-      await addDoc(collection(db, 'prenotazioni'), {
+      await addDoc(collection(window.db, 'prenotazioni'), {
         plate,
         spotId:        id,
         destinazione:  null,
@@ -283,8 +282,8 @@ export async function freeFromDrawer(id) {
   const user  = _getUser();
   const sp    = spots[id];
   try {
-    await addDoc(collection(db, 'history'), { ts: serverTimestamp(), spot: id, action: 'Liberato', plate: sp.plate, user: user.email });
-    await setDoc(doc(db, 'spots', id), { occupied: false, plate: null, since: null, user: null, full: false });
+    await addDoc(collection(window.db, 'history'), { ts: serverTimestamp(), spot: id, action: 'Liberato', plate: sp.plate, user: user.email });
+    await setDoc(doc(window.db, 'spots', id), { occupied: false, plate: null, since: null, user: null, full: false });
     showToast(`Posto ${id} liberato`, 'success');
     closeDrawer();
   } catch (e) { showToast('Errore: ' + e.message, 'error'); }
@@ -294,8 +293,8 @@ export async function toggleFullDrawer(id, newFull) {
   const spots = _getSpots();
   const user  = _getUser();
   try {
-    await updateDoc(doc(db, 'spots', id), { full: newFull });
-    await addDoc(collection(db, 'history'), { ts: serverTimestamp(), spot: id, action: newFull ? 'Segnato Pieno' : 'Segnato Vuoto', plate: spots[id].plate, user: user.email });
+    await updateDoc(doc(window.db, 'spots', id), { full: newFull });
+    await addDoc(collection(window.db, 'history'), { ts: serverTimestamp(), spot: id, action: newFull ? 'Segnato Pieno' : 'Segnato Vuoto', plate: spots[id].plate, user: user.email });
     showToast(`Posto ${id} ${newFull ? 'segnato pieno' : 'segnato vuoto'}`, 'success');
     openSpotDrawer(id);
   } catch (e) { showToast('Errore: ' + e.message, 'error'); }
@@ -308,8 +307,8 @@ export async function addDamagedDrawer(id) {
   }
   const spots = _getSpots();
   try {
-    await updateDoc(doc(db, 'spots', id), { damaged: true });
-    await addDoc(collection(db, 'history'), { ts: serverTimestamp(), spot: id, action: 'Guasto segnalato', plate: spots[id].plate, user: user.email });
+    await updateDoc(doc(window.db, 'spots', id), { damaged: true });
+    await addDoc(collection(window.db, 'history'), { ts: serverTimestamp(), spot: id, action: 'Guasto segnalato', plate: spots[id].plate, user: user.email });
     showToast(`Guasto segnalato per ${id}`, 'success');
     openSpotDrawer(id);
   } catch (e) { showToast('Errore: ' + e.message, 'error'); }
@@ -322,8 +321,8 @@ export async function removeDamagedDrawer(id) {
   }
   const spots = _getSpots();
   try {
-    await updateDoc(doc(db, 'spots', id), { damaged: false });
-    await addDoc(collection(db, 'history'), { ts: serverTimestamp(), spot: id, action: 'Guasto rimosso', plate: spots[id].plate, user: user.email });
+    await updateDoc(doc(window.db, 'spots', id), { damaged: false });
+    await addDoc(collection(window.db, 'history'), { ts: serverTimestamp(), spot: id, action: 'Guasto rimosso', plate: spots[id].plate, user: user.email });
     showToast(`Segnalazione guasto rimossa per ${id}`, 'success');
     openSpotDrawer(id);
   } catch (e) { showToast('Errore: ' + e.message, 'error'); }
@@ -336,8 +335,8 @@ export async function addUnusableDrawer(id) {
   }
   const spots = _getSpots();
   try {
-    await updateDoc(doc(db, 'spots', id), { unusable: true });
-    await addDoc(collection(db, 'history'), { ts: serverTimestamp(), spot: id, action: 'Inutilizzabile segnalato', plate: spots[id]?.plate || null, user: user.email });
+    await updateDoc(doc(window.db, 'spots', id), { unusable: true });
+    await addDoc(collection(window.db, 'history'), { ts: serverTimestamp(), spot: id, action: 'Inutilizzabile segnalato', plate: spots[id]?.plate || null, user: user.email });
     showToast(`Posto ${id} segnato come inutilizzabile`, 'success');
     closeDrawer();
   } catch (e) { showToast('Errore: ' + e.message, 'error'); }
@@ -350,8 +349,8 @@ export async function removeUnusableDrawer(id) {
   }
   const spots = _getSpots();
   try {
-    await updateDoc(doc(db, 'spots', id), { unusable: false });
-    await addDoc(collection(db, 'history'), { ts: serverTimestamp(), spot: id, action: 'Inutilizzabile rimosso', plate: spots[id]?.plate || null, user: user.email });
+    await updateDoc(doc(window.db, 'spots', id), { unusable: false });
+    await addDoc(collection(window.db, 'history'), { ts: serverTimestamp(), spot: id, action: 'Inutilizzabile rimosso', plate: spots[id]?.plate || null, user: user.email });
     showToast(`Stato inutilizzabile rimosso per ${id}`, 'success');
     openSpotDrawer(id);
   } catch (e) { showToast('Errore: ' + e.message, 'error'); }
