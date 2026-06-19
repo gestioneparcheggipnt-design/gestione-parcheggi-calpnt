@@ -1,7 +1,7 @@
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
 import { firebaseConfig } from './firebase-config.js';
 import { createUserWithEmailAndPassword, getAuth, signOut } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
-import { addDoc, collection, deleteDoc, doc, getDocs, serverTimestamp, setDoc, updateDoc } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
+import { addDoc, collection, deleteDoc, doc, getDocs, query, serverTimestamp, setDoc, updateDoc, where } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
 
 // ââ UI HELPERS ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 function showPage(id,btn){
@@ -257,6 +257,11 @@ async function renderUsers(){
           <button class="btnEdit" title="Modifica email" onclick="window._editUserField('${u.uid}','email','uemail-${u.uid}','${(u.email||"").replace(/'/g,"\'")}')">✏️</button>
         </div>
         <div class="userField">
+          <span class="userFieldLabel">Username</span>
+          <span class="userFieldValue" id="uusername-${u.uid}">${window._esc(u.username||'—')}</span>
+          <button class="btnEdit" title="Modifica username" onclick="window._editUserField('${u.uid}','username','uusername-${u.uid}','${(u.username||"").replace(/'/g,"\'")}')">✏️</button>
+        </div>
+        <div class="userField">
           <span class="userFieldLabel">Password</span>
           <span class="userFieldValue" style="color:var(--muted);letter-spacing:2px">••••••</span>
           <button class="btnEdit" title="Cambia password" onclick="window._editUserField('${u.uid}','password','','')">✏️</button>
@@ -358,9 +363,20 @@ window._saveUserField = async function(uid, field, inputId, spanId) {
   const newVal = input.value.trim();
   if (!newVal) { showToast("Il campo non può essere vuoto","error"); return; }
   if (field === 'password' && newVal.length < 6) { showToast("Password di almeno 6 caratteri","error"); return; }
+  if (field === 'username' && newVal.length < 3) { showToast("Username di almeno 3 caratteri","error"); return; }
   try {
     if (field === 'password') {
       showToast("La modifica password richiede che l'utente effettui il reset dal login","info");
+    } else if (field === 'username') {
+      // Controlla unicità username
+      const qCheck = query(collection(window.db,"users"), where("username","==",newVal.toLowerCase()));
+      const snapCheck = await getDocs(qCheck);
+      const conflict = snapCheck.docs.find(d => d.id !== uid);
+      if (conflict) { showToast("Username già in uso","error"); return; }
+      await updateDoc(doc(window.db,"users",uid), { username: newVal.toLowerCase() });
+      const span = document.getElementById(spanId);
+      if (span) span.textContent = newVal.toLowerCase();
+      showToast("Username aggiornato","success");
     } else {
       await updateDoc(doc(window.db,"users",uid), { [field]: newVal });
       const span = document.getElementById(spanId);
@@ -427,12 +443,17 @@ async function deleteUser(uid, nome) {
 window._deleteUser = deleteUser;
 
 window.addUser = async function(){
-  const name  = document.getElementById("newUserName").value.trim();
-  const email = document.getElementById("newUserEmail").value.trim();
-  const pass  = document.getElementById("newUserPass").value.trim();
-  const role   = document.getElementById("newUserRole").value;
-  const reparto = document.getElementById("newUserReparto")?.value || null;
-  if(!name||!email||!pass){ showToast("Compila tutti i campi","error"); return; }
+  const name     = document.getElementById("newUserName").value.trim();
+  const email    = document.getElementById("newUserEmail").value.trim();
+  const pass     = document.getElementById("newUserPass").value.trim();
+  const role     = document.getElementById("newUserRole").value;
+  const reparto  = document.getElementById("newUserReparto")?.value || null;
+  const username = (document.getElementById("newUserUsername")?.value || "").trim().toLowerCase();
+  if(!name||!email||!pass||!username){ showToast("Compila tutti i campi (incluso username)","error"); return; }
+  // Controlla unicità username
+  const qUser = query(collection(window.db,"users"), where("username","==",username));
+  const snapUser = await getDocs(qUser);
+  if(!snapUser.empty){ showToast("Username già in uso","error"); return; }
   if(pass.length < 6){ showToast("La password deve essere di almeno 6 caratteri","error"); return; }
   const btn = document.querySelector("#modalAddUser .btnPrimary");
   btn.textContent = "Creazione..."; btn.disabled = true;
@@ -443,7 +464,7 @@ window.addUser = async function(){
     const cred = await createUserWithEmailAndPassword(secondaryAuth, email, pass);
     const uid = cred.user.uid;
     // Salva profilo su Firestore
-    await setDoc(doc(window.db, "users", uid), { name, email, role, reparto: reparto || null });
+    await setDoc(doc(window.db, "users", uid), { name, email, role, reparto: reparto || null, username });
     // Disconnetti e distruggi l'istanza secondaria
     await signOut(secondaryAuth);
     await secondaryApp.delete();
@@ -454,6 +475,7 @@ window.addUser = async function(){
     document.getElementById("newUserEmail").value = "";
     document.getElementById("newUserPass").value = "";
     document.getElementById("newUserRole").value = "autista";
+    if(document.getElementById("newUserUsername")) document.getElementById("newUserUsername").value = "";
     renderUsers();
   } catch(e) {
     let msg = "Errore: " + e.message;
