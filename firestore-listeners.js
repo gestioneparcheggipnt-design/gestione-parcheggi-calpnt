@@ -1,5 +1,5 @@
 import { collection, doc, limit, onSnapshot, orderBy, query } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
-// ââ FIRESTORE LISTENERS âââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+// ── FIRESTORE LISTENERS ──────────────────────────────────────────────────────
 function startListeners(){
   // Listener parcheggi: aggiornamento real-time
   window.unsubSpots = onSnapshot(collection(window.db,"spots"), (snapshot) => {
@@ -30,6 +30,30 @@ function startListeners(){
     }
   });
 
+  // Listener ribalte: aggiornamento real-time
+  window.ribalte = window.ribalte || {};
+  window.unsubRibalte = onSnapshot(collection(window.db,"ribalte"), (snapshot) => {
+    snapshot.docChanges().forEach(change => {
+      const id = change.doc.id;
+      if(change.type==="removed"){
+        delete window.ribalte[id];
+      }else{
+        const data = change.doc.data();
+        window.ribalte[id] = {
+          id,
+          occupied: data.occupied||false,
+          plate:    data.plate||null,
+          since:    data.since?.toDate()||null,
+          user:     data.user||null,
+          full:     data.full||false,
+        };
+      }
+    });
+    if(window.currentUser?.role !== 'portineria'){
+      renderSearch();
+    }
+  });
+
   // Listener storico: ultimi 200 movimenti
   const hq = query(collection(window.db,"history"), orderBy("ts","desc"), limit(200));
   window.unsubHistory = onSnapshot(hq, (snapshot) => {
@@ -44,6 +68,7 @@ function startListeners(){
 
 function stopListeners(){
   if(window.unsubSpots)  { window.unsubSpots();  window.unsubSpots=null;  }
+  if(window.unsubRibalte){ window.unsubRibalte();window.unsubRibalte=null;}
   if(window.unsubHistory){ window.unsubHistory();window.unsubHistory=null; }
 }
 

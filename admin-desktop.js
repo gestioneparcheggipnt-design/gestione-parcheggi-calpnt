@@ -76,7 +76,8 @@ function doSearch(){
     if(va>vb) return sortDir==='asc'?1:-1;
     return 0;
   });
-  document.getElementById("searchResults").innerHTML=res.map(s=>{
+  // righe posti parcheggio
+  const rowsSpots = res.map(s=>{
     const tipoMezzo = s.plate
       ? (/^\d{3}$/.test(s.plate.trim()) ? '<span style="color:#f59e0b;font-size:11px;font-weight:600">📦 Cassa</span>'
         : (/^[A-Z]{4}\d{7}$/.test(s.plate.trim()) ? '<span style="color:#60a5fa;font-size:11px;font-weight:600">🚢 Container</span>' : '<span style="color:var(--muted);font-size:11px">&mdash;</span>'))
@@ -92,7 +93,46 @@ function doSearch(){
       <td style="text-align:center">${s.unusable ? '<span style="color:#a78bfa;font-weight:600;font-size:13px">🚫 Inutilizzabile</span>' : s.damaged ? '<span style="color:#ef4444;font-weight:600;font-size:13px">⚠️ Guasto</span>' : '<span style="color:var(--muted);font-size:12px">&mdash;</span>'}</td>
       <td style="text-align:center">${s.occupied ? (s.full ? '<span class="tagPieno">🔴 Piena/o</span>' : '<span class="tagVuoto">🟢 Vuota/o</span>') : '<span style="color:var(--muted);font-size:12px">&mdash;</span>'}</td>
       <td style="color:var(--muted);font-size:11px">${nomeUtente}</td>
-    </tr>`;}).join("");
+    </tr>`;});
+
+  // righe ribalte: escluse se filtro per-posto o filtro danneggiato (non applicabile)
+  const showRibalte = !fPosto && (fDanneggiato==="" || fDanneggiato==="no");
+  let rowsRibalte = [];
+  if(showRibalte && window.ribalte){
+    let ribalteArr = Object.values(window.ribalte);
+    // filtro targa
+    if(q && type==="targa") ribalteArr = ribalteArr.filter(r=>r.plate&&r.plate.toUpperCase().includes(q));
+    if(fTarga) ribalteArr = ribalteArr.filter(r=>r.plate&&r.plate.toUpperCase().includes(fTarga));
+    // filtro stato
+    if(fStato==="libero")             ribalteArr = ribalteArr.filter(r=>!r.occupied);
+    if(fStato==="occupato")           ribalteArr = ribalteArr.filter(r=>r.occupied);
+    if(fStato==="occupato-cassa")     ribalteArr = ribalteArr.filter(r=>r.occupied && r.plate && /^\d{3}$/.test(r.plate.trim()));
+    if(fStato==="occupato-container") ribalteArr = ribalteArr.filter(r=>r.occupied && r.plate && /^[A-Z]{4}\d{7}$/.test(r.plate.trim()));
+    // filtro pieno
+    if(fPieno==="pieno") ribalteArr = ribalteArr.filter(r=>r.full);
+    if(fPieno==="vuoto")  ribalteArr = ribalteArr.filter(r=>!r.full);
+    // sort
+    ribalteArr.sort((a,b)=>a.id.localeCompare(b.id));
+    rowsRibalte = ribalteArr.map(r=>{
+      const tipoMezzo = r.plate
+        ? (/^\d{3}$/.test(r.plate.trim()) ? '<span style="color:#f59e0b;font-size:11px;font-weight:600">📦 Cassa</span>'
+          : (/^[A-Z]{4}\d{7}$/.test(r.plate.trim()) ? '<span style="color:#60a5fa;font-size:11px;font-weight:600">🚢 Container</span>' : '<span style="color:var(--muted);font-size:11px">&mdash;</span>'))
+        : '<span style="color:var(--muted);font-size:11px">&mdash;</span>';
+      const nomeUtente = r.user || '&mdash;';
+      return `
+      <tr style="background:rgba(99,102,241,0.06)">
+        <td class="mono">${r.id} <span style="color:#818cf8;font-size:10px;font-weight:600;margin-left:4px">RIBALTA</span></td>
+        <td>${r.occupied ? '<span class="tagOcc">Occupata</span>' : '<span class="tagFree">Libera</span>'}</td>
+        <td class="mono">${r.plate||"&mdash;"}</td>
+        <td>${tipoMezzo}</td>
+        <td>${r.since?fmtDate(r.since):"&mdash;"}</td>
+        <td style="text-align:center"><span style="color:var(--muted);font-size:12px">&mdash;</span></td>
+        <td style="text-align:center">${r.occupied ? (r.full ? '<span class="tagPieno">🔴 Piena/o</span>' : '<span class="tagVuoto">🟢 Vuota/o</span>') : '<span style="color:var(--muted);font-size:12px">&mdash;</span>'}</td>
+        <td style="color:var(--muted);font-size:11px">${nomeUtente}</td>
+      </tr>`;});
+  }
+
+  document.getElementById("searchResults").innerHTML=[...rowsSpots,...rowsRibalte].join("");
 }
 window.doSearch=doSearch;
 window.clearSearch=()=>{document.getElementById("searchInput").value="";doSearch();};
