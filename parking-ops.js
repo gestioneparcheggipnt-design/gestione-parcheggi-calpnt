@@ -9,10 +9,10 @@ async function inlineAssign(id){
     return;
   }
 
-  // Check se la targa/ID Ã¨ giÃ  assegnata ad un altro posto
+  // Check se la targa/ID è già assegnata ad un altro posto
   const alreadySpot = Object.entries(window.spots).find(([sid, s]) => s.occupied && s.plate === plate && sid !== id);
   if(alreadySpot){
-    window.showToast(`â ï¸ ${plate} giÃ  assegnato al posto ${alreadySpot[0]}`, "error");
+    window.showToast(`⚠️ ${plate} già assegnato al posto ${alreadySpot[0]}`, "error");
     return;
   }
 
@@ -30,10 +30,10 @@ async function inlineAssign(id){
       mode: window.currentMode
     });
     window.selectSpot(id);
-    window.showToast(`Posto ${id} assegnato a ${plate}${damaged?" â ï¸ danneggiato":""}${full?" ð¡ pieno":""}`, "success");
+    window.showToast(`Posto ${id} assegnato a ${plate}${damaged?" ⚠️ danneggiato":""}${full?" 🟡 pieno":""}`, "success");
   }catch(e){
     window.showToast("Errore salvataggio: "+e.message,"error");
-    if(btn){ btn.textContent="â Assegna"; btn.disabled=false; }
+    if(btn){ btn.textContent="✓ Assegna"; btn.disabled=false; }
   }
 }
 
@@ -53,7 +53,7 @@ async function freeSpot(id){
     window.showToast(`Posto ${id} liberato`,"success");
   }catch(e){
     window.showToast("Errore: "+e.message,"error");
-    if(btn){ btn.textContent="â Libera Posto"; btn.disabled=false; }
+    if(btn){ btn.textContent="✗ Libera Posto"; btn.disabled=false; }
   }
 }
 
