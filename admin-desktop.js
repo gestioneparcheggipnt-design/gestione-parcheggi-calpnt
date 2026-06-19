@@ -136,7 +136,7 @@ function renderStatistiche(){
     <div class="statCard blue"><div class="val">${all.length}</div><div class="lbl">Totali</div></div>
     <div class="statCard green"><div class="val">${all.length-occ}</div><div class="lbl">Liberi</div></div>
     <div class="statCard red"><div class="val">${occ}</div><div class="lbl">Occupati</div></div>
-    <div class="statCard orange"><div class="val">${historyCache.length}</div><div class="lbl">Movimenti</div></div>`;
+    <div class="statCard orange"><div class="val">${window.historyCache.length}</div><div class="lbl">Movimenti</div></div>`;
   const cnt={};
   window.historyCache.filter(h=>h.action==="Assegnato").forEach(h=>{cnt[h.spot]=(cnt[h.spot]||0)+1;});
   const top=Object.entries(cnt).sort((a,b)=>b[1]-a[1]).slice(0,8), mx=top[0]?.[1]||1;
@@ -561,7 +561,7 @@ function showToast(msg,type="success"){
   t.className="toast "+type+" show";
   clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove("show"),3500);
 }
-window.addEventListener("resize",()=>{ applyT(); });
+window.addEventListener("resize",()=>{ window.applyT(); });
 
 window.RE_CASSA     = /^\d{3}$/;
 window.RE_CONTAINER = /^[A-Z]{4}\d{7}$/;
