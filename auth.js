@@ -55,6 +55,11 @@ async function doLogout(){
 function showLogin(){
   document.getElementById("loginScreen").style.display="flex";
   document.getElementById("app").style.display="none";
+  // Rimuove la classe active da tutte le pagine
+  document.querySelectorAll(".page").forEach(p=>p.classList.remove("active"));
+  // Ripristina modeToggle (nascosto per portineria)
+  const modeToggleEl = document.getElementById("modeToggle");
+  if(modeToggleEl) modeToggleEl.style.display="";
   // Resetta tutti i tab con id alla loro visibilità di default (hidden)
   ["tabStats","tabUtenti","tabPrenotazioni","tabPortineria"].forEach(id=>{
     const el=document.getElementById(id);
