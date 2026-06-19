@@ -1,5 +1,5 @@
 import { onAuthStateChanged, signInWithEmailAndPassword, signOut } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
-import { doc, getDoc } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
+import { doc, getDoc, getDocs, collection, query, where } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
 window.doLogin  = doLogin;
 window.doLogout = doLogout;
 
@@ -28,18 +28,25 @@ onAuthStateChanged(window.auth, async (fbUser) => {
 });
 
 async function doLogin(){
-  const email = document.getElementById("loginEmail").value.trim();
-  const pass  = document.getElementById("loginPass").value;
-  const errEl = document.getElementById("loginError");
-  const btn   = document.getElementById("loginBtn");
+  const username = document.getElementById("loginEmail").value.trim().toLowerCase();
+  const pass     = document.getElementById("loginPass").value;
+  const errEl    = document.getElementById("loginError");
+  const btn      = document.getElementById("loginBtn");
   errEl.style.display="none";
   btn.textContent="Accesso in corso..."; btn.disabled=true;
   try {
+    const q    = query(collection(window.db, "users"), where("username", "==", username));
+    const snap = await getDocs(q);
+    if(snap.empty){
+      errEl.textContent="Utente non trovato."; errEl.style.display="block";
+      return;
+    }
+    const email = snap.docs[0].data().email;
     await signInWithEmailAndPassword(window.auth, email, pass);
-    // onAuthStateChanged gestirÃ  il resto
+    // onAuthStateChanged gestirà il resto
   } catch(e) {
     let msg = "Credenziali non valide.";
-    if(e.code==="auth/user-not-found"||e.code==="auth/wrong-password"||e.code==="auth/invalid-credential") msg="Email o password errata.";
+    if(e.code==="auth/user-not-found"||e.code==="auth/wrong-password"||e.code==="auth/invalid-credential") msg="Username o password errata.";
     if(e.code==="auth/too-many-requests") msg="Troppi tentativi. Riprova tra qualche minuto.";
     if(e.code==="auth/network-request-failed") msg="Errore di rete. Verifica la connessione.";
     errEl.textContent=msg; errEl.style.display="block";
@@ -47,7 +54,6 @@ async function doLogin(){
     btn.textContent="Accedi"; btn.disabled=false;
   }
 }
-
 async function doLogout(){
   await signOut(window.auth);
 }
