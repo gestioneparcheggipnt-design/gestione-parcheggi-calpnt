@@ -67,8 +67,8 @@
       <p>Accesso Mobile</p>
     </div>
     <div class="formGroup">
-      <label>Email</label>
-      <input type="email" id="loginEmail" placeholder="utente@azienda.it" autocomplete="username">
+      <label>Nome utente</label>
+      <input type="text" id="loginEmail" placeholder="nomeutente" autocomplete="username" spellcheck="false">
     </div>
     <div class="formGroup">
       <label>Password</label>
@@ -352,21 +352,26 @@ onAuthStateChanged(window.auth, async fbUser => {
 });
 
 async function doLogin() {
-  const email = document.getElementById('loginEmail').value.trim();
-  const pass  = document.getElementById('loginPass').value;
-  const errEl = document.getElementById('loginError');
-  const btn   = document.getElementById('loginBtn');
+  const username = document.getElementById('loginEmail').value.trim().toLowerCase();
+  const pass     = document.getElementById('loginPass').value;
+  const errEl    = document.getElementById('loginError');
+  const btn      = document.getElementById('loginBtn');
   errEl.style.display = 'none';
-  if (!email || !pass) { errEl.textContent = 'Inserisci email e password.'; errEl.style.display = 'block'; return; }
+  if (!username || !pass) { errEl.textContent = 'Inserisci username e password.'; errEl.style.display = 'block'; return; }
   btn.textContent = 'Accesso…'; btn.disabled = true;
   try {
+    const snap = await getDoc(doc(window.db, 'usernames', username));
+    if (!snap.exists()) {
+      errEl.textContent = 'Utente non trovato.'; errEl.style.display = 'block';
+      return;
+    }
+    const email = snap.data().email;
     await signInWithEmailAndPassword(window.auth, email, pass);
   } catch (e) {
     let msg = 'Credenziali non valide.';
-    if (e.code === 'auth/invalid-credential' || e.code === 'auth/wrong-password') msg = 'Email o password errata.';
-    if (e.code === 'auth/user-not-found')        msg = 'Utente non trovato.';
-    if (e.code === 'auth/invalid-email')         msg = 'Email non valida.';
-    if (e.code === 'auth/too-many-requests')     msg = 'Troppi tentativi. Riprova più tardi.';
+    if (e.code === 'auth/invalid-credential' || e.code === 'auth/wrong-password') msg = 'Username o password errata.';
+    if (e.code === 'auth/user-not-found')         msg = 'Utente non trovato.';
+    if (e.code === 'auth/too-many-requests')      msg = 'Troppi tentativi. Riprova più tardi.';
     if (e.code === 'auth/network-request-failed') msg = 'Errore di rete.';
     errEl.textContent = msg; errEl.style.display = 'block';
   } finally {
