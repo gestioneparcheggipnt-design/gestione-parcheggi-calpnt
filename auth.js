@@ -45,6 +45,7 @@ async function doLogin(){
     await signInWithEmailAndPassword(window.auth, email, pass);
     // onAuthStateChanged gestirà il resto
   } catch(e) {
+    console.error("doLogin error:", e.code, e.message, e);
     let msg = "Credenziali non valide.";
     if(e.code==="auth/user-not-found"||e.code==="auth/wrong-password"||e.code==="auth/invalid-credential") msg="Username o password errata.";
     if(e.code==="auth/too-many-requests") msg="Troppi tentativi. Riprova tra qualche minuto.";
