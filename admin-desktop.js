@@ -1,7 +1,7 @@
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
 import { firebaseConfig } from './firebase-config.js';
 import { createUserWithEmailAndPassword, getAuth, signOut } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
-import { addDoc, collection, deleteDoc, doc, getDocs, query, serverTimestamp, setDoc, updateDoc, where } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
+import { addDoc, collection, deleteDoc, doc, getDocs, serverTimestamp, setDoc, updateDoc } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
 
 // ââ UI HELPERS ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 function showPage(id,btn){
@@ -368,14 +368,22 @@ window._saveUserField = async function(uid, field, inputId, spanId) {
     if (field === 'password') {
       showToast("La modifica password richiede che l'utente effettui il reset dal login","info");
     } else if (field === 'username') {
-      // Controlla unicità username
-      const qCheck = query(collection(window.db,"users"), where("username","==",newVal.toLowerCase()));
-      const snapCheck = await getDocs(qCheck);
-      const conflict = snapCheck.docs.find(d => d.id !== uid);
-      if (conflict) { showToast("Username già in uso","error"); return; }
-      await updateDoc(doc(window.db,"users",uid), { username: newVal.toLowerCase() });
+      const newUsername = newVal.toLowerCase();
+      // Controlla unicità su collection usernames
+      const snapCheck = await getDoc(doc(window.db,"usernames",newUsername));
+      if (snapCheck.exists()) { showToast("Username già in uso","error"); return; }
+      // Leggi email e vecchio username dell'utente
+      const userSnap = await getDoc(doc(window.db,"users",uid));
+      const oldUsername = userSnap.exists() ? (userSnap.data().username || null) : null;
+      const userEmail   = userSnap.exists() ? userSnap.data().email : null;
+      // Cancella vecchio doc usernames se esiste
+      if (oldUsername) await deleteDoc(doc(window.db,"usernames",oldUsername));
+      // Scrivi nuovo doc usernames
+      if (userEmail) await setDoc(doc(window.db,"usernames",newUsername), { email: userEmail });
+      // Aggiorna users
+      await updateDoc(doc(window.db,"users",uid), { username: newUsername });
       const span = document.getElementById(spanId);
-      if (span) span.textContent = newVal.toLowerCase();
+      if (span) span.textContent = newUsername;
       showToast("Username aggiornato","success");
     } else {
       await updateDoc(doc(window.db,"users",uid), { [field]: newVal });
@@ -450,10 +458,9 @@ window.addUser = async function(){
   const reparto  = document.getElementById("newUserReparto")?.value || null;
   const username = (document.getElementById("newUserUsername")?.value || "").trim().toLowerCase();
   if(!name||!email||!pass||!username){ showToast("Compila tutti i campi (incluso username)","error"); return; }
-  // Controlla unicità username
-  const qUser = query(collection(window.db,"users"), where("username","==",username));
-  const snapUser = await getDocs(qUser);
-  if(!snapUser.empty){ showToast("Username già in uso","error"); return; }
+  // Controlla unicità username su collection pubblica
+  const snapUser = await getDoc(doc(window.db,"usernames",username));
+  if(snapUser.exists()){ showToast("Username già in uso","error"); return; }
   if(pass.length < 6){ showToast("La password deve essere di almeno 6 caratteri","error"); return; }
   const btn = document.querySelector("#modalAddUser .btnPrimary");
   btn.textContent = "Creazione..."; btn.disabled = true;
@@ -465,6 +472,8 @@ window.addUser = async function(){
     const uid = cred.user.uid;
     // Salva profilo su Firestore
     await setDoc(doc(window.db, "users", uid), { name, email, role, reparto: reparto || null, username });
+    // Scrivi doc pubblico per login via username
+    await setDoc(doc(window.db, "usernames", username), { email });
     // Disconnetti e distruggi l'istanza secondaria
     await signOut(secondaryAuth);
     await secondaryApp.delete();
