@@ -22,7 +22,6 @@ jobs:
       - name: Cache busting
         run: |
           HASH=$(date +%s)
-          # Aggiorna ?v= in tutti i file (gestisce sia assenza che presenza di ?v= esistente)
           sed -i -E "s/(\.js|\.css)(\?v=[^'\"]*)?([\"'])/\1?v=$HASH\3/g" index.html mobile.html app-desktop.js
 
       - uses: actions/configure-pages@v4
