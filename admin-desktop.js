@@ -98,8 +98,13 @@ function doSearch(){
   // righe ribalte: escluse se filtro per-posto o filtro danneggiato (non applicabile)
   const showRibalte = !fPosto && (fDanneggiato==="" || fDanneggiato==="no");
   let rowsRibalte = [];
-  if(showRibalte && window.ribalte){
-    let ribalteArr = Object.values(window.ribalte);
+  if(showRibalte && window.REPARTI){
+    // Lista completa da REPARTI (fonte di verità); merge dati Firestore per quelle occupate
+    const tutteLeRibalte = Object.values(window.REPARTI).flat();
+    let ribalteArr = tutteLeRibalte.map(id => {
+      const fs = (window.ribalte||{})[id];
+      return fs ? fs : { id, occupied:false, plate:null, since:null, user:null, full:false };
+    });
     // filtro targa
     if(q && type==="targa") ribalteArr = ribalteArr.filter(r=>r.plate&&r.plate.toUpperCase().includes(q));
     if(fTarga) ribalteArr = ribalteArr.filter(r=>r.plate&&r.plate.toUpperCase().includes(fTarga));
