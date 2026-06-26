@@ -653,16 +653,19 @@ window.confermaDeskCompleta = async function(id) {
     await updateDoc(doc(window.db, 'prenotazioni', id), {
       stato: 'completata', completedAt: serverTimestamp(), postoFine: dest
     });
-    // Libera posto parcheggio origine
+    // Libera posto parcheggio origine (leggi full prima di liberarlo)
+    let spotFull = false;
     if (pren?.spotId && !pren.spotId.startsWith('PNT')) {
+      const spotObj = window.spots?.[pren.spotId];
+      spotFull = spotObj?.full || false;
       await setDoc(doc(window.db, 'spots', pren.spotId), {
         occupied: false, plate: null, since: null, user: null, full: false
       });
     }
-    // Occupa ribalta destinazione
+    // Occupa ribalta destinazione propagando il flag full della cassa
     await setDoc(doc(window.db, 'ribalte', dest), {
       occupied: true, plate, since: serverTimestamp(),
-      user: auth.currentUser?.email || '—', full: false
+      user: auth.currentUser?.email || '—', full: spotFull
     });
   } catch(err) {
     console.error('Errore completamento:', err);
