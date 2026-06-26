@@ -157,8 +157,32 @@ if(!_forceDesktop && window.innerWidth<=768 && !location.href.includes('mobile.h
   </div>
   <div class="page" id="pageStorico">
     <div class="pageHeader">Storico Movimenti</div><div class="pageSubtitle">Registro completo assegnazioni e liberazioni</div>
+    <div style="display:flex;justify-content:flex-end;padding:0 8px 8px"><button class="btnClear" onclick="resetFiltriStorico()" style="font-size:12px;padding:4px 12px">&#10005; Resetta filtri</button></div>
     <div class="tableWrap"><table>
-      <thead><tr><th>Data/Ora</th><th>Posto</th><th>Azione</th><th>Targa</th><th>Tipo</th><th>Utente</th></tr></thead>
+      <thead>
+        <tr><th>Data/Ora</th><th>Posto</th><th>Azione</th><th>Targa</th><th>Tipo</th><th>Utente</th></tr>
+        <tr class="filterRow">
+          <td style="white-space:nowrap">
+            <input type="date" id="sfDa" oninput="renderStorico()" style="width:110px;font-size:11px">
+            <input type="date" id="sfA" oninput="renderStorico()" style="width:110px;font-size:11px;margin-top:3px">
+          </td>
+          <td><input type="text" id="sfPosto" placeholder="Es: A01" oninput="renderStorico()"></td>
+          <td><select id="sfAzione" onchange="renderStorico()">
+            <option value="">Tutti</option>
+            <option value="Assegnato">Assegnato</option>
+            <option value="Liberato">Liberato</option>
+            <option value="Segnato Pieno">Pieno</option>
+            <option value="Segnato Vuoto">Vuoto</option>
+          </select></td>
+          <td><input type="text" id="sfTarga" placeholder="Targa" oninput="renderStorico()"></td>
+          <td><select id="sfTipo" onchange="renderStorico()">
+            <option value="">Tutti</option>
+            <option value="cassa">Cassa</option>
+            <option value="container">Container</option>
+          </select></td>
+          <td><input type="text" id="sfUtente" placeholder="Utente" oninput="renderStorico()"></td>
+        </tr>
+      </thead>
       <tbody id="storicoBody"></tbody>
     </table></div>
   </div>

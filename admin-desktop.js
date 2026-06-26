@@ -150,6 +150,13 @@ window._goToSpot=goToSpot;
 
 function renderSearch(){ doSearch(); }
 
+function resetFiltriStorico(){
+  ['sfDa','sfA','sfPosto','sfTarga','sfUtente'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  ['sfAzione','sfTipo'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  renderStorico();
+}
+window.resetFiltriStorico = resetFiltriStorico;
+
 function renderStorico(){
   const actionBadge = (action) => {
     if(action==="Assegnato") return '<span class="tagAss">Assegnato</span>';
@@ -158,7 +165,39 @@ function renderStorico(){
     if(action==="Segnato Vuoto") return '<span style="color:#22c55e;font-size:11px;font-weight:600;background:#22c55e13;padding:2px 8px;border-radius:20px">🟢 Vuoto</span>';
     return `<span style="color:var(--muted);font-size:11px">${action}</span>`;
   };
-  document.getElementById("storicoBody").innerHTML=window.historyCache.map(h=>{
+
+  // leggi filtri
+  const sfDa     = document.getElementById('sfDa')?.value || '';
+  const sfA      = document.getElementById('sfA')?.value || '';
+  const sfPosto  = (document.getElementById('sfPosto')?.value || '').trim().toUpperCase();
+  const sfAzione = document.getElementById('sfAzione')?.value || '';
+  const sfTarga  = (document.getElementById('sfTarga')?.value || '').trim().toUpperCase();
+  const sfTipo   = document.getElementById('sfTipo')?.value || '';
+  const sfUtente = (document.getElementById('sfUtente')?.value || '').trim().toLowerCase();
+
+  const daDt = sfDa ? new Date(sfDa + 'T00:00:00') : null;
+  const aDt  = sfA  ? new Date(sfA  + 'T23:59:59') : null;
+
+  let rows = (window.historyCache || []).filter(h => {
+    const ts = h.ts?.toDate ? h.ts.toDate() : (h.ts instanceof Date ? h.ts : new Date(h.ts));
+    if(daDt && ts < daDt) return false;
+    if(aDt  && ts > aDt)  return false;
+    if(sfPosto  && !(h.spot||'').toUpperCase().includes(sfPosto))   return false;
+    if(sfAzione && h.action !== sfAzione)                            return false;
+    if(sfTarga  && !(h.plate||'').toUpperCase().includes(sfTarga))  return false;
+    if(sfTipo) {
+      const p = String(h.plate||'').trim();
+      if(sfTipo==='cassa'     && !/^\d{3}$/.test(p))           return false;
+      if(sfTipo==='container' && !/^[A-Z]{4}\d{7}$/.test(p))  return false;
+    }
+    if(sfUtente) {
+      const u = (h.userName||h.user||'').toLowerCase();
+      if(!u.includes(sfUtente)) return false;
+    }
+    return true;
+  });
+
+  document.getElementById("storicoBody").innerHTML = rows.map(h=>{
     const tipoMezzo = h.plate
       ? (/^\d{3}$/.test(String(h.plate).trim()) ? '<span style="color:#f59e0b;font-size:11px;font-weight:600">📦 Cassa</span>'
         : (/^[A-Z]{4}\d{7}$/.test(String(h.plate).trim()) ? '<span style="color:#60a5fa;font-size:11px;font-weight:600">🚢 Container</span>' : '<span style="color:var(--muted);font-size:11px">&mdash;</span>'))
@@ -172,7 +211,8 @@ function renderStorico(){
       <td class="mono">${h.plate||"&mdash;"}</td>
       <td>${tipoMezzo}</td>
       <td style="color:var(--muted);font-size:11px">${nomeUtente}</td>
-    </tr>`;}).join("");
+    </tr>`;
+  }).join("") || '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:16px">Nessun risultato</td></tr>';
 }
 
 function renderStatistiche(){
