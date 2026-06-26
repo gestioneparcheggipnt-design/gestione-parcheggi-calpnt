@@ -867,7 +867,7 @@ occupied: false, plate: null, since: null, user: null, full: false
 
 ops.push(setDoc(doc(window.db, 'ribalte', origine), {
 
-occupied: false, plate: null, since: null, user: null
+occupied: false, plate: null, since: null, user: null, full: false
 
 }, { merge: true }));
 
@@ -898,6 +898,8 @@ plate: pren.plate || null,
 since: serverTimestamp(),
 
 user: pren.utenteEmail || null,
+
+full: pren.fullAllaLibera || false,
 
 }, { merge: true }));
 
