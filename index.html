@@ -123,7 +123,7 @@ if(!_forceDesktop && window.innerWidth<=768 && !location.href.includes('mobile.h
           <th class="sortable" onclick="sortTable('stato')">Stato<span class="sortIndicator"></span></th>
           <th class="sortable" onclick="sortTable('plate')">Targa<span class="sortIndicator"></span></th>
           <th class="sortable" onclick="sortTable('tipo')">Tipo<span class="sortIndicator"></span></th>
-          <th class="sortable" onclick="sortTable('since')">Da<span class="sortIndicator"></span></th>
+          <th class="sortable" onclick="sortTable('since')">Data<span class="sortIndicator"></span></th>
           <th class="sortable" onclick="sortTable('damaged')">Danneg.<span class="sortIndicator"></span></th>
           <th class="sortable" onclick="sortTable('full')">Pieno/Vuoto<span class="sortIndicator"></span></th>
           <th class="sortable" onclick="sortTable('utente')">Utente<span class="sortIndicator"></span></th>
@@ -143,7 +143,7 @@ if(!_forceDesktop && window.innerWidth<=768 && !location.href.includes('mobile.h
             <option value="cassa">Cassa</option>
             <option value="container">Container</option>
           </select></td>
-          <td></td>
+          <td><select id="fData" onchange="doSearch()"><option value="">Tutti</option></select></td>
           <td><select id="fDanneggiato" onchange="doSearch()">
             <option value="">Tutti</option>
             <option value="si">S&igrave;</option>
@@ -179,13 +179,7 @@ if(!_forceDesktop && window.innerWidth<=768 && !location.href.includes('mobile.h
             <input type="date" id="sfA" oninput="renderStorico()" style="width:110px;font-size:11px;margin-top:3px">
           </td>
           <td><select id="sfPosto" onchange="renderStorico()"><option value="">Tutti</option></select></td>
-          <td><select id="sfAzione" onchange="renderStorico()">
-            <option value="">Tutti</option>
-            <option value="Assegnato">Assegnato</option>
-            <option value="Liberato">Liberato</option>
-            <option value="Segnato Pieno">Pieno</option>
-            <option value="Segnato Vuoto">Vuoto</option>
-          </select></td>
+          <td><select id="sfAzione" onchange="renderStorico()"><option value="">Tutti</option></select></td>
           <td><select id="sfTarga" onchange="renderStorico()"><option value="">Tutti</option></select></td>
           <td><select id="sfTipo" onchange="renderStorico()">
             <option value="">Tutti</option>

@@ -55,6 +55,16 @@ function _tipoRank(plate){
   return 0;
 }
 
+// chiave giorno (DD/MM/YYYY) da Date / Timestamp Firestore / stringa
+function _giornoKey(v){
+  if(!v) return '';
+  const d = v.toDate ? v.toDate() : (v instanceof Date ? v : new Date(v));
+  if(isNaN(d)) return '';
+  const dd=String(d.getDate()).padStart(2,'0');
+  const mm=String(d.getMonth()+1).padStart(2,'0');
+  return dd+'/'+mm+'/'+d.getFullYear();
+}
+
 function sortTable(col){
   if(sortCol===col){ sortDir=sortDir==='asc'?'desc':'asc'; }
   else{ sortCol=col; sortDir='asc'; }
@@ -83,9 +93,12 @@ function doSearch(){
     const posti  = spotsArr.map(s=>s.id).sort();
     const targhe = [...new Set(tutti.map(x=>x.plate).filter(Boolean))].sort();
     const utenti = [...new Set(tutti.map(x=>x.userName||x.user).filter(Boolean))].sort();
+    const _kt = k => { const [d,m,y]=k.split('/'); return new Date(+y,+m-1,+d).getTime(); };
+    const giorni = [...new Set(tutti.map(x=>_giornoKey(x.since)).filter(Boolean))].sort((a,b)=>_kt(b)-_kt(a));
     _popolaSelectFiltro('fPosto', posti);
     _popolaSelectFiltro('fTarga', targhe);
     _popolaSelectFiltro('fUtente', utenti);
+    _popolaSelectFiltro('fData', giorni);
   }
   const q=(document.getElementById("searchInput")?.value||"").trim().toUpperCase();
   const type=document.querySelector("input[name=stype]:checked")?.value||"posto";
@@ -94,6 +107,7 @@ function doSearch(){
   const fStato=(document.getElementById("fStato")?.value||"");
   const fTipo=(document.getElementById("fTipo")?.value||"");
   const fUtente=(document.getElementById("fUtente")?.value||"");
+  const fData=(document.getElementById("fData")?.value||"");
   let res=Object.values(window.spots);
   // global search bar
   if(q) res=res.filter(s=>type==="posto"?s.id.includes(q):s.plate&&s.plate.includes(q));
@@ -107,6 +121,7 @@ function doSearch(){
   if(fTipo==="cassa")     res=res.filter(s=>s.plate && /^\d{3}$/.test(s.plate.trim()));
   if(fTipo==="container") res=res.filter(s=>s.plate && /^[A-Z]{4}\d{7}$/.test(s.plate.trim()));
   if(fUtente) res=res.filter(s=>(s.userName||s.user||"")===fUtente);
+  if(fData) res=res.filter(s=>_giornoKey(s.since)===fData);
   const fDanneggiato=(document.getElementById("fDanneggiato")?.value||"");
   if(fDanneggiato==="si")        res=res.filter(s=>s.damaged);
   if(fDanneggiato==="no")        res=res.filter(s=>!s.damaged && !s.unusable);
@@ -174,6 +189,8 @@ function doSearch(){
     if(fTipo==="container") ribalteArr = ribalteArr.filter(r=>r.plate && /^[A-Z]{4}\d{7}$/.test(r.plate.trim()));
     // filtro utente
     if(fUtente) ribalteArr = ribalteArr.filter(r=>(r.userName||r.user||"")===fUtente);
+    // filtro data (giorno)
+    if(fData) ribalteArr = ribalteArr.filter(r=>_giornoKey(r.since)===fData);
     // sort
     ribalteArr.sort((a,b)=>a.id.localeCompare(b.id));
     rowsRibalte = ribalteArr.map(r=>{
@@ -231,9 +248,11 @@ function renderStorico(){
     const posti  = [...new Set(H.map(h=>h.spot).filter(Boolean))].sort();
     const targhe = [...new Set(H.map(h=>h.plate).filter(Boolean))].sort();
     const utenti = [...new Set(H.map(h=>h.userName||h.user).filter(Boolean))].sort();
+    const azioni = [...new Set(H.map(h=>h.action).filter(Boolean))].sort();
     _popolaSelectFiltro('sfPosto', posti);
     _popolaSelectFiltro('sfTarga', targhe);
     _popolaSelectFiltro('sfUtente', utenti);
+    _popolaSelectFiltro('sfAzione', azioni);
   }
 
   // leggi filtri
