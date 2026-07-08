@@ -9,6 +9,7 @@ function showPage(id,btn){
   document.querySelectorAll(".navTab").forEach(t=>t.classList.remove("active"));
   document.getElementById("page"+id).classList.add("active"); btn.classList.add("active");
 if (id === 'Prenotazioni') window.initPrenotazioni();
+if (id === 'Impostazioni' && window.renderImpostazioni) window.renderImpostazioni();
 }
 window.showPage = showPage;
 
@@ -359,15 +360,7 @@ async function renderUsers(){
         <option value="amministratore"${u.role==="amministratore"?"selected":""}>Amministratore</option>
       </select>
       <select class="roleSelect" onchange="window._changeReparto('${u.uid}',this.value)" title="Reparto ribalte">
-        <option value="" ${!u.reparto?"selected":""}>— Reparto —</option>
-        <option value="RICEVIMENTO"  ${u.reparto==="RICEVIMENTO"?"selected":""}>Ricevimento</option>
-        <option value="SPEDIZIONI"   ${u.reparto==="SPEDIZIONI"?"selected":""}>Spedizioni</option>
-        <option value="CAPI APPESI"  ${u.reparto==="CAPI APPESI"?"selected":""}>Capi appesi</option>
-        <option value="LAV MAN"      ${u.reparto==="LAV MAN"?"selected":""}>Lav man</option>
-        <option value="REVERSE"      ${u.reparto==="REVERSE"?"selected":""}>Reverse</option>
-        <option value="ESTERO"       ${u.reparto==="ESTERO"?"selected":""}>Estero</option>
-        <option value="E-COMMERCE"   ${u.reparto==="E-COMMERCE"?"selected":""}>E-commerce</option>
-        <option value="TGW"          ${u.reparto==="TGW"?"selected":""}>TGW</option>
+        ${window._repartoOptionsHTML ? window._repartoOptionsHTML(u.reparto) : '<option value="'+(u.reparto||'')+'" selected>'+(u.reparto||'— Reparto —')+'</option>'}
       </select>
       <button class="btnDanger" onclick="window._deleteUser('${u.uid}','${(u.name||u.email).replace(/'/g,"\'")}')">🗑</button>
     </div>`).join("")||'<div style="color:var(--muted);font-size:13px">Nessun utente trovato</div>';
@@ -656,7 +649,7 @@ function cancelSelect(){
     '<div style="color:var(--muted);font-size:13px;text-align:center;padding:18px 0">Clicca un parcheggio sulla mappa</div>';
 }
 window._cancelSelect=cancelSelect;
-function openModal(id){ document.getElementById(id).classList.add("open"); }
+function openModal(id){ if(id==='modalAddUser' && window._populateNewUserReparto) window._populateNewUserReparto(); document.getElementById(id).classList.add("open"); }
 function closeModal(id){ document.getElementById(id).classList.remove("open"); }
 window.openModal=openModal; window.closeModal=closeModal;
 

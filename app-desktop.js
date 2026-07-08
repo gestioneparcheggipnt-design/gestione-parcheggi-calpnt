@@ -12,3 +12,4 @@ import './parking-ops.js';
 import './admin-desktop.js';
 import './prenotazioni-desktop.js';
 import './portineria-desktop.js';
+import './impostazioni-desktop.js';

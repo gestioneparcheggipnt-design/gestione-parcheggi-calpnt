@@ -62,6 +62,7 @@ if(!_forceDesktop && window.innerWidth<=768 && !location.href.includes('mobile.h
       <button class="navTab hidden" id="tabUtenti" onclick="showPage('Utenti',this)">Utenti</button>
       <button class="navTab hidden" id="tabPrenotazioni" onclick="showPage('Prenotazioni',this)">Prenotazioni</button>
       <button class="navTab hidden" id="tabPortineria" onclick="showPage('Portineria',this)">Portineria</button>
+      <button class="navTab hidden" id="tabImpostazioni" onclick="showPage('Impostazioni',this)">Impostazioni</button>
     </div>
     <div class="navRight">
       <div class="modeToggle" id="modeToggle" title="Cambia modalitÃ  visualizzazione">
@@ -215,6 +216,10 @@ if(!_forceDesktop && window.innerWidth<=768 && !location.href.includes('mobile.h
     <button class="btnAdd" onclick="openModal('modalAddUser')">+ Aggiungi Utente</button>
     <div id="userList"></div>
   </div>
+  <div class="page" id="pageImpostazioni">
+    <div class="pageHeader">Impostazioni magazzino</div><div class="pageSubtitle">Reparti, ribalte, parcheggi e correlazioni</div>
+    <div id="imp-body"></div>
+  </div>
 <div class="page" id="pagePrenotazioni">
   <div class="pageHeader">Prenotazioni</div>
 
@@ -341,15 +346,7 @@ if(!_forceDesktop && window.innerWidth<=768 && !location.href.includes('mobile.h
     </div>
     <div class="formGroup"><label>Reparto</label>
       <select id="newUserReparto">
-        <option value="">— Nessun reparto —</option>
-        <option value="RICEVIMENTO">Ricevimento</option>
-        <option value="SPEDIZIONI">Spedizioni</option>
-        <option value="CAPI APPESI">Capi appesi</option>
-        <option value="LAV MAN">Lav man</option>
-        <option value="REVERSE">Reverse</option>
-        <option value="ESTERO">Estero</option>
-        <option value="E-COMMERCE">E-commerce</option>
-        <option value="TGW">TGW</option>
+        <option value="">— Reparto —</option>
       </select>
     </div>
     <div class="formGroup"><label>Password temporanea</label><input type="text" id="newUserPass" placeholder=""></div>

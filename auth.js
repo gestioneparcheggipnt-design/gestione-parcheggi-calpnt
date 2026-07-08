@@ -67,10 +67,11 @@ function showLogin(){
   const modeToggleEl = document.getElementById("modeToggle");
   if(modeToggleEl) modeToggleEl.style.display="";
   // Resetta tutti i tab con id alla loro visibilità di default (hidden)
-  ["tabStats","tabUtenti","tabPrenotazioni","tabPortineria"].forEach(id=>{
+  ["tabStats","tabUtenti","tabPrenotazioni","tabPortineria","tabImpostazioni"].forEach(id=>{
     const el=document.getElementById(id);
     if(el) el.classList.add("hidden");
   });
+  if(window.stopImpostazioni) window.stopImpostazioni();
   // Ripristina visibilità dei tab Mappa/Ricerca/Storico (non hanno id ma servono sempre)
   document.querySelectorAll(".navTab").forEach(btn=>{
     const pg = btn.getAttribute("onclick") && btn.getAttribute("onclick").match(/'(\w+)'/);
@@ -121,12 +122,16 @@ function showApp(){
 
   // ── AMMINISTRATORE / AMMINISTRATIVO ────────────────────────────────────────
   document.getElementById("tabStats").classList.remove("hidden");
-  if(window.currentUser.role==="amministratore") document.getElementById("tabUtenti").classList.remove("hidden");
+  if(window.currentUser.role==="amministratore"){
+    document.getElementById("tabUtenti").classList.remove("hidden");
+    document.getElementById("tabImpostazioni").classList.remove("hidden");
+  }
   document.getElementById("tabPrenotazioni").classList.remove("hidden");
   loadMode();
   initMap();
 
 startListeners();
+  if(window.initImpostazioniConfig) window.initImpostazioniConfig();
   renderStatistiche();
   renderUsers();
   showPage("Mappa", document.querySelector(".navTab"));
