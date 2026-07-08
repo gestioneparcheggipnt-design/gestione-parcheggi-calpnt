@@ -94,9 +94,9 @@
   .sortIndicator{display:inline-block;margin-left:4px;opacity:.5;font-size:10px;}
   th.sortable{cursor:pointer;user-select:none;}
   th.sortable:hover{background:var(--border);}
-  th.sort-asc .sortIndicator::after{content:"â²";opacity:1;}
-  th.sort-desc .sortIndicator::after{content:"â¼";opacity:1;}
-  th .sortIndicator::after{content:"â";}
+  th.sort-asc .sortIndicator::after{content:"\25B2";opacity:1;}
+  th.sort-desc .sortIndicator::after{content:"\25BC";opacity:1;}
+  th .sortIndicator::after{content:"\21C5";}
   .filterRow td{padding:4px 8px;}
   .filterRow input{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:5px 8px;color:var(--text);font-family:inherit;font-size:12px;outline:none;}
   .filterRow input:focus{border-color:var(--accent);}

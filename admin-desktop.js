@@ -23,30 +23,77 @@ function updateMapStats(){
 }
 
 let sortCol='id', sortDir='asc';
+let storicoSortCol='ts', storicoSortDir='desc';
+
+// escape per opzioni <select>
+function _optEsc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+// popola una <select> con i valori distinti presenti, preservando la selezione
+function _popolaSelectFiltro(id, valori){
+  const sel=document.getElementById(id); if(!sel) return;
+  const cur=sel.value;
+  sel.innerHTML=['<option value="">Tutti</option>']
+    .concat(valori.map(v=>`<option value="${_optEsc(v)}">${_optEsc(v)}</option>`)).join('');
+  sel.value = valori.includes(cur) ? cur : '';
+}
+
+// evidenzia la freccia di ordinamento sulla colonna attiva della tabella indicata
+function _updateSortArrows(tableSel, col, dir){
+  document.querySelectorAll(tableSel+' th.sortable').forEach(th=>{
+    th.classList.remove('sort-asc','sort-desc');
+    const oc=th.getAttribute('onclick')||'';
+    if(oc.includes("'"+col+"'")) th.classList.add('sort-'+dir);
+  });
+}
+
+// rank tipo mezzo dalla targa: cassa(1) < container(2) < altro(0)
+function _tipoRank(plate){
+  if(!plate) return 0;
+  const p=String(plate).trim();
+  if(/^\d{3}$/.test(p)) return 1;
+  if(/^[A-Z]{4}\d{7}$/.test(p)) return 2;
+  return 0;
+}
 
 function sortTable(col){
   if(sortCol===col){ sortDir=sortDir==='asc'?'desc':'asc'; }
   else{ sortCol=col; sortDir='asc'; }
-  // update header classes
-  document.querySelectorAll('#searchTable th.sortable').forEach(th=>{
-    th.classList.remove('sort-asc','sort-desc');
-  });
-  const cols=['id','stato','plate','since'];
-  const idx=cols.indexOf(col);
-  if(idx>=0){
-    const ths=document.querySelectorAll('#searchTable thead tr:first-child th.sortable');
-    if(ths[idx]) ths[idx].classList.add('sort-'+sortDir);
-  }
+  _updateSortArrows('#searchTable', sortCol, sortDir);
   doSearch();
 }
 window.sortTable=sortTable;
 
+function sortStorico(col){
+  if(storicoSortCol===col){ storicoSortDir=storicoSortDir==='asc'?'desc':'asc'; }
+  else{ storicoSortCol=col; storicoSortDir = col==='ts' ? 'desc' : 'asc'; }
+  _updateSortArrows('#storicoTable', storicoSortCol, storicoSortDir);
+  renderStorico();
+}
+window.sortStorico=sortStorico;
+
 function doSearch(){
+  // popola i menù a tendina dei filtri con tutte le voci presenti
+  {
+    const spotsArr = Object.values(window.spots||{});
+    let ribArr = [];
+    if(window.REPARTI){
+      ribArr = Object.values(window.REPARTI).flat().map(id=>(window.ribalte||{})[id]).filter(Boolean);
+    }
+    const tutti = spotsArr.concat(ribArr);
+    const posti  = spotsArr.map(s=>s.id).sort();
+    const targhe = [...new Set(tutti.map(x=>x.plate).filter(Boolean))].sort();
+    const utenti = [...new Set(tutti.map(x=>x.userName||x.user).filter(Boolean))].sort();
+    _popolaSelectFiltro('fPosto', posti);
+    _popolaSelectFiltro('fTarga', targhe);
+    _popolaSelectFiltro('fUtente', utenti);
+  }
   const q=(document.getElementById("searchInput")?.value||"").trim().toUpperCase();
   const type=document.querySelector("input[name=stype]:checked")?.value||"posto";
   const fPosto=(document.getElementById("fPosto")?.value||"").trim().toUpperCase();
   const fTarga=(document.getElementById("fTarga")?.value||"").trim().toUpperCase();
   const fStato=(document.getElementById("fStato")?.value||"");
+  const fTipo=(document.getElementById("fTipo")?.value||"");
+  const fUtente=(document.getElementById("fUtente")?.value||"");
   let res=Object.values(window.spots);
   // global search bar
   if(q) res=res.filter(s=>type==="posto"?s.id.includes(q):s.plate&&s.plate.includes(q));
@@ -57,6 +104,9 @@ function doSearch(){
   if(fStato==="occupato")           res=res.filter(s=>s.occupied);
   if(fStato==="occupato-cassa")     res=res.filter(s=>s.occupied && s.plate && /^\d{3}$/.test(s.plate.trim()));
   if(fStato==="occupato-container") res=res.filter(s=>s.occupied && s.plate && /^[A-Z]{4}\d{7}$/.test(s.plate.trim()));
+  if(fTipo==="cassa")     res=res.filter(s=>s.plate && /^\d{3}$/.test(s.plate.trim()));
+  if(fTipo==="container") res=res.filter(s=>s.plate && /^[A-Z]{4}\d{7}$/.test(s.plate.trim()));
+  if(fUtente) res=res.filter(s=>(s.userName||s.user||"")===fUtente);
   const fDanneggiato=(document.getElementById("fDanneggiato")?.value||"");
   if(fDanneggiato==="si")        res=res.filter(s=>s.damaged);
   if(fDanneggiato==="no")        res=res.filter(s=>!s.damaged && !s.unusable);
@@ -73,6 +123,8 @@ function doSearch(){
     else if(sortCol==='since') { va=a.since?a.since.getTime():0; vb=b.since?b.since.getTime():0; }
     else if(sortCol==='damaged'){ va=a.damaged?1:0; vb=b.damaged?1:0; }
     else if(sortCol==='full')  { va=a.full?1:0; vb=b.full?1:0; }
+    else if(sortCol==='tipo')  { va=_tipoRank(a.plate); vb=_tipoRank(b.plate); }
+    else if(sortCol==='utente'){ va=(a.userName||a.user||"").toLowerCase(); vb=(b.userName||b.user||"").toLowerCase(); }
     if(va<vb) return sortDir==='asc'?-1:1;
     if(va>vb) return sortDir==='asc'?1:-1;
     return 0;
@@ -117,6 +169,11 @@ function doSearch(){
     // filtro pieno
     if(fPieno==="pieno") ribalteArr = ribalteArr.filter(r=>r.full);
     if(fPieno==="vuoto")  ribalteArr = ribalteArr.filter(r=>!r.full);
+    // filtro tipo mezzo
+    if(fTipo==="cassa")     ribalteArr = ribalteArr.filter(r=>r.plate && /^\d{3}$/.test(r.plate.trim()));
+    if(fTipo==="container") ribalteArr = ribalteArr.filter(r=>r.plate && /^[A-Z]{4}\d{7}$/.test(r.plate.trim()));
+    // filtro utente
+    if(fUtente) ribalteArr = ribalteArr.filter(r=>(r.userName||r.user||"")===fUtente);
     // sort
     ribalteArr.sort((a,b)=>a.id.localeCompare(b.id));
     rowsRibalte = ribalteArr.map(r=>{
@@ -139,6 +196,7 @@ function doSearch(){
   }
 
   document.getElementById("searchResults").innerHTML=[...rowsSpots,...rowsRibalte].join("");
+  _updateSortArrows('#searchTable', sortCol, sortDir);
 }
 window.doSearch=doSearch;
 window.clearSearch=()=>{document.getElementById("searchInput").value="";doSearch();};
@@ -166,6 +224,17 @@ function renderStorico(){
     if(action==="Segnato Vuoto") return '<span style="color:#22c55e;font-size:11px;font-weight:600;background:#22c55e13;padding:2px 8px;border-radius:20px">🟢 Vuoto</span>';
     return `<span style="color:var(--muted);font-size:11px">${action}</span>`;
   };
+
+  // popola i menù a tendina dei filtri con tutte le voci presenti
+  {
+    const H = window.historyCache || [];
+    const posti  = [...new Set(H.map(h=>h.spot).filter(Boolean))].sort();
+    const targhe = [...new Set(H.map(h=>h.plate).filter(Boolean))].sort();
+    const utenti = [...new Set(H.map(h=>h.userName||h.user).filter(Boolean))].sort();
+    _popolaSelectFiltro('sfPosto', posti);
+    _popolaSelectFiltro('sfTarga', targhe);
+    _popolaSelectFiltro('sfUtente', utenti);
+  }
 
   // leggi filtri
   const sfDa     = document.getElementById('sfDa')?.value || '';
@@ -197,6 +266,25 @@ function renderStorico(){
     }
     return true;
   });
+
+  // ordinamento
+  const _ts = h => { const d = h.ts?.toDate ? h.ts.toDate() : (h.ts instanceof Date ? h.ts : new Date(h.ts)); return d.getTime() || 0; };
+  rows.sort((a,b)=>{
+    let va,vb;
+    switch(storicoSortCol){
+      case 'ts':     va=_ts(a); vb=_ts(b); break;
+      case 'spot':   va=(a.spot||''); vb=(b.spot||''); break;
+      case 'action': va=(a.action||''); vb=(b.action||''); break;
+      case 'plate':  va=(a.plate||''); vb=(b.plate||''); break;
+      case 'tipo':   va=_tipoRank(a.plate); vb=_tipoRank(b.plate); break;
+      case 'utente': va=(a.userName||a.user||'').toLowerCase(); vb=(b.userName||b.user||'').toLowerCase(); break;
+      default:       va=0; vb=0;
+    }
+    if(va<vb) return storicoSortDir==='asc'?-1:1;
+    if(va>vb) return storicoSortDir==='asc'?1:-1;
+    return 0;
+  });
+  _updateSortArrows('#storicoTable', storicoSortCol, storicoSortDir);
 
   document.getElementById("storicoBody").innerHTML = rows.map(h=>{
     const tipoMezzo = h.plate
