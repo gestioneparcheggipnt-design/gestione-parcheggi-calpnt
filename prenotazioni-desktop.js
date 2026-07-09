@@ -511,8 +511,12 @@ function renderPrenotazioni() {
   const filtroData  = document.getElementById('pren-filter-data')?.value || '';
   const filtroTarga = (document.getElementById('pren-filter-targa')?.value || '').toUpperCase().trim();
 
-  // Solo prenotazioni container (esclude casse)
-  let lista = _prenotazioni.filter(p => !p.tipoMezzo || p.tipoMezzo === 'container');
+  // Solo prenotazioni container (esclude casse e missioni ribalta su casse)
+  const _reContainer = window.RE_CONTAINER || /^[A-Z]{4}\d{7}$/;
+  let lista = _prenotazioni.filter(p => {
+    if (p.tipoMezzo && p.tipoMezzo !== 'container') return false;
+    return _reContainer.test((p.plate || '').toUpperCase().trim());
+  });
   if (filtroStato) lista = lista.filter(p => p.stato === filtroStato);
   if (filtroTarga) lista = lista.filter(p => (p.plate || '').toUpperCase().includes(filtroTarga));
   if (filtroData) lista = lista.filter(p => {
