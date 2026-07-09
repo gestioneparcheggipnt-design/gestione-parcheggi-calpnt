@@ -10,7 +10,31 @@ function getDestinazioniPerReparto(reparto) {
   return window.getDestinazioniPerReparto ? window.getDestinazioniPerReparto(reparto) : [];
 }
 
-import { showToast, _esc, validateDestination, isValidSpot, isValidRibalta } from './shared-utils.js';
+import { showToast, _esc } from './shared-utils.js';
+
+// ── Validazioni locali (le versioni in shared-utils.js richiedono 2 argomenti) ─
+function _tutteRibalte() {
+  return window._REPARTI
+    ? Object.values(window._REPARTI).flat().map(r => String(r).trim().toUpperCase())
+    : [];
+}
+function isValidRibalta(id) {
+  if (!id) return false;
+  return _tutteRibalte().includes(String(id).trim().toUpperCase());
+}
+function isValidSpot(id) {
+  if (!id) return false;
+  const k = String(id).trim().toUpperCase();
+  if (_spots && _spots[k]) return true;
+  return Array.isArray(window.SPOT_DEFS) &&
+         window.SPOT_DEFS.some(d => String(d[0]).trim().toUpperCase() === k);
+}
+function validateDestination(dest) {
+  const d = (dest || '').trim().toUpperCase();
+  if (!d) return { ok: false, msg: 'Inserisci il posto o la ribalta.' };
+  if (isValidSpot(d) || isValidRibalta(d)) return { ok: true, dest: d };
+  return { ok: false, msg: `Destinazione "${d}" non valida.` };
+}
 
 const RE_CASSA = /^\d{3}$/;
 
