@@ -28,13 +28,18 @@ let storicoSortCol='ts', storicoSortDir='desc';
 // escape per opzioni <select>
 function _optEsc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
+// valore sentinella: mostra solo le righe che hanno un dato in quella colonna
+const F_CON_DATI = '__CON_DATI__';
+
 // popola una <select> con i valori distinti presenti, preservando la selezione
-function _popolaSelectFiltro(id, valori){
+function _popolaSelectFiltro(id, valori, conDati=true){
   const sel=document.getElementById(id); if(!sel) return;
   const cur=sel.value;
-  sel.innerHTML=['<option value="">Tutti</option>']
+  const opts=['<option value="">Tutti</option>'];
+  if(conDati) opts.push(`<option value="${F_CON_DATI}">(solo con dati)</option>`);
+  sel.innerHTML=opts
     .concat(valori.map(v=>`<option value="${_optEsc(v)}">${_optEsc(v)}</option>`)).join('');
-  sel.value = valori.includes(cur) ? cur : '';
+  sel.value = (valori.includes(cur) || cur===F_CON_DATI) ? cur : '';
 }
 
 // evidenzia la freccia di ordinamento sulla colonna attiva della tabella indicata
@@ -90,12 +95,14 @@ function doSearch(){
       ribArr = Object.values(window.REPARTI).flat().map(id=>(window.ribalte||{})[id]).filter(Boolean);
     }
     const tutti = spotsArr.concat(ribArr);
-    const posti  = spotsArr.map(s=>s.id).sort();
+    // Posto: parcheggi + ribalte (fonte di verità REPARTI, non solo quelle su Firestore)
+    const ribalteIds = window.REPARTI ? Object.values(window.REPARTI).flat() : [];
+    const posti  = [...new Set(spotsArr.map(s=>s.id).concat(ribalteIds))].sort();
     const targhe = [...new Set(tutti.map(x=>x.plate).filter(Boolean))].sort();
     const utenti = [...new Set(tutti.map(x=>x.userName||x.user).filter(Boolean))].sort();
     const _kt = k => { const [d,m,y]=k.split('/'); return new Date(+y,+m-1,+d).getTime(); };
     const giorni = [...new Set(tutti.map(x=>_giornoKey(x.since)).filter(Boolean))].sort((a,b)=>_kt(b)-_kt(a));
-    _popolaSelectFiltro('fPosto', posti);
+    _popolaSelectFiltro('fPosto', posti, false);
     _popolaSelectFiltro('fTarga', targhe);
     _popolaSelectFiltro('fUtente', utenti);
     _popolaSelectFiltro('fData', giorni);
@@ -112,23 +119,30 @@ function doSearch(){
   // global search bar
   if(q) res=res.filter(s=>type==="posto"?s.id.includes(q):s.plate&&s.plate.includes(q));
   // column filters
-  if(fPosto) res=res.filter(s=>s.id.includes(fPosto));
-  if(fTarga) res=res.filter(s=>s.plate&&s.plate.includes(fTarga));
+  if(fPosto) res=res.filter(s=>s.id===fPosto);
+  if(fTarga===F_CON_DATI) res=res.filter(s=>!!s.plate);
+  else if(fTarga) res=res.filter(s=>s.plate&&s.plate.includes(fTarga));
   if(fStato==="libero")             res=res.filter(s=>!s.occupied);
   if(fStato==="occupato")           res=res.filter(s=>s.occupied);
   if(fStato==="occupato-cassa")     res=res.filter(s=>s.occupied && s.plate && /^\d{3}$/.test(s.plate.trim()));
   if(fStato==="occupato-container") res=res.filter(s=>s.occupied && s.plate && /^[A-Z]{4}\d{7}$/.test(s.plate.trim()));
+  if(fTipo===F_CON_DATI)  res=res.filter(s=>_tipoRank(s.plate)>0);
   if(fTipo==="cassa")     res=res.filter(s=>s.plate && /^\d{3}$/.test(s.plate.trim()));
   if(fTipo==="container") res=res.filter(s=>s.plate && /^[A-Z]{4}\d{7}$/.test(s.plate.trim()));
-  if(fUtente) res=res.filter(s=>(s.userName||s.user||"")===fUtente);
-  if(fData) res=res.filter(s=>_giornoKey(s.since)===fData);
+  if(fUtente===F_CON_DATI) res=res.filter(s=>!!(s.userName||s.user));
+  else if(fUtente) res=res.filter(s=>(s.userName||s.user||"")===fUtente);
+  if(fData===F_CON_DATI) res=res.filter(s=>!!s.since);
+  else if(fData) res=res.filter(s=>_giornoKey(s.since)===fData);
   const fDanneggiato=(document.getElementById("fDanneggiato")?.value||"");
+  if(fDanneggiato===F_CON_DATI) res=res.filter(s=>s.damaged||s.unusable);
   if(fDanneggiato==="si")        res=res.filter(s=>s.damaged);
   if(fDanneggiato==="no")        res=res.filter(s=>!s.damaged && !s.unusable);
   if(fDanneggiato==="inutilizzabile") res=res.filter(s=>s.unusable);
   const fPieno=(document.getElementById("fPieno")?.value||"");
-  if(fPieno==="pieno") res=res.filter(s=>s.full);
-  if(fPieno==="vuoto") res=res.filter(s=>!s.full);
+  // pieno/vuoto ha senso solo per posti occupati: i liberi non hanno un mezzo
+  if(fPieno===F_CON_DATI) res=res.filter(s=>s.occupied);
+  if(fPieno==="pieno") res=res.filter(s=>s.occupied && s.full);
+  if(fPieno==="vuoto") res=res.filter(s=>s.occupied && !s.full);
   // sort
   res.sort((a,b)=>{
     let va,vb;
@@ -163,8 +177,10 @@ function doSearch(){
       <td style="color:var(--muted);font-size:11px">${nomeUtente}</td>
     </tr>`;});
 
-  // righe ribalte: escluse se filtro per-posto o filtro danneggiato (non applicabile)
-  const showRibalte = !fPosto && (fDanneggiato==="" || fDanneggiato==="no");
+  // righe ribalte: escluse se filtro danneggiato (non applicabile alle ribalte)
+  const _ribalteIds = window.REPARTI ? Object.values(window.REPARTI).flat() : [];
+  const showRibalte = (!fPosto || _ribalteIds.includes(fPosto))
+                   && (fDanneggiato==="" || fDanneggiato==="no");
   let rowsRibalte = [];
   if(showRibalte && window.REPARTI){
     // Lista completa da REPARTI (fonte di verità); merge dati Firestore per quelle occupate
@@ -173,24 +189,31 @@ function doSearch(){
       const fs = (window.ribalte||{})[id];
       return fs ? fs : { id, occupied:false, plate:null, since:null, user:null, full:false };
     });
+    // filtro posto
+    if(fPosto) ribalteArr = ribalteArr.filter(r=>r.id===fPosto);
     // filtro targa
     if(q && type==="targa") ribalteArr = ribalteArr.filter(r=>r.plate&&r.plate.toUpperCase().includes(q));
-    if(fTarga) ribalteArr = ribalteArr.filter(r=>r.plate&&r.plate.toUpperCase().includes(fTarga));
+    if(fTarga===F_CON_DATI) ribalteArr = ribalteArr.filter(r=>!!r.plate);
+    else if(fTarga) ribalteArr = ribalteArr.filter(r=>r.plate&&r.plate.toUpperCase().includes(fTarga));
     // filtro stato
     if(fStato==="libero")             ribalteArr = ribalteArr.filter(r=>!r.occupied);
     if(fStato==="occupato")           ribalteArr = ribalteArr.filter(r=>r.occupied);
     if(fStato==="occupato-cassa")     ribalteArr = ribalteArr.filter(r=>r.occupied && r.plate && /^\d{3}$/.test(r.plate.trim()));
     if(fStato==="occupato-container") ribalteArr = ribalteArr.filter(r=>r.occupied && r.plate && /^[A-Z]{4}\d{7}$/.test(r.plate.trim()));
-    // filtro pieno
-    if(fPieno==="pieno") ribalteArr = ribalteArr.filter(r=>r.full);
-    if(fPieno==="vuoto")  ribalteArr = ribalteArr.filter(r=>!r.full);
+    // filtro pieno: solo ribalte occupate (le libere non hanno un mezzo)
+    if(fPieno===F_CON_DATI) ribalteArr = ribalteArr.filter(r=>r.occupied);
+    if(fPieno==="pieno") ribalteArr = ribalteArr.filter(r=>r.occupied && r.full);
+    if(fPieno==="vuoto") ribalteArr = ribalteArr.filter(r=>r.occupied && !r.full);
     // filtro tipo mezzo
+    if(fTipo===F_CON_DATI)  ribalteArr = ribalteArr.filter(r=>_tipoRank(r.plate)>0);
     if(fTipo==="cassa")     ribalteArr = ribalteArr.filter(r=>r.plate && /^\d{3}$/.test(r.plate.trim()));
     if(fTipo==="container") ribalteArr = ribalteArr.filter(r=>r.plate && /^[A-Z]{4}\d{7}$/.test(r.plate.trim()));
     // filtro utente
-    if(fUtente) ribalteArr = ribalteArr.filter(r=>(r.userName||r.user||"")===fUtente);
+    if(fUtente===F_CON_DATI) ribalteArr = ribalteArr.filter(r=>!!(r.userName||r.user));
+    else if(fUtente) ribalteArr = ribalteArr.filter(r=>(r.userName||r.user||"")===fUtente);
     // filtro data (giorno)
-    if(fData) ribalteArr = ribalteArr.filter(r=>_giornoKey(r.since)===fData);
+    if(fData===F_CON_DATI) ribalteArr = ribalteArr.filter(r=>!!r.since);
+    else if(fData) ribalteArr = ribalteArr.filter(r=>_giornoKey(r.since)===fData);
     // sort
     ribalteArr.sort((a,b)=>a.id.localeCompare(b.id));
     rowsRibalte = ribalteArr.map(r=>{
@@ -255,14 +278,15 @@ function renderStorico(){
     _popolaSelectFiltro('sfAzione', azioni);
   }
 
-  // leggi filtri
+  // leggi filtri (i valori sentinella non vanno normalizzati)
+  const _norm = (v, fn) => (v===F_CON_DATI ? v : fn(v));
   const sfDa     = document.getElementById('sfDa')?.value || '';
   const sfA      = document.getElementById('sfA')?.value || '';
-  const sfPosto  = (document.getElementById('sfPosto')?.value || '').trim().toUpperCase();
+  const sfPosto  = _norm(document.getElementById('sfPosto')?.value || '', v=>v.trim().toUpperCase());
   const sfAzione = document.getElementById('sfAzione')?.value || '';
-  const sfTarga  = (document.getElementById('sfTarga')?.value || '').trim().toUpperCase();
+  const sfTarga  = _norm(document.getElementById('sfTarga')?.value || '', v=>v.trim().toUpperCase());
   const sfTipo   = document.getElementById('sfTipo')?.value || '';
-  const sfUtente = (document.getElementById('sfUtente')?.value || '').trim().toLowerCase();
+  const sfUtente = _norm(document.getElementById('sfUtente')?.value || '', v=>v.trim().toLowerCase());
 
   const daDt = sfDa ? new Date(sfDa + 'T00:00:00') : null;
   const aDt  = sfA  ? new Date(sfA  + 'T23:59:59') : null;
@@ -271,15 +295,22 @@ function renderStorico(){
     const ts = h.ts?.toDate ? h.ts.toDate() : (h.ts instanceof Date ? h.ts : new Date(h.ts));
     if(daDt && ts < daDt) return false;
     if(aDt  && ts > aDt)  return false;
-    if(sfPosto  && !(h.spot||'').toUpperCase().includes(sfPosto))   return false;
-    if(sfAzione && h.action !== sfAzione)                            return false;
-    if(sfTarga  && !(h.plate||'').toUpperCase().includes(sfTarga))  return false;
-    if(sfTipo) {
+    if(sfPosto===F_CON_DATI){ if(!h.spot) return false; }
+    else if(sfPosto  && !(h.spot||'').toUpperCase().includes(sfPosto))   return false;
+    if(sfAzione===F_CON_DATI){ if(!h.action) return false; }
+    else if(sfAzione && h.action !== sfAzione)                            return false;
+    if(sfTarga===F_CON_DATI){ if(!h.plate) return false; }
+    else if(sfTarga  && !(h.plate||'').toUpperCase().includes(sfTarga))  return false;
+    if(sfTipo===F_CON_DATI){
+      if(_tipoRank(h.plate)===0) return false;
+    } else if(sfTipo) {
       const p = String(h.plate||'').trim();
       if(sfTipo==='cassa'     && !/^\d{3}$/.test(p))           return false;
       if(sfTipo==='container' && !/^[A-Z]{4}\d{7}$/.test(p))  return false;
     }
-    if(sfUtente) {
+    if(sfUtente===F_CON_DATI){
+      if(!(h.userName||h.user)) return false;
+    } else if(sfUtente) {
       const u = (h.userName||h.user||'').toLowerCase();
       if(!u.includes(sfUtente)) return false;
     }

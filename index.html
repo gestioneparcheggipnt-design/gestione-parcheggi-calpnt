@@ -140,17 +140,20 @@ if(!_forceDesktop && window.innerWidth<=768 && !location.href.includes('mobile.h
           <td><select id="fTarga" onchange="doSearch()"><option value="">Tutti</option></select></td>
           <td><select id="fTipo" onchange="doSearch()">
             <option value="">Tutti</option>
+            <option value="__CON_DATI__">(solo con dati)</option>
             <option value="cassa">Cassa</option>
             <option value="container">Container</option>
           </select></td>
           <td><select id="fData" onchange="doSearch()"><option value="">Tutti</option></select></td>
           <td><select id="fDanneggiato" onchange="doSearch()">
             <option value="">Tutti</option>
+            <option value="__CON_DATI__">(solo con dati)</option>
             <option value="si">S&igrave;</option>
             <option value="no">No</option>
           </select></td>
           <td><select id="fPieno" onchange="doSearch()">
             <option value="">Tutti</option>
+            <option value="__CON_DATI__">(solo con dati)</option>
             <option value="pieno">Pieno</option>
             <option value="vuoto">Vuoto</option>
           </select></td>
@@ -183,6 +186,7 @@ if(!_forceDesktop && window.innerWidth<=768 && !location.href.includes('mobile.h
           <td><select id="sfTarga" onchange="renderStorico()"><option value="">Tutti</option></select></td>
           <td><select id="sfTipo" onchange="renderStorico()">
             <option value="">Tutti</option>
+            <option value="__CON_DATI__">(solo con dati)</option>
             <option value="cassa">Cassa</option>
             <option value="container">Container</option>
           </select></td>
