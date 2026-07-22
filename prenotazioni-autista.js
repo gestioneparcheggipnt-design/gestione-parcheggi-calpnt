@@ -179,41 +179,13 @@ const el = document.getElementById('prenList');
 
 if (!el) return;
 
-// Missioni ribalta: mostrate sempre, in qualsiasi modalità
-
-const missioni = _prenotazioni.filter(p => p.tipoMissione === 'ribalta' && p.stato === 'creata');
-
 // ── MODALITÀ CASSA ────────────────────────────────────────────────────────────
+
+// Le missioni ribalta NON sono più mostrate qui: solo in modalità container.
 
 if (mode === 'cassa') {
 
-let html = '';
-
-if (missioni.length) {
-
-const sortFn = (a, b) => {
-
-if (a.urgente && !b.urgente) return -1;
-
-if (!a.urgente && b.urgente) return 1;
-
-const da = a.dataOra?.toDate ? a.dataOra.toDate() : new Date(a.dataOra || 0);
-
-const db2 = b.dataOra?.toDate ? b.dataOra.toDate() : new Date(b.dataOra || 0);
-
-return da - db2;
-
-};
-
-missioni.sort(sortFn);
-
-html += `<div class="prenGroupTitle" style="color:var(--orange)">🚛 Missioni ribalta (${missioni.length})</div>`;
-
-missioni.forEach((p, idx) => { html += _missioneCard(p, idx < 3); });
-
-}
-
-_renderCasse(el, html);
+_renderCasse(el);
 
 return;
 
@@ -221,27 +193,21 @@ return;
 
 // ── MODALITÀ CONTAINER ────────────────────────────────────────────────────────
 
+// Missioni ribalta + prenotazioni da movimentare in un'unica lista,
+
+// ordinata unicamente dalla meno recente alla più recente.
+
+const missioni = _prenotazioni.filter(p => p.tipoMissione === 'ribalta' && p.stato === 'creata');
+
 const ordinarie = _prenotazioni.filter(p => p.tipoMissione !== 'ribalta' && (!p.tipoMezzo || p.tipoMezzo === 'container'));
 
-const sortFn = (a, b) => {
+const _ts = (p) => { const d = _parseDate(p.dataOra); return d ? d.getTime() : 0; };
 
-if (a.urgente && !b.urgente) return -1;
-
-if (!a.urgente && b.urgente) return 1;
-
-const da = a.dataOra?.toDate ? a.dataOra.toDate() : new Date(a.dataOra || 0);
-
-const db2 = b.dataOra?.toDate ? b.dataOra.toDate() : new Date(b.dataOra || 0);
-
-return da - db2;
-
-};
-
-ordinarie.sort(sortFn);
-
-missioni.sort(sortFn);
+const sortAsc = (a, b) => _ts(a) - _ts(b);
 
 const pendenti = ordinarie.filter(p => p.stato === 'creata');
+
+const attivi = missioni.concat(pendenti).sort(sortAsc);
 
 // Completate: solo quelle delle ultime 2 ore (basato su completataAt)
 
@@ -263,7 +229,7 @@ return completataAt.getTime() >= due_ore_fa;
 
 });
 
-if (!pendenti.length && !completate.length && !missioni.length) {
+if (!attivi.length && !completate.length) {
 
 el.innerHTML = '<div class="emptyState">Nessuna prenotazione container trovata.</div>';
 
@@ -271,23 +237,23 @@ return;
 
 }
 
-const bloccoAttivo = Math.min(3, pendenti.length);
+const bloccoAttivo = Math.min(3, attivi.length);
 
 let html = '';
 
-if (missioni.length) {
+if (attivi.length) {
 
-html += `<div class="prenGroupTitle" style="color:var(--orange)">🚛 Missioni ribalta (${missioni.length})</div>`;
+html += `<div class="prenGroupTitle">DA MOVIMENTARE (${attivi.length})</div>`;
 
-missioni.forEach(p => { html += _missioneCard(p); });
+attivi.forEach((p, idx) => {
 
-}
+html += (p.tipoMissione === 'ribalta')
 
-if (pendenti.length) {
+? _missioneCard(p, idx < bloccoAttivo)
 
-html += `<div class="prenGroupTitle">DA MOVIMENTARE (${pendenti.length})</div>`;
+: _prenCard(p, idx < bloccoAttivo, idx);
 
-pendenti.forEach((p, idx) => { html += _prenCard(p, idx < bloccoAttivo, idx); });
+});
 
 }
 

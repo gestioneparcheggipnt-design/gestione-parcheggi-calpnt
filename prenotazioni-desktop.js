@@ -511,9 +511,11 @@ function renderPrenotazioni() {
   const filtroData  = document.getElementById('pren-filter-data')?.value || '';
   const filtroTarga = (document.getElementById('pren-filter-targa')?.value || '').toUpperCase().trim();
 
-  // Solo prenotazioni container (esclude casse e missioni ribalta su casse)
+  // Vista container: missioni ribalta (sempre) + prenotazioni ordinarie su container.
+  // Le missioni ribalta compaiono SOLO qui, mai nella vista casse.
   const _reContainer = window.RE_CONTAINER || /^[A-Z]{4}\d{7}$/;
   let lista = _prenotazioni.filter(p => {
+    if (p.tipoMissione === 'ribalta') return true;
     if (p.tipoMezzo && p.tipoMezzo !== 'container') return false;
     return _reContainer.test((p.plate || '').toUpperCase().trim());
   });
@@ -525,16 +527,15 @@ function renderPrenotazioni() {
     return d.toISOString().slice(0, 10) === filtroData;
   });
 
-  // Ordine: completate in fondo, poi urgenti prima, poi per createdAt crescente (prima inserite)
-  lista.sort((a, b) => {
-    const aCompletata = a.stato === 'completata' ? 1 : 0;
-    const bCompletata = b.stato === 'completata' ? 1 : 0;
-    if (aCompletata !== bCompletata) return aCompletata - bCompletata;
-    if (a.urgente !== b.urgente) return a.urgente ? -1 : 1;
-    const aCreated = a.createdAt?.toDate ? a.createdAt.toDate().getTime() : 0;
-    const bCreated = b.createdAt?.toDate ? b.createdAt.toDate().getTime() : 0;
-    return aCreated - bCreated;
-  });
+  // Ordine unico: dalla meno recente alla più recente.
+  // Le missioni ribalta non hanno createdAt → fallback su dataOra.
+  const _tsPren = (p) => {
+    const raw = p.createdAt || p.dataOra;
+    if (!raw) return 0;
+    const d = raw.toDate ? raw.toDate() : new Date(raw);
+    return isNaN(d.getTime()) ? 0 : d.getTime();
+  };
+  lista.sort((a, b) => _tsPren(a) - _tsPren(b));
 
   if (!lista.length) {
     tbody.innerHTML = '<tr><td colspan="8" class="pren-empty">Nessuna prenotazione trovata.</td></tr>';
@@ -551,7 +552,8 @@ function renderPrenotazioni() {
     const isOwn = window.currentUser && p.operatoreUid === window.currentUser.uid;
     const isAmministratore = window.currentUser && window.currentUser.role === 'amministratore';
     const canDelete = isAmministratore || (window.currentUser && window.currentUser.role === 'amministrativo' && isOwn);
-    if (p.stato === 'creata' && isAmministratore) {
+    const isRibalta = p.tipoMissione === 'ribalta';
+    if (p.stato === 'creata' && isAmministratore && !isRibalta) {
       const destConf = p.destinazione && p.destinazione !== '—' ? p.destinazione : null;
       const picker   = _ribaltaPickerHTMLDesk('desk_' + p.id);
       const confirmBtnLabel = destConf
@@ -595,8 +597,11 @@ function renderPrenotazioni() {
     }
     if (canDelete && p.stato !== 'completata') azioni += '<button class="pren-action-btn btn-elimina" onclick="eliminaPrenotazione(\'' + p.id + '\')">🗑</button>';
     const rowClass = p.stato === 'completata' ? ' class="pren-row-completata"' : '';
-    const operatoreDisplay = _esc(p.operatoreNome || p.operatoreEmail || '—');
-    return '<tr' + rowClass + '><td><strong>' + _esc(p.plate || '—') + '</strong></td><td>' + _esc(p.spotId || '—') + '</td><td>' + _esc(p.destinazione || '—') + '</td><td style="white-space:nowrap">' + dataStr + '</td><td>' + badgeStato + '</td><td style="text-align:center">' + badgeUrgente + '</td><td style="font-size:.9rem">' + operatoreDisplay + '</td><td><div class="pren-actions">' + azioni + '</div></td></tr>';
+    const operatoreDisplay = _esc(p.operatoreNome || p.operatoreEmail || p.utenteEmail || '—');
+    const badgeTipo = isRibalta
+      ? '<span style="display:inline-block;margin-left:6px;padding:1px 7px;border-radius:20px;background:#f9731620;border:1px solid #f9731650;color:#f97316;font-size:.75rem;font-weight:700">🚛 RIBALTA</span>'
+      : '';
+    return '<tr' + rowClass + '><td><strong>' + _esc(p.plate || '—') + '</strong>' + badgeTipo + '</td><td>' + _esc(p.spotId || '—') + '</td><td>' + _esc(p.destinazione || '—') + '</td><td style="white-space:nowrap">' + dataStr + '</td><td>' + badgeStato + '</td><td style="text-align:center">' + badgeUrgente + '</td><td style="font-size:.9rem">' + operatoreDisplay + '</td><td><div class="pren-actions">' + azioni + '</div></td></tr>';
   }).join('');
 }
 
