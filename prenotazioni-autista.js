@@ -693,6 +693,7 @@ function _renderCassaEdifici(spotId, plate, key) {
   if (!pnt1.length && !pnt2.length) h += '<div style="font-size:12px;color:var(--muted);margin-top:6px">Nessuna ribalta libera</div>';
   wrap.innerHTML = h;
 }
+window._renderCassaEdifici = _renderCassaEdifici;
 
 window._renderCassaReparti = function(spotId, plate, key, edificio) {
   const wrap = document.getElementById('cfCassa_' + key);
@@ -1041,6 +1042,7 @@ window.apriPopupRibalte_cassa = function(spotId, plate) {
   overlay.classList.add('visible');
 };
 
+window._popupCassaMostraEdifici = _popupCassaMostraEdifici;
 function _popupCassaMostraEdifici() {
   const list  = document.getElementById('popupRibalteList');
   const title = document.getElementById('popupRibalteTitle');
