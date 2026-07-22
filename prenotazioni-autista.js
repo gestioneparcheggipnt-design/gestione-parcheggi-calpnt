@@ -203,7 +203,19 @@ const ordinarie = _prenotazioni.filter(p => p.tipoMissione !== 'ribalta' && (!p.
 
 const _ts = (p) => { const d = _parseDate(p.dataOra); return d ? d.getTime() : 0; };
 
-const sortAsc = (a, b) => _ts(a) - _ts(b);
+// Urgenti in cima, poi dalla meno recente alla più recente.
+
+const sortAsc = (a, b) => {
+
+const aUrg = a.urgente ? 0 : 1;
+
+const bUrg = b.urgente ? 0 : 1;
+
+if (aUrg !== bUrg) return aUrg - bUrg;
+
+return _ts(a) - _ts(b);
+
+};
 
 const pendenti = ordinarie.filter(p => p.stato === 'creata');
 

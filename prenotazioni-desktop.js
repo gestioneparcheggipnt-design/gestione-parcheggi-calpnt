@@ -527,7 +527,7 @@ function renderPrenotazioni() {
     return d.toISOString().slice(0, 10) === filtroData;
   });
 
-  // Ordine unico: dalla meno recente alla più recente.
+  // Ordine: completate in fondo → urgenti prima → poi dalla meno recente alla più recente.
   // Le missioni ribalta non hanno createdAt → fallback su dataOra.
   const _tsPren = (p) => {
     const raw = p.createdAt || p.dataOra;
@@ -535,7 +535,15 @@ function renderPrenotazioni() {
     const d = raw.toDate ? raw.toDate() : new Date(raw);
     return isNaN(d.getTime()) ? 0 : d.getTime();
   };
-  lista.sort((a, b) => _tsPren(a) - _tsPren(b));
+  lista.sort((a, b) => {
+    const aChiusa = a.stato === 'creata' ? 0 : 1;
+    const bChiusa = b.stato === 'creata' ? 0 : 1;
+    if (aChiusa !== bChiusa) return aChiusa - bChiusa;
+    const aUrg = a.urgente ? 0 : 1;
+    const bUrg = b.urgente ? 0 : 1;
+    if (aUrg !== bUrg) return aUrg - bUrg;
+    return _tsPren(a) - _tsPren(b);
+  });
 
   if (!lista.length) {
     tbody.innerHTML = '<tr><td colspan="8" class="pren-empty">Nessuna prenotazione trovata.</td></tr>';
