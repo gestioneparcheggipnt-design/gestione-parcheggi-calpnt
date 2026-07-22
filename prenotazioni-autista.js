@@ -97,6 +97,47 @@ let _getMode;
 
 let _openCompletaId = null;
 
+// ── BLOCCO DI 3 A GRUPPI FISSI ────────────────────────────────────────
+// Le missioni si sbloccano a gruppi di 3: il gruppo successivo si attiva solo
+// quando TUTTE e 3 le missioni del gruppo corrente sono state completate.
+// Lo stato del gruppo è condiviso fra tutti i dispositivi tramite Firestore:
+//   - prenotazioni → campo `bloccoAt` (timestamp di apertura del gruppo)
+//   - spots (casse) → campo `bloccoPlate` (targa al momento dell'apertura)
+//     Il confronto bloccoPlate === plate rende il campo auto-invalidante:
+//     se il posto viene riusato da un'altra cassa, il vecchio marcatore decade.
+const BLOCCO_SIZE = 3;
+const _bloccoInFlight = new Set();
+
+async function _apriBloccoPren(lista) {
+  const nuovi = lista.filter(p => !_bloccoInFlight.has('p:' + p.id));
+  if (!nuovi.length) return;
+  nuovi.forEach(p => _bloccoInFlight.add('p:' + p.id));
+  try {
+    await Promise.all(nuovi.map(p =>
+      updateDoc(doc(window.db, 'prenotazioni', p.id), { bloccoAt: serverTimestamp() })
+    ));
+  } catch (e) {
+    console.error('Errore apertura blocco prenotazioni:', e);
+  } finally {
+    nuovi.forEach(p => _bloccoInFlight.delete('p:' + p.id));
+  }
+}
+
+async function _apriBloccoCasse(lista) {
+  const nuove = lista.filter(s => !_bloccoInFlight.has('s:' + s.id));
+  if (!nuove.length) return;
+  nuove.forEach(s => _bloccoInFlight.add('s:' + s.id));
+  try {
+    await Promise.all(nuove.map(s =>
+      setDoc(doc(window.db, 'spots', s.id), { bloccoPlate: s.plate || null }, { merge: true })
+    ));
+  } catch (e) {
+    console.error('Errore apertura blocco casse:', e);
+  } finally {
+    nuove.forEach(s => _bloccoInFlight.delete('s:' + s.id));
+  }
+}
+
 export function initPrenotazioni({ getUser, getMode }) {
 
 _getUser = getUser;
@@ -249,7 +290,25 @@ return;
 
 }
 
-const bloccoAttivo = Math.min(3, attivi.length);
+// Gruppo corrente = missioni già marcate con bloccoAt.
+// Se ne restano 0 (tutte completate) se ne apre uno nuovo con le prime 3.
+const gruppoCorrente = attivi.filter(p => p.bloccoAt);
+
+let bloccoIds;
+
+if (gruppoCorrente.length) {
+
+bloccoIds = new Set(gruppoCorrente.map(p => p.id));
+
+} else {
+
+const nuovoGruppo = attivi.slice(0, BLOCCO_SIZE);
+
+bloccoIds = new Set(nuovoGruppo.map(p => p.id));
+
+_apriBloccoPren(nuovoGruppo);
+
+}
 
 let html = '';
 
@@ -261,9 +320,9 @@ attivi.forEach((p, idx) => {
 
 html += (p.tipoMissione === 'ribalta')
 
-? _missioneCard(p, idx < bloccoAttivo)
+? _missioneCard(p, bloccoIds.has(p.id))
 
-: _prenCard(p, idx < bloccoAttivo, idx);
+: _prenCard(p, bloccoIds.has(p.id), idx);
 
 });
 
@@ -309,7 +368,24 @@ return;
 
 casseOccupate.sort((a, b) => _tsVal(a.since) - _tsVal(b.since));
 
-const BLOCCO = 3;
+// Gruppo corrente = casse marcate con bloccoPlate ancora coerente con la targa.
+const gruppoCorrente = casseOccupate.filter(s => s.bloccoPlate && s.bloccoPlate === s.plate);
+
+let bloccoIds;
+
+if (gruppoCorrente.length) {
+
+bloccoIds = new Set(gruppoCorrente.map(s => s.id));
+
+} else {
+
+const nuovoGruppo = casseOccupate.slice(0, BLOCCO_SIZE);
+
+bloccoIds = new Set(nuovoGruppo.map(s => s.id));
+
+_apriBloccoCasse(nuovoGruppo);
+
+}
 
 let html = htmlPrefix + `<div class="prenGroupTitle">Casse parcheggiate (${casseOccupate.length})</div>`;
 
@@ -325,9 +401,9 @@ const sinceStr = sinceTs
 
 : '—';
 
-const rankClass = idx < BLOCCO ? 'cassa-rank top' : 'cassa-rank';
+const abilitato = bloccoIds.has(s.id);
 
-const abilitato = idx < BLOCCO;
+const rankClass = abilitato ? 'cassa-rank top' : 'cassa-rank';
 
 let completaBtn = '';
 
@@ -1138,7 +1214,7 @@ async function selezionaRibalta_cassa_exec(spotId, plate, ribaltaId, user) {
   try {
     const ops = [];
     ops.push(setDoc(doc(window.db, 'spots', spotId), {
-      occupied: false, plate: null, since: null, user: null, full: false
+      occupied: false, plate: null, since: null, user: null, full: false, bloccoPlate: null
     }, { merge: true }));
     ops.push(setDoc(doc(window.db, 'ribalte', ribaltaId), {
       occupied: true, plate: plate || null, since: serverTimestamp(), user: user?.email || null, full: false,
