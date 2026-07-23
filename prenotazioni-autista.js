@@ -37,6 +37,42 @@ function validateDestination(dest) {
 }
 
 const RE_CASSA = /^\d{3}$/;
+const RE_CONTAINER = /^[A-Z]{4}\d{7}$/;
+
+// Tipo veicolo dedotto dalla targa (fallback: container)
+function _tipoDaPlate(plate) {
+  const k = (plate || '').trim().toUpperCase();
+  if (RE_CASSA.test(k)) return 'cassa';
+  if (RE_CONTAINER.test(k)) return 'container';
+  return 'container';
+}
+
+// ── Criteri parcheggi ─────────────────────────────────────────────────────────
+// A01–A12 container pieno · A13–A24 container vuoto
+// B01–B09 cassa pieno · C** / D** cassa vuoto
+function _spotCriterio(id) {
+  const m = String(id || '').trim().toUpperCase().match(/^([A-D])(\d{2})$/);
+  if (!m) return null;
+  const zona = m[1], n = parseInt(m[2], 10);
+  if (zona === 'A') return { tipo: 'container', stato: n <= 12 ? 'pieno' : 'vuoto' };
+  if (zona === 'B') return { tipo: 'cassa', stato: 'pieno' };
+  return { tipo: 'cassa', stato: 'vuoto' };
+}
+
+// Parcheggi liberi compatibili con tipo (+ eventuale stato)
+function _postiLiberiPerTipo(tipo, stato = null) {
+  const ids = Array.isArray(window.SPOT_DEFS) && window.SPOT_DEFS.length
+    ? window.SPOT_DEFS.map(d => String(d[0]).trim().toUpperCase())
+    : Object.keys(_spots);
+  return ids.filter(id => {
+    const c = _spotCriterio(id);
+    if (!c || c.tipo !== tipo) return false;
+    if (stato && c.stato !== stato) return false;
+    const s = _spots[id];
+    if (s && (s.occupied || s.unusable)) return false;
+    return true;
+  }).sort();
+}
 
 // ── Helper ribalte libere ──────────────────────────────────────────────────────
 // Restituisce ribalte libere filtrate per reparto (null = tutte).
@@ -226,7 +262,28 @@ if (!el) return;
 
 if (mode === 'cassa') {
 
-_renderCasse(el);
+// Missioni ribalta la cui ribalta è occupata da una CASSA
+const missioniCasse = _prenotazioni
+  .filter(p => p.tipoMissione === 'ribalta' && p.stato === 'creata' && _tipoDaPlate(p.plate) === 'cassa')
+  .sort((a, b) => {
+    const u = (a.urgente ? 0 : 1) - (b.urgente ? 0 : 1);
+    if (u !== 0) return u;
+    const da = _parseDate(a.dataOra), db_ = _parseDate(b.dataOra);
+    return (da ? da.getTime() : 0) - (db_ ? db_.getTime() : 0);
+  });
+
+let prefixHtml = '';
+if (missioniCasse.length) {
+  prefixHtml += `<div class="prenGroupTitle">RIBALTE DA LIBERARE (${missioniCasse.length})</div>`;
+  missioniCasse.forEach(p => { prefixHtml += _missioneCard(p, true); });
+}
+
+_renderCasse(el, prefixHtml);
+
+if (_openCompletaId) {
+  const form = document.getElementById('completaForm_' + _openCompletaId);
+  if (form) form.style.display = 'block';
+}
 
 return;
 
@@ -238,7 +295,9 @@ return;
 
 // ordinata unicamente dalla meno recente alla più recente.
 
-const missioni = _prenotazioni.filter(p => p.tipoMissione === 'ribalta' && p.stato === 'creata');
+const missioni = _prenotazioni.filter(p =>
+  p.tipoMissione === 'ribalta' && p.stato === 'creata' && _tipoDaPlate(p.plate) === 'container'
+);
 
 const ordinarie = _prenotazioni.filter(p => p.tipoMissione !== 'ribalta' && (!p.tipoMezzo || p.tipoMezzo === 'container'));
 
@@ -495,7 +554,7 @@ const btnHTML = abilitato
 ? `<button class="btnCompleta" onclick="aprirCompletaMissione('${p.id}')" style="margin-top:10px">✅ Completa missione</button>
 <div class="completaForm" id="completaForm_${p.id}" style="display:none">
   <div data-step="picker" id="cfStep_${p.id}">
-    ${_buildContainerPicker(p)}
+    ${_buildPostiPicker(p)}
   </div>
   <div data-step="undo" id="cfUndo_${p.id}" style="display:none"></div>
 </div>`
@@ -631,6 +690,33 @@ ${btnHTML}
 
 </div>`;
 
+}
+
+// ── BUILD PICKER PARCHEGGI (missioni: liberare una ribalta) ───────────────────
+
+function _buildPostiPicker(p) {
+  const tipo = _tipoDaPlate(p.plate);
+  // Lo stato dichiarato dall'operativo alla liberazione della ribalta decide
+  // la famiglia di parcheggi: pieno → A01–A12 / B01–B09, vuoto → A13–A24 / C–D.
+  const stato = p.fullAllaLibera ? 'pieno' : 'vuoto';
+  const liberi = _postiLiberiPerTipo(tipo, stato);
+
+  const etichetta = `${tipo === 'cassa' ? 'casse' : 'container'} ${stato === 'pieno' ? 'piene' : 'vuote'}`
+    .replace('container piene', 'container pieni').replace('container vuote', 'container vuoti');
+  let html = `<div style="${_S.sectionLabel}">Parcheggio destinazione — ${etichetta}</div>`;
+
+  if (!liberi.length) {
+    html += '<div style="font-size:12px;color:var(--muted);margin:4px 0 6px">Nessun parcheggio libero compatibile</div>';
+  } else {
+    html += '<div style="display:flex;flex-wrap:wrap">';
+    liberi.forEach(id => {
+      html += `<button style="${_S.ribaltaBtn}" onclick="confermaPicker('${p.id}','${id}')">${id}</button>`;
+    });
+    html += '</div>';
+  }
+
+  html += `<button style="margin-top:8px;padding:6px 12px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--muted);font-family:inherit;font-size:12px;cursor:pointer" onclick="chiudiCompletaForm('${p.id}')">Annulla</button>`;
+  return html;
 }
 
 // ── BUILD PICKER CONTAINER ────────────────────────────────────────────────────
@@ -966,6 +1052,13 @@ const origine = (pren.spotId || '').trim().toUpperCase();
 
 const dest = postoFine.trim().toUpperCase();
 
+// Stato del veicolo in transito:
+// - missione ribalta → dichiarazione dell'operativo in `fullAllaLibera`
+// - prenotazione ordinaria → flag `full` del posto d'origine, letto prima di liberarlo
+const statoPieno = (pren.tipoMissione === 'ribalta')
+  ? !!pren.fullAllaLibera
+  : !!(_spots[origine] && _spots[origine].full);
+
 if (isValidSpot(origine)) {
 
 ops.push(setDoc(doc(window.db, 'spots', origine), {
@@ -996,6 +1089,8 @@ since: serverTimestamp(),
 
 user: pren.utenteEmail || null,
 
+full: statoPieno,
+
 }, { merge: true }));
 
 } else if (isValidRibalta(dest)) {
@@ -1010,7 +1105,7 @@ since: serverTimestamp(),
 
 user: pren.utenteEmail || null,
 
-full: pren.fullAllaLibera || false,
+full: statoPieno,
 
 }, { merge: true }));
 
@@ -1244,12 +1339,15 @@ function _popupCassaMostraRibalte(reparto) {
 // Logica esecutiva separata (usata sia dal vecchio popup che dal nuovo picker)
 async function selezionaRibalta_cassa_exec(spotId, plate, ribaltaId, user) {
   try {
+    // Stato del veicolo letto PRIMA di liberare il posto: se partiva pieno,
+    // resta pieno finché l'operativo non dichiara la ribalta vuota.
+    const eraPieno = !!(_spots[spotId] && _spots[spotId].full);
     const ops = [];
     ops.push(setDoc(doc(window.db, 'spots', spotId), {
       occupied: false, plate: null, since: null, user: null, full: false, bloccoPlate: null
     }, { merge: true }));
     ops.push(setDoc(doc(window.db, 'ribalte', ribaltaId), {
-      occupied: true, plate: plate || null, since: serverTimestamp(), user: user?.email || null, full: false,
+      occupied: true, plate: plate || null, since: serverTimestamp(), user: user?.email || null, full: eraPieno,
     }, { merge: true }));
     ops.push(addDoc(collection(window.db, 'history'), {
       ts: serverTimestamp(), spot: ribaltaId, action: 'Missione cassa completata',
@@ -1288,6 +1386,9 @@ stato: 'completata', destinazione: ribaltaId, completataAt: serverTimestamp(), p
 
 const spotId = (pren.spotId || '').trim();
 
+// Stato del veicolo letto PRIMA di liberare il posto d'origine.
+const eraPieno = !!(spotId && _spots[spotId] && _spots[spotId].full);
+
 if (spotId) {
 
 ops.push(setDoc(doc(window.db, 'spots', spotId), {
@@ -1300,7 +1401,7 @@ occupied: false, plate: null, since: null, user: null, full: false
 
 ops.push(setDoc(doc(window.db, 'ribalte', ribaltaId), {
 
-occupied: true, plate: pren.plate || null, since: serverTimestamp(), user: pren.operatoreEmail || null, full: false,
+occupied: true, plate: pren.plate || null, since: serverTimestamp(), user: pren.operatoreEmail || null, full: eraPieno,
 
 }, { merge: true }));
 
