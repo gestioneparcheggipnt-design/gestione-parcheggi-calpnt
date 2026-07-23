@@ -727,12 +727,43 @@ window._mostraRibalteReparto = function(prenId, repartoNome, edificio, repartoFi
 
 // ── BUILD PICKER CASSE (inline, edificio > reparto > ribalte) ─────────────────
 
+// Trova la chiave del reparto REVERSE in window._REPARTI (case/spazi-insensitive)
+function _keyReverse() {
+  if (!window._REPARTI) return null;
+  return Object.keys(window._REPARTI)
+    .find(k => String(k).trim().toUpperCase().replace(/\s+/g, '') === 'REVERSE') || null;
+}
+
 window.aprirCompletaCassa = function(spotId, plate, key) {
   const wrap = document.getElementById('cfCassa_' + key);
   if (!wrap) return;
   wrap.style.display = 'block';
-  _renderCassaEdifici(spotId, plate, key);
+  _renderCassaDefault(spotId, plate, key);
 };
+
+// Vista di default: ribalte libere del reparto REVERSE come pulsanti diretti
+function _renderCassaDefault(spotId, plate, key) {
+  const wrap = document.getElementById('cfCassa_' + key);
+  if (!wrap) return;
+
+  const kRev = _keyReverse();
+  const libere = kRev ? _ribalteLiberePerReparto(kRev) : [];
+
+  let h = `<div style="${_S.sectionLabel}">Ribalte libere REVERSE:</div>`;
+  if (libere.length) {
+    h += '<div style="display:flex;flex-wrap:wrap">';
+    libere.forEach(r => {
+      h += `<button style="${_S.ribaltaBtn}" onclick="confermaCassaPicker('${spotId}','${plate}','${key}','${r.id}')">${r.id}</button>`;
+    });
+    h += '</div>';
+  } else {
+    h += '<div style="font-size:12px;color:var(--muted);margin:4px 0 6px">Nessuna ribalta REVERSE libera</div>';
+  }
+
+  h += `<div style="margin-top:8px"><button style="${_S.navBtn}" onclick="_renderCassaEdifici('${spotId}','${plate}','${key}')">🔀 Altra ribalta</button></div>`;
+  wrap.innerHTML = h;
+}
+window._renderCassaDefault = _renderCassaDefault;
 
 function _renderCassaEdifici(spotId, plate, key) {
   const wrap = document.getElementById('cfCassa_' + key);
@@ -741,7 +772,8 @@ function _renderCassaEdifici(spotId, plate, key) {
   const pnt1 = libere.filter(r => r.id.startsWith('PNT1-'));
   const pnt2 = libere.filter(r => r.id.startsWith('PNT2-'));
 
-  let h = `<div style="${_S.sectionLabel}">Seleziona edificio:</div>`;
+  let h = `<button style="${_S.navBtn}" onclick="_renderCassaDefault('${spotId}','${plate}','${key}')">← Indietro</button>`;
+  h += `<div style="${_S.sectionLabel}">Seleziona edificio:</div>`;
   if (pnt1.length) h += `<button style="${_S.navBtn}" onclick="_renderCassaReparti('${spotId}','${plate}','${key}','PNT1')">🏭 PNT1 (${pnt1.length})</button>`;
   if (pnt2.length) h += `<button style="${_S.navBtn}" onclick="_renderCassaReparti('${spotId}','${plate}','${key}','PNT2')">🏭 PNT2 (${pnt2.length})</button>`;
   if (!pnt1.length && !pnt2.length) h += '<div style="font-size:12px;color:var(--muted);margin-top:6px">Nessuna ribalta libera</div>';
