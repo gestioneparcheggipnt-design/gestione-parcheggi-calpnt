@@ -22,7 +22,11 @@ jobs:
       - name: Cache busting
         run: |
           HASH=$(date +%s)
-          sed -i -E "s/(\.js|\.css)(\?v=[^'\"]*)?([\"'])/\1?v=$HASH\3/g" index.html mobile.html app-desktop.js
+          # Applica ?v= SOLO ai percorsi locali che iniziano con './'.
+          # Gli URL assoluti (CDN gstatic di Firebase) devono restare intatti:
+          # aggiungere ?v= a un URL del CDN crea una SECONDA copia dell'SDK,
+          # con classi distinte, e i controlli 'instanceof Firestore' falliscono.
+          sed -i -E "s#(['\"]\./[^'\"]+\.(js|css))(\?v=[^'\"]*)?(['\"])#\1?v=$HASH\4#g" index.html mobile.html app-desktop.js
 
       - uses: actions/configure-pages@v4
       - uses: actions/upload-pages-artifact@v3
