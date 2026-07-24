@@ -16,6 +16,22 @@ function _getDestinazioni() {
   return [];
 }
 
+// ── HELPER REPARTO ────────────────────────────────────────────────────────────
+// Trova la chiave reale in window._REPARTI ignorando maiuscole/spazi.
+// Ritorna null se il reparto non esiste (NON fa fallback su "tutte").
+function _repartoKeyDaNome(nome) {
+  if (!nome || !window._REPARTI) return null;
+  const target = String(nome).trim().toUpperCase();
+  return Object.keys(window._REPARTI)
+    .find(k => String(k).trim().toUpperCase() === target) || null;
+}
+
+// Set (upper-case) delle ribalte appartenenti a un reparto.
+function _ribalteDelReparto(repKey) {
+  const ids = (repKey && window._REPARTI && window._REPARTI[repKey]) || [];
+  return new Set(ids.map(id => String(id).trim().toUpperCase()));
+}
+
 // ── STATO INTERNO ─────────────────────────────────────────────────────────────
 let _getUser;
 let _unsubRibalte = null;
@@ -60,7 +76,42 @@ export function renderRibalte() {
   const el = document.getElementById('ribaltaList');
   if (!el) return;
 
-  const ribalte = Object.values(_ribalteData).sort((a, b) => {
+  const user        = _getUser ? _getUser() : null;
+  const isOperativo = user?.role === 'operativo';
+
+  // Reparto associato all'utente operativo
+  const repKey     = isOperativo ? _repartoKeyDaNome(user.reparto) : null;
+  const consentite = isOperativo ? _ribalteDelReparto(repKey) : null;
+
+  // ── Etichetta reparto in alto ───────────────────────────────────────────────
+  const subEl = document.getElementById('ribalteSubtitle');
+  if (subEl) {
+    if (isOperativo) {
+      subEl.innerHTML = repKey
+        ? `<span style="display:inline-block;padding:4px 12px;border-radius:20px;
+                        border:1.5px solid var(--accent);background:transparent;
+                        color:var(--accent);font-size:13px;font-weight:800;
+                        letter-spacing:.5px">🏷️ ${_esc(repKey)}</span>`
+        : `<span style="display:inline-block;padding:4px 12px;border-radius:20px;
+                        border:1.5px solid var(--red);background:transparent;
+                        color:var(--red);font-size:13px;font-weight:800">
+             ⚠️ Nessun reparto associato
+           </span>`;
+    } else {
+      subEl.textContent = 'Le tue ribalte di competenza';
+    }
+  }
+
+  // ── Lista ribalte ───────────────────────────────────────────────────────────
+  // Operativo: SOLO le ribalte occupate del proprio reparto (nessuna libera).
+  let ribalte = Object.values(_ribalteData);
+  if (isOperativo) {
+    ribalte = ribalte.filter(r =>
+      r.occupied && consentite.has(String(r.id).trim().toUpperCase())
+    );
+  }
+
+  ribalte.sort((a, b) => {
     if (a.occupied && !b.occupied) return -1;
     if (!a.occupied && b.occupied) return 1;
     return a.id.localeCompare(b.id);
@@ -68,20 +119,28 @@ export function renderRibalte() {
 
   const statsEl = document.getElementById('ribalteStats');
   if (statsEl) {
-    const occ  = ribalte.filter(r => r.occupied).length;
-    const free = ribalte.length - occ;
-    statsEl.innerHTML = `
-      <div class="statCard blue"><div class="val">${ribalte.length}</div><div class="lbl">Totali</div></div>
-      <div class="statCard green"><div class="val">${free}</div><div class="lbl">Libere</div></div>
-      <div class="statCard red"><div class="val">${occ}</div><div class="lbl">Occupate</div></div>`;
+    if (isOperativo) {
+      statsEl.innerHTML = `
+        <div class="statCard red"><div class="val">${ribalte.length}</div><div class="lbl">Occupate</div></div>`;
+    } else {
+      const occ  = ribalte.filter(r => r.occupied).length;
+      const free = ribalte.length - occ;
+      statsEl.innerHTML = `
+        <div class="statCard blue"><div class="val">${ribalte.length}</div><div class="lbl">Totali</div></div>
+        <div class="statCard green"><div class="val">${free}</div><div class="lbl">Libere</div></div>
+        <div class="statCard red"><div class="val">${occ}</div><div class="lbl">Occupate</div></div>`;
+    }
   }
 
   if (!ribalte.length) {
-    el.innerHTML = '<div class="emptyState">Nessuna ribalta trovata.<br><small>Inizializza la collection "ribalte" su Firestore.</small></div>';
+    el.innerHTML = isOperativo
+      ? (repKey
+          ? '<div class="emptyState">Nessuna ribalta occupata nel tuo reparto.</div>'
+          : '<div class="emptyState">Nessun reparto associato al tuo utente.<br><small>Contatta un amministratore.</small></div>')
+      : '<div class="emptyState">Nessuna ribalta trovata.<br><small>Inizializza la collection "ribalte" su Firestore.</small></div>';
     return;
   }
 
-  const user = _getUser ? _getUser() : null;
   el.innerHTML = ribalte.map(r => _ribaltaCard(r, user)).join('');
 }
 
