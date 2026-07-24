@@ -180,6 +180,47 @@ async function _apriBloccoPren(lista) {
   }
 }
 
+// Lista casse piene, ordinata dalla più vecchia alla più recente.
+function _casseOccupateOrdinate() {
+  return Object.values(_spots)
+    .filter(s => s.occupied && s.full && s.plate && RE_CASSA.test(s.plate.trim()))
+    .sort((a, b) => _tsVal(a.since) - _tsVal(b.since));
+}
+
+// Blocco UNICO per la modalità cassa: le missioni ribalta e le casse parcheggiate
+// pescano dallo stesso gruppo di 3. Le chiavi sono namespaced ('p:' prenotazione,
+// 's:' spot) perché le due collezioni hanno spazi di ID diversi.
+function _calcolaBloccoCassa(missioni, casse) {
+  const marcateP = missioni.filter(p => p.bloccoAt);
+  const marcateS = casse.filter(s => s.bloccoPlate && s.bloccoPlate === s.plate);
+
+  if (marcateP.length || marcateS.length) {
+    return new Set([
+      ...marcateP.map(p => 'p:' + p.id),
+      ...marcateS.map(s => 's:' + s.id),
+    ]);
+  }
+
+  // Nessun gruppo aperto → se ne apre uno nuovo con i 3 più vecchi delle due liste
+  // fuse insieme (urgenti in cima, poi anzianità).
+  const cand = [
+    ...missioni.map(p => {
+      const d = _parseDate(p.dataOra);
+      return { key: 'p:' + p.id, urg: p.urgente ? 0 : 1, ts: d ? d.getTime() : 0, pren: p };
+    }),
+    ...casse.map(s => ({ key: 's:' + s.id, urg: 1, ts: _tsVal(s.since), spot: s })),
+  ].sort((a, b) => (a.urg - b.urg) || (a.ts - b.ts));
+
+  const gruppo = cand.slice(0, BLOCCO_SIZE);
+
+  const nuoveP = gruppo.filter(c => c.pren).map(c => c.pren);
+  const nuoveS = gruppo.filter(c => c.spot).map(c => c.spot);
+  if (nuoveP.length) _apriBloccoPren(nuoveP);
+  if (nuoveS.length) _apriBloccoCasse(nuoveS);
+
+  return new Set(gruppo.map(c => c.key));
+}
+
 async function _apriBloccoCasse(lista) {
   const nuove = lista.filter(s => !_bloccoInFlight.has('s:' + s.id));
   if (!nuove.length) return;
@@ -293,13 +334,18 @@ const missioniCasse = _prenotazioni
     return (da ? da.getTime() : 0) - (db_ ? db_.getTime() : 0);
   });
 
+const casseOccupate = _casseOccupateOrdinate();
+
+// Gruppo UNICO di 3 condiviso fra "RIBALTE DA LIBERARE" e "Casse parcheggiate".
+const bloccoIds = _calcolaBloccoCassa(missioniCasse, casseOccupate);
+
 let prefixHtml = '';
 if (missioniCasse.length) {
   prefixHtml += `<div class="prenGroupTitle">RIBALTE DA LIBERARE (${missioniCasse.length})</div>`;
-  missioniCasse.forEach(p => { prefixHtml += _missioneCard(p, true); });
+  missioniCasse.forEach(p => { prefixHtml += _missioneCard(p, bloccoIds.has('p:' + p.id)); });
 }
 
-_renderCasse(el, prefixHtml);
+_renderCasse(el, prefixHtml, casseOccupate, bloccoIds);
 
 if (_openCompletaId) {
   const form = document.getElementById('completaForm_' + _openCompletaId);
@@ -382,13 +428,13 @@ let bloccoIds;
 
 if (gruppoCorrente.length) {
 
-bloccoIds = new Set(gruppoCorrente.map(p => p.id));
+bloccoIds = new Set(gruppoCorrente.map(p => 'p:' + p.id));
 
 } else {
 
 const nuovoGruppo = attivi.slice(0, BLOCCO_SIZE);
 
-bloccoIds = new Set(nuovoGruppo.map(p => p.id));
+bloccoIds = new Set(nuovoGruppo.map(p => 'p:' + p.id));
 
 _apriBloccoPren(nuovoGruppo);
 
@@ -404,9 +450,9 @@ attivi.forEach((p, idx) => {
 
 html += (p.tipoMissione === 'ribalta')
 
-? _missioneCard(p, bloccoIds.has(p.id))
+? _missioneCard(p, bloccoIds.has('p:' + p.id))
 
-: _prenCard(p, bloccoIds.has(p.id), idx);
+: _prenCard(p, bloccoIds.has('p:' + p.id), idx);
 
 });
 
@@ -434,40 +480,24 @@ if (form) form.style.display = 'block';
 
 // ── VISTA CASSE ───────────────────────────────────────────────────────────────
 
-function _renderCasse(el, htmlPrefix = '') {
+function _renderCasse(el, htmlPrefix = '', casseOccupate = null, bloccoIds = null) {
+
+if (!casseOccupate) casseOccupate = _casseOccupateOrdinate();
+
+if (!bloccoIds) bloccoIds = _calcolaBloccoCassa([], casseOccupate);
+
+/* lista calcolata a monte:
 
 const casseOccupate = Object.values(_spots).filter(s =>
 
 s.occupied && s.full && s.plate && RE_CASSA.test(s.plate.trim())
-
-);
+); */
 
 if (!casseOccupate.length) {
 
 el.innerHTML = htmlPrefix + '<div class="emptyState">Nessuna cassa piena al momento.</div>';
 
 return;
-
-}
-
-casseOccupate.sort((a, b) => _tsVal(a.since) - _tsVal(b.since));
-
-// Gruppo corrente = casse marcate con bloccoPlate ancora coerente con la targa.
-const gruppoCorrente = casseOccupate.filter(s => s.bloccoPlate && s.bloccoPlate === s.plate);
-
-let bloccoIds;
-
-if (gruppoCorrente.length) {
-
-bloccoIds = new Set(gruppoCorrente.map(s => s.id));
-
-} else {
-
-const nuovoGruppo = casseOccupate.slice(0, BLOCCO_SIZE);
-
-bloccoIds = new Set(nuovoGruppo.map(s => s.id));
-
-_apriBloccoCasse(nuovoGruppo);
 
 }
 
@@ -485,7 +515,7 @@ const sinceStr = sinceTs
 
 : '—';
 
-const abilitato = bloccoIds.has(s.id);
+const abilitato = bloccoIds.has('s:' + s.id);
 
 const rankClass = abilitato ? 'cassa-rank top' : 'cassa-rank';
 
