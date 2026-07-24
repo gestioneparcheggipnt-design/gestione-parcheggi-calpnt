@@ -105,6 +105,27 @@ function _ribalteLiberePerReparto(reparto, escludiPrenId = null) {
     .sort((a, b) => a.id.localeCompare(b.id));
 }
 
+// ── Filtro ribalte per reparto (ruolo `operativo`) ────────────────────────────
+// L'utente `operativo` deve vedere/liberare solo le ribalte del proprio reparto.
+// Trova la chiave reale in window._REPARTI ignorando case e spazi.
+function _repartoKeyDaNome(nome) {
+  if (!nome || !window._REPARTI) return null;
+  const target = String(nome).trim().toUpperCase();
+  return Object.keys(window._REPARTI)
+    .find(k => String(k).trim().toUpperCase() === target) || null;
+}
+
+// Set delle ribalte visibili all'utente corrente.
+// Ritorna null quando non va applicato alcun filtro (tutti gli altri ruoli).
+function _ribalteConsentiteUtente() {
+  const user = _getUser ? _getUser() : null;
+  if (!user || user.role !== 'operativo') return null;
+  const key = _repartoKeyDaNome(user.reparto);
+  if (!key) return new Set(); // operativo senza reparto valido → nessuna ribalta
+  const ids = (window._REPARTI || {})[key] || [];
+  return new Set(ids.map(id => String(id).trim().toUpperCase()));
+}
+
 // Stili inline condivisi
 const _S = {
   ribaltaBtn: 'display:inline-block;margin:3px;padding:7px 13px;border-radius:8px;border:1.5px solid var(--accent);background:transparent;color:var(--accent);font-family:inherit;font-size:13px;font-weight:700;cursor:pointer',
@@ -295,8 +316,12 @@ return;
 
 // ordinata unicamente dalla meno recente alla più recente.
 
+// Ruolo `operativo`: solo le ribalte del reparto associato all'utente.
+const _ribConsentite = _ribalteConsentiteUtente();
+
 const missioni = _prenotazioni.filter(p =>
-  p.tipoMissione === 'ribalta' && p.stato === 'creata' && _tipoDaPlate(p.plate) === 'container'
+  p.tipoMissione === 'ribalta' && p.stato === 'creata' && _tipoDaPlate(p.plate) === 'container' &&
+  (!_ribConsentite || _ribConsentite.has(String(p.spotId || '').trim().toUpperCase()))
 );
 
 const ordinarie = _prenotazioni.filter(p => p.tipoMissione !== 'ribalta' && (!p.tipoMezzo || p.tipoMezzo === 'container'));
