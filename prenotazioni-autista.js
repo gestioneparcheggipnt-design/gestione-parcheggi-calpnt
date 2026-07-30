@@ -1172,6 +1172,8 @@ spot: dest,
 
 action: 'Missione completata',
 
+tipo: _tipoDaPlate(pren.plate),
+
 plate: pren.plate || null,
 
 origine,
@@ -1403,7 +1405,7 @@ async function selezionaRibalta_cassa_exec(spotId, plate, ribaltaId, user) {
       occupied: true, plate: plate || null, since: serverTimestamp(), user: user?.email || null, full: eraPieno,
     }, { merge: true }));
     ops.push(window.logHistory({
-      spot: ribaltaId, action: 'Missione cassa completata',
+      spot: ribaltaId, action: 'Missione completata', tipo: 'cassa',
       plate: plate || null, origine: spotId, destinazione: ribaltaId,
     }));
     await Promise.all(ops);
@@ -1460,7 +1462,7 @@ occupied: true, plate: pren.plate || null, since: serverTimestamp(), user: pren.
 
 ops.push(window.logHistory({
 
-spot: ribaltaId, action: 'Missione cassa completata',
+spot: ribaltaId, action: 'Missione completata', tipo: 'cassa',
 
 plate: pren.plate || null, origine: spotId, destinazione: ribaltaId,
 

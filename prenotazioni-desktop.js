@@ -700,7 +700,7 @@ window.confermaDeskCompleta = async function(id) {
       user: auth.currentUser?.email || '—', full: spotFull
     });
     await window.logHistory({
-      spot: dest, action: 'Missione completata', plate,
+      spot: dest, action: 'Missione completata', tipo: /^\d{3}$/.test(String(plate||'').trim()) ? 'cassa' : 'container', plate,
       origine: pren?.spotId || null, destinazione: dest,
       richiedente: pren?.operatoreNome || pren?.utenteNome || pren?.operatoreEmail || pren?.utenteEmail || null
     });
