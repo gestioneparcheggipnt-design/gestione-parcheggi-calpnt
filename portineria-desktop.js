@@ -315,12 +315,10 @@ async function porteriaConferma() {
       user:     window.currentUser.email,
       full:     _portStato === 'pieno',
     });
-    await addDoc(collection(window.db, 'history'), {
-      ts:          now,
+    await window.logHistory({
       spot:        id,
       action:      'checkin',
       plate:       veicolo,
-      user:        window.currentUser.email,
       origine:     'portineria',
     });
 

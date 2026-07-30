@@ -716,11 +716,8 @@ window.addUser = async function(){
 async function removeDamaged(id){
   try{
     await updateDoc(doc(window.db,"spots",id),{ damaged: false });
-    await addDoc(collection(window.db,"history"),{
-      ts: serverTimestamp(), spot:id,
-      action:"Danno rimosso", plate:window.window.spots[id].plate,
-      user: window.currentUser.name || window.currentUser.email,
-      userName: window.currentUser.name || window.currentUser.email
+    await window.logHistory({
+      spot:id, action:"Danno rimosso", plate:window.spots[id].plate
     });
     window.selectSpot(id);
     showToast(`Segnalazione danno rimossa per posto ${id}`,"success");
@@ -733,11 +730,8 @@ window._removeDamaged=removeDamaged;
 async function addDamaged(id){
   try{
     await updateDoc(doc(window.db,"spots",id),{ damaged: true });
-    await addDoc(collection(window.db,"history"),{
-      ts: serverTimestamp(), spot:id,
-      action:"Danno segnalato", plate:window.window.spots[id].plate,
-      user: window.currentUser.name || window.currentUser.email,
-      userName: window.currentUser.name || window.currentUser.email
+    await window.logHistory({
+      spot:id, action:"Danno segnalato", plate:window.spots[id].plate
     });
     window.selectSpot(id);
     showToast(`Veicolo danneggiato segnalato per posto ${id}`,"success");
@@ -750,11 +744,8 @@ window._addDamaged=addDamaged;
 async function addUnusable(id){
   try{
     await updateDoc(doc(window.db,"spots",id),{ unusable: true });
-    await addDoc(collection(window.db,"history"),{
-      ts: serverTimestamp(), spot:id,
-      action:"Inutilizzabile segnalato", plate:window.window.spots[id].plate,
-      user: window.currentUser.name || window.currentUser.email,
-      userName: window.currentUser.name || window.currentUser.email
+    await window.logHistory({
+      spot:id, action:"Inutilizzabile segnalato", plate:window.spots[id].plate
     });
     window.selectSpot(id);
     showToast(`Veicolo segnato come inutilizzabile: posto ${id}`,"success");
@@ -767,11 +758,8 @@ window._addUnusable=addUnusable;
 async function removeUnusable(id){
   try{
     await updateDoc(doc(window.db,"spots",id),{ unusable: false });
-    await addDoc(collection(window.db,"history"),{
-      ts: serverTimestamp(), spot:id,
-      action:"Inutilizzabile rimosso", plate:window.window.spots[id].plate,
-      user: window.currentUser.name || window.currentUser.email,
-      userName: window.currentUser.name || window.currentUser.email
+    await window.logHistory({
+      spot:id, action:"Inutilizzabile rimosso", plate:window.spots[id].plate
     });
     window.selectSpot(id);
     showToast(`Segnalazione inutilizzabile rimossa: posto ${id}`,"success");

@@ -1,4 +1,23 @@
 // ── shared-utils.js (mobile) ─────────────────────────────────────────────────
+import { addDoc, collection, serverTimestamp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
+
+// ── LOG STORICO CENTRALIZZATO ────────────────────────────────────────────────
+// Unico punto di scrittura su `history`. Riempie sempre ts (ora server),
+// user/userName (SOLO nome di chi esegue l'azione, letto da window.currentUser) e role.
+// Campi extra (mode, origine, destinazione, richiedente…) vengono inclusi così come passati.
+window.logHistory = function(entry = {}) {
+  const u = window.currentUser || {};
+  const nome = u.name || u.email || '—';
+  const { spot = null, action = null, plate = null, ...rest } = entry;
+  return addDoc(collection(window.db, 'history'), {
+    ...rest,
+    ts: serverTimestamp(),
+    spot, action, plate,
+    user: nome,
+    userName: nome,
+    role: u.role || null,
+  });
+};
 
 // ── Formattazione date ────────────────────────────────────────────────────────
 export function fmtDate(d) {

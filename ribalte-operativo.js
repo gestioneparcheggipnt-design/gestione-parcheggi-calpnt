@@ -249,10 +249,12 @@ window.confermaLibera = async function(id) {
       urgente:        false,
       utenteUid:      user?.uid   || '',
       utenteEmail:    user?.email || '',
+      utenteNome:     user?.name  || user?.email || '',
       tipoMissione:   'ribalta',
       fullAllaLibera: full,
       note:           `Ribalta ${id} liberata — veicolo ${full ? 'PIENO' : 'VUOTO'}`
     });
+    await window.logHistory({ spot: id, action: 'Ribalta richiesta', plate });
     showToast(`Ribalta ${id} liberata — missione creata`, 'success');
   } catch (e) {
     showToast('Errore: ' + e.message, 'error');

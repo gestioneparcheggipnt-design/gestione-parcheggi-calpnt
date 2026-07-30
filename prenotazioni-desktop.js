@@ -473,6 +473,7 @@ async function salvaPrenotazione() {
       operatoreNome: operatoreNome,
       createdAt: serverTimestamp()
     });
+    await window.logHistory({ spot: _mezzoCorrente.spotId, action: 'Prenotazione creata', plate: _mezzoCorrente.plate, destinazione, mode: 'container' });
     resetFormPrenotazione();
   } catch (err) {
     console.error('Errore salvataggio:', err);
@@ -487,6 +488,13 @@ async function cambiaStatoPrenotazione(id, nuovoStato) {
     const aggiornamento = { stato: nuovoStato };
     if (nuovoStato === 'completata') aggiornamento.completedAt = serverTimestamp();
     await updateDoc(doc(window.db, 'prenotazioni', id), aggiornamento);
+    const _p = (_prenotazioni || []).find(p => p.id === id);
+    await window.logHistory({
+      spot: _p?.spotId || null,
+      action: nuovoStato === 'annullata' ? 'Prenotazione annullata' : ('Prenotazione ' + nuovoStato),
+      plate: _p?.plate || null,
+      richiedente: _p?.operatoreNome || _p?.utenteNome || _p?.operatoreEmail || _p?.utenteEmail || null
+    });
   } catch (err) {
     console.error('Errore aggiornamento stato:', err);
     alert('Errore durante l\'aggiornamento. Riprova.');
@@ -496,6 +504,13 @@ async function cambiaStatoPrenotazione(id, nuovoStato) {
 async function eliminaPrenotazione(id) {
   if (!confirm('Eliminare questa prenotazione? L\'operazione non è reversibile.')) return;
   try {
+    const _p = (_prenotazioni || []).find(p => p.id === id);
+    await window.logHistory({
+      spot: _p?.spotId || null,
+      action: 'Prenotazione eliminata',
+      plate: _p?.plate || null,
+      richiedente: _p?.operatoreNome || _p?.utenteNome || _p?.operatoreEmail || _p?.utenteEmail || null
+    });
     await deleteDoc(doc(window.db, 'prenotazioni', id));
   } catch (err) {
     console.error('Errore eliminazione:', err);
@@ -683,6 +698,11 @@ window.confermaDeskCompleta = async function(id) {
     await setDoc(doc(window.db, 'ribalte', dest), {
       occupied: true, plate, since: serverTimestamp(),
       user: auth.currentUser?.email || '—', full: spotFull
+    });
+    await window.logHistory({
+      spot: dest, action: 'Missione completata', plate,
+      origine: pren?.spotId || null, destinazione: dest,
+      richiedente: pren?.operatoreNome || pren?.utenteNome || pren?.operatoreEmail || pren?.utenteEmail || null
     });
   } catch(err) {
     console.error('Errore completamento:', err);

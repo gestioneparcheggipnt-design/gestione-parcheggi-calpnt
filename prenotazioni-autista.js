@@ -1166,9 +1166,7 @@ full: statoPieno,
 
 }
 
-ops.push(addDoc(collection(window.db, 'history'), {
-
-ts: serverTimestamp(),
+ops.push(window.logHistory({
 
 spot: dest,
 
@@ -1176,11 +1174,11 @@ action: 'Missione completata',
 
 plate: pren.plate || null,
 
-user: pren.utenteEmail || null,
-
 origine,
 
 destinazione: dest,
+
+richiedente: pren.operatoreNome || pren.utenteNome || pren.operatoreEmail || pren.utenteEmail || null,
 
 }));
 
@@ -1404,9 +1402,9 @@ async function selezionaRibalta_cassa_exec(spotId, plate, ribaltaId, user) {
     ops.push(setDoc(doc(window.db, 'ribalte', ribaltaId), {
       occupied: true, plate: plate || null, since: serverTimestamp(), user: user?.email || null, full: eraPieno,
     }, { merge: true }));
-    ops.push(addDoc(collection(window.db, 'history'), {
-      ts: serverTimestamp(), spot: ribaltaId, action: 'Missione cassa completata',
-      plate: plate || null, user: user?.email || null, origine: spotId, destinazione: ribaltaId,
+    ops.push(window.logHistory({
+      spot: ribaltaId, action: 'Missione cassa completata',
+      plate: plate || null, origine: spotId, destinazione: ribaltaId,
     }));
     await Promise.all(ops);
     showToast(`✅ ${plate} → ${ribaltaId}`, 'success');
@@ -1460,11 +1458,13 @@ occupied: true, plate: pren.plate || null, since: serverTimestamp(), user: pren.
 
 }, { merge: true }));
 
-ops.push(addDoc(collection(window.db, 'history'), {
+ops.push(window.logHistory({
 
-ts: serverTimestamp(), spot: ribaltaId, action: 'Missione cassa completata',
+spot: ribaltaId, action: 'Missione cassa completata',
 
-plate: pren.plate || null, user: pren.operatoreEmail || null, origine: spotId, destinazione: ribaltaId,
+plate: pren.plate || null, origine: spotId, destinazione: ribaltaId,
+
+richiedente: pren.operatoreNome || pren.operatoreEmail || null,
 
 }));
 

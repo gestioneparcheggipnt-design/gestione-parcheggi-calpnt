@@ -337,13 +337,16 @@ onAuthStateChanged(window.auth, async fbUser => {
       const name  = snap.exists() ? (snap.data().name  || fbUser.email) : fbUser.email;
       const reparto = snap.exists() ? (snap.data().reparto || null) : null;
       currentUser = { uid: fbUser.uid, email: fbUser.email, role, name, reparto };
+      window.currentUser = currentUser;
       showApp();
     } catch (e) {
       currentUser = { uid: fbUser.uid, email: fbUser.email, role: 'autista', name: fbUser.email, reparto: null };
+      window.currentUser = currentUser;
       showApp();
     }
   } else {
     currentUser = null;
+    window.currentUser = null;
     showLogin();
     stopListeners();
   }

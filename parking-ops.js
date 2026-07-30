@@ -24,10 +24,8 @@ async function inlineAssign(id){
     await setDoc(doc(window.db,"spots",id), {
       occupied: true, plate, since: serverTimestamp(), user: window.currentUser.email, damaged, full
     });
-    await addDoc(collection(window.db,"history"), {
-      ts: serverTimestamp(), spot:id,
-      action:"Assegnato", plate, user: window.currentUser.email, damaged,
-      mode: window.currentMode
+    await window.logHistory({
+      spot:id, action:"Assegnato", plate, damaged, mode: window.currentMode
     });
     window.selectSpot(id);
     window.showToast(`Posto ${id} assegnato a ${plate}${damaged?" ⚠️ danneggiato":""}${full?" 🟡 pieno":""}`, "success");
@@ -42,9 +40,8 @@ async function freeSpot(id){
   const btn=document.querySelector(".btnFreeInline");
   if(btn){ btn.textContent="Liberazione..."; btn.disabled=true; }
   try{
-    await addDoc(collection(window.db,"history"),{
-      ts: serverTimestamp(), spot:id,
-      action:"Liberato", plate:sp.plate, user: window.currentUser.email
+    await window.logHistory({
+      spot:id, action:"Liberato", plate:sp.plate
     });
     await setDoc(doc(window.db,"spots",id),{
       occupied:false, plate:null, since:null, user:null, full:false
@@ -62,14 +59,11 @@ async function freeSpot(id){
 async function toggleFull(id, newFull){
   try{
     await updateDoc(doc(window.db,"spots",id),{ full: newFull });
-    await addDoc(collection(window.db,"history"),{
-      ts: serverTimestamp(), spot:id,
+    await window.logHistory({
+      spot:id,
       action: newFull ? "Segnato Pieno" : "Segnato Vuoto",
-      plate: window.window.spots[id].plate,
-      user: window.currentUser.name || window.currentUser.email,
-      userName: window.currentUser.name || window.currentUser.email
-
-});
+      plate: window.spots[id].plate
+    });
     window.showToast(`Posto ${id} ${newFull?"segnato come pieno":"segnato come vuoto"}`,"success");
     window.selectSpot(id);
   }catch(e){

@@ -1,3 +1,5 @@
+import { addDoc, collection, serverTimestamp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
+
 window.currentUser = null;   // { email, role, uid }
 
 // ── SHARED-UTILS.JS ─────────────────────────────────────────────────────────
@@ -37,3 +39,21 @@ window.zoom      = zoom;
 window.resetZoom = resetZoom;
 window.applyT  = applyT;
 window.clampP  = clampP;
+
+// ── LOG STORICO CENTRALIZZATO ────────────────────────────────────────────────
+// Unico punto di scrittura su `history`. Riempie sempre ts (ora server),
+// user/userName (SOLO nome dell'utente che esegue l'azione) e role.
+// Qualsiasi campo extra passato (mode, origine, destinazione, richiedente…) viene incluso.
+window.logHistory = function(entry = {}) {
+  const u = window.currentUser || {};
+  const nome = u.name || u.email || '—';
+  const { spot = null, action = null, plate = null, ...rest } = entry;
+  return addDoc(collection(window.db, 'history'), {
+    ...rest,
+    ts: serverTimestamp(),
+    spot, action, plate,
+    user: nome,
+    userName: nome,
+    role: u.role || null,
+  });
+};
