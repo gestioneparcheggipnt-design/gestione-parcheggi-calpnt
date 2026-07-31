@@ -234,7 +234,10 @@ if(!_forceDesktop && window.innerWidth<=768 && !location.href.includes('mobile.h
 
   <!-- VISTA CONTAINER: form + tabella -->
   <div id="pren-view-container">
-    <div class="pageSubtitle">Gestisci le prenotazioni di spostamento container</div>
+    <div class="pren-two-col">
+     <div class="pren-col">
+      <div class="pren-col-head">
+       <div class="pageSubtitle">Gestisci le prenotazioni di spostamento container</div>
     <div class="pren-card" id="pren-form-card">
       <h3 class="pren-section-title">&#x2795; Nuova Prenotazione Container</h3>
       <div class="pren-form-grid">
@@ -287,6 +290,8 @@ if(!_forceDesktop && window.innerWidth<=768 && !location.href.includes('mobile.h
              placeholder="&#x1F50D; Filtra per ID" style="text-transform:uppercase" />
       <button class="pren-btn-secondary" onclick="resetFiltri()">&#x21BA; Reset filtri</button>
     </div>
+      </div>
+      <div class="pren-col-body">
     <div class="pren-table-wrap">
       <table class="pren-table">
         <thead>
@@ -305,6 +310,13 @@ if(!_forceDesktop && window.innerWidth<=768 && !location.href.includes('mobile.h
           <tr><td colspan="8" class="pren-empty">Caricamento&#x2026;</td></tr>
         </tbody>
       </table>
+    </div>
+      </div>
+     </div>
+     <div class="pren-col">
+      <div class="pren-col-head" id="navette-head"></div>
+      <div class="pren-col-body" id="navette-list"></div>
+     </div>
     </div>
   </div>
 

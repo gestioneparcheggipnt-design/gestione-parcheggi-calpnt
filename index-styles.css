@@ -658,3 +658,15 @@
   color: var(--muted);
   font-family: 'DM Mono', monospace;
 }
+
+/* ── Layout due colonne tab Prenotazioni: container (sx) | navettaggi (dx) ── */
+/* I riquadri in alto (.pren-col-head) restano fissi; scorre solo la parte liste. */
+#pagePrenotazioni { max-width: 1400px; }
+.pren-two-col { display: flex; gap: 18px; }
+.pren-two-col > .pren-col { flex: 1 1 0; min-width: 0; }
+.pren-col-head { position: sticky; top: 0; z-index: 5; background: var(--bg); padding-bottom: 10px; }
+.pren-col-body { min-width: 0; }
+@media (max-width: 900px) {
+  .pren-two-col { flex-direction: column; }
+  .pren-col-head { position: static; }
+}

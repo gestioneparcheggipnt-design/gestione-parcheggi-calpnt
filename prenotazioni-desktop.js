@@ -224,25 +224,19 @@ function _isRibaltaValidaDesk(id) {
 }
 
 function _renderNavettePanelDesk() {
-  if (window.currentMode === 'cassa') return;                 // pannello solo in container
+  if (window.currentMode === 'cassa') return;                 // solo in container
   const role = window.currentUser?.role;
   if (role !== 'amministrativo' && role !== 'amministratore') return;
-  const host = document.getElementById('pren-view-container');
-  if (!host) return;
-  let panel = document.getElementById('navette-panel-desk');
-  if (!panel) {
-    panel = document.createElement('div');
-    panel.id = 'navette-panel-desk';
-    panel.style.cssText = 'margin:0 0 18px;padding:14px 16px;border:1px solid var(--border,#3a4050);border-radius:10px;background:var(--surface,#1a1f28)';
-    host.insertBefore(panel, host.firstChild);
-  }
+  const head = document.getElementById('navette-head');
+  const list = document.getElementById('navette-list');
+  if (!head || !list) return;
   const esc = window._esc || (s => s);
   const navArr = Object.values(window.navette || {}).filter(n => n.attiva)
     .sort((a, b) => String(a.nome).localeCompare(String(b.nome)));
   const statoIcona = s => s === 'pieno' ? '🟡 pieno' : (s === 'in_missione' ? '🔵 in missione' : '🟢 vuoto');
   const navStatus = navArr.length
     ? navArr.map(n => `<span style="display:inline-block;margin:2px 8px 2px 0;font-size:12px;padding:3px 8px;border-radius:6px;background:var(--surface2,#2e333d);border:1px solid var(--border,#3a4050)"><strong>${esc(n.nome)}</strong> · ${esc(n.posizione || '—')} · ${statoIcona(n.stato)}</span>`).join('')
-    : '<span style="font-size:12px;color:var(--text2,#9ca3af)">Nessuna navetta configurata — aggiungila da Impostazioni.</span>';
+    : '<span style="font-size:12px;color:var(--muted,#9ca3af)">Nessuna navetta configurata — aggiungila da Impostazioni.</span>';
   const vuoteDisp = navArr.filter(n => n.stato === 'vuoto').length;
 
   const navPren = (_prenotazioni || []).filter(p => p.tipoMissione === 'navetta');
@@ -253,7 +247,7 @@ function _renderNavettePanelDesk() {
   const rowPren = (p, tag, cancellabile) => `
     <div style="display:flex;align-items:center;gap:8px;padding:6px 8px;border-bottom:1px solid var(--border,#3a4050);font-size:13px">
       <span style="font-weight:700;min-width:52px">${esc(p.navettaId || '—')}</span>
-      <span style="color:var(--text2,#9ca3af)">${esc(p.origine || '—')} → ${esc(p.destinazione || '—')}</span>
+      <span style="color:var(--muted,#9ca3af)">${esc(p.origine || '—')} → ${esc(p.destinazione || '—')}</span>
       <span style="margin-left:auto;font-size:11px;padding:2px 8px;border-radius:20px;background:var(--surface2,#2e333d)">${p.faseNavetta === 'pieno' ? 'PIENO' : 'VUOTO'}${p.urgente ? ' · 🚨' : ''} · ${tag}</span>
       ${cancellabile ? `<button onclick="deskAnnullaNavetta('${p.id}')" title="Annulla richiesta" style="border:none;background:none;color:var(--red,#ef4444);cursor:pointer;font-size:14px">✕</button>` : ''}
     </div>`;
@@ -261,27 +255,31 @@ function _renderNavettePanelDesk() {
   const listHtml =
       (inAttesa.length ? `<div style="${_DS.label}">In attesa (${inAttesa.length})</div>` + inAttesa.map(p => rowPren(p, 'in attesa', true)).join('') : '')
     + (inCorso.length ? `<div style="${_DS.label}">Missioni in corso (${inCorso.length})</div>` + inCorso.map(p => rowPren(p, 'assegnata', false)).join('') : '')
-    + ((!inAttesa.length && !inCorso.length) ? '<div style="font-size:12px;color:var(--text2,#9ca3af);padding:4px 0">Nessuna richiesta attiva.</div>' : '');
+    + ((!inAttesa.length && !inCorso.length) ? '<div style="font-size:12px;color:var(--muted,#9ca3af);padding:4px 0">Nessuna richiesta attiva.</div>' : '');
 
-  panel.innerHTML = `
-    <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px">
-      <div style="font-size:15px;font-weight:700">🚚 Navettaggi interni</div>
-      <div style="font-size:12px;color:${vuoteDisp ? '#A4D200' : 'var(--text2,#9ca3af)'}">${vuoteDisp} vuot${vuoteDisp === 1 ? 'a' : 'e'} disponibil${vuoteDisp === 1 ? 'e' : 'i'}</div>
-    </div>
-    <div style="margin-bottom:10px">${navStatus}</div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
-      <input id="nav-dest-input" placeholder="Ribalta dove serve il vuoto (es. PNT1-03)" spellcheck="false"
-        style="flex:1;min-width:220px;text-transform:uppercase;padding:8px 10px;border-radius:8px;border:1px solid var(--border,#3a4050);background:var(--surface2,#2e333d);color:var(--text,#e8eaf0);font-family:inherit;font-size:13px"
-        onkeydown="if(event.key==='Enter')deskCreaRichiestaVuoto()">
-      <label style="display:flex;align-items:center;gap:5px;font-size:13px;color:var(--text2,#9ca3af);cursor:pointer">
-        <input type="checkbox" id="nav-urgente"> 🚨 Urgente
-      </label>
-      <button onclick="deskCreaRichiestaVuoto()"
-        style="padding:8px 16px;border-radius:8px;border:none;background:#A4D200;color:#1C1F26;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">
-        + Richiesta vuoto
-      </button>
-    </div>
-    <div>${listHtml}</div>`;
+  head.innerHTML = `
+    <div class="pageSubtitle">Navettaggi interni (ribalta → ribalta)</div>
+    <div class="pren-card">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px">
+        <h3 class="pren-section-title" style="margin:0">🚚 Nuova richiesta vuoto</h3>
+        <span style="font-size:12px;color:${vuoteDisp ? '#A4D200' : 'var(--muted,#9ca3af)'}">${vuoteDisp} vuot${vuoteDisp === 1 ? 'a' : 'e'} disponibil${vuoteDisp === 1 ? 'e' : 'i'}</span>
+      </div>
+      <div style="margin-bottom:10px">${navStatus}</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        <input id="nav-dest-input" placeholder="Ribalta dove serve il vuoto (es. PNT1-03)" spellcheck="false"
+          style="flex:1;min-width:200px;text-transform:uppercase;padding:8px 10px;border-radius:8px;border:1px solid var(--border,#3a4050);background:var(--surface2,#2e333d);color:var(--text,#e8eaf0);font-family:inherit;font-size:13px"
+          onkeydown="if(event.key==='Enter')deskCreaRichiestaVuoto()">
+        <label style="display:flex;align-items:center;gap:5px;font-size:13px;color:var(--muted,#9ca3af);cursor:pointer">
+          <input type="checkbox" id="nav-urgente"> 🚨 Urgente
+        </label>
+        <button onclick="deskCreaRichiestaVuoto()"
+          style="padding:8px 16px;border-radius:8px;border:none;background:#A4D200;color:#1C1F26;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">
+          + Richiesta vuoto
+        </button>
+      </div>
+    </div>`;
+
+  list.innerHTML = `<div class="pren-card" style="margin-top:0">${listHtml}</div>`;
 }
 window.renderNavettePanel = _renderNavettePanelDesk;
 
