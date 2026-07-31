@@ -719,10 +719,7 @@ function renderPrenotazioni() {
     if (canDelete && p.stato !== 'completata') azioni += '<button class="pren-action-btn btn-elimina" onclick="eliminaPrenotazione(\'' + p.id + '\')">🗑</button>';
     const rowClass = p.stato === 'completata' ? ' class="pren-row-completata"' : '';
     const operatoreDisplay = _esc(p.operatoreNome || p.operatoreEmail || p.utenteEmail || '—');
-    const badgeTipo = isRibalta
-      ? '<span style="display:inline-block;margin-left:6px;padding:1px 7px;border-radius:20px;background:#f9731620;border:1px solid #f9731650;color:#f97316;font-size:.75rem;font-weight:700">🚛 RIBALTA</span>'
-      : '';
-    return '<tr' + rowClass + '><td><strong>' + _esc(p.plate || '—') + '</strong>' + badgeTipo + '</td><td>' + _esc(p.spotId || '—') + '</td><td>' + _esc(p.destinazione || '—') + '</td><td style="white-space:nowrap">' + dataStr + '</td><td>' + badgeStato + '</td><td style="text-align:center">' + badgeUrgente + '</td><td style="font-size:.9rem">' + operatoreDisplay + '</td><td><div class="pren-actions">' + azioni + '</div></td></tr>';
+    return '<tr' + rowClass + '><td><strong>' + _esc(p.plate || '—') + '</strong></td><td>' + _esc(p.spotId || '—') + '</td><td>' + _esc(p.destinazione || '—') + '</td><td>' + dataStr + '</td><td>' + badgeStato + '</td><td style="text-align:center">' + badgeUrgente + '</td><td class="pren-td-azioni"><div class="pren-actions">' + azioni + '</div></td><td style="font-size:.9rem">' + operatoreDisplay + '</td></tr>';
   }).join('');
 }
 

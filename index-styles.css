@@ -676,8 +676,13 @@
   font-size: 24px;
   font-weight: 800;
   letter-spacing: 1px;
+  text-align: center;
   color: var(--accent);
   margin: 0 0 12px;
   padding-bottom: 8px;
   border-bottom: 2px solid var(--border);
 }
+
+/* Tabella container: colonne su una riga sola, scroll orizzontale, Operatore in coda */
+.pren-table td { white-space: nowrap; }
+.pren-table td.pren-td-azioni { white-space: normal; }
