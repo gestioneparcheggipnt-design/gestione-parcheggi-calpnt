@@ -54,6 +54,18 @@ function startListeners(){
     }
   });
 
+  // Listener navette (navettaggi interni): stato real-time dei mezzi dedicati
+  if (window.NavetteCore) {
+    window.NavetteCore.startNavetteListener(() => {
+      if (window.currentUser?.role !== 'portineria') {
+        if (window._aggiornaVistaPrenotazioni) try { window._aggiornaVistaPrenotazioni(); } catch(e){}
+        if (window.renderNavettePanel) try { window.renderNavettePanel(); } catch(e){}
+        if (window.renderImpostazioni && document.getElementById('pageImpostazioni')?.classList.contains('active'))
+          try { window.renderImpostazioni(); } catch(e){}
+      }
+    });
+  }
+
   // Listener storico: ultimi 200 movimenti
   const hq = query(collection(window.db,"history"), orderBy("ts","desc"), limit(200));
   window.unsubHistory = onSnapshot(hq, (snapshot) => {
@@ -70,6 +82,7 @@ function stopListeners(){
   if(window.unsubSpots)  { window.unsubSpots();  window.unsubSpots=null;  }
   if(window.unsubRibalte){ window.unsubRibalte();window.unsubRibalte=null;}
   if(window.unsubHistory){ window.unsubHistory();window.unsubHistory=null; }
+  if(window.NavetteCore) window.NavetteCore.stopNavetteListener();
 }
 
 window.startListeners = startListeners;

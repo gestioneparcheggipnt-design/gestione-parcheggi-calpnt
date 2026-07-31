@@ -242,6 +242,8 @@ _getUser = getUser;
 
 _getMode = getMode || (() => 'container');
 
+if (window.NavetteCore) window.NavetteCore.startNavetteListener(() => renderPrenotazioni());
+
 if (_unsubPren) _unsubPren();
 
 _unsubPren = onSnapshot(
@@ -308,6 +310,8 @@ if (_unsubSpots) { _unsubSpots(); _unsubSpots = null; }
 
 if (_unsubRibalte) { _unsubRibalte(); _unsubRibalte = null; }
 
+if (window.NavetteCore) window.NavetteCore.stopNavetteListener();
+
 }
 
 export function renderPrenotazioni() {
@@ -370,7 +374,11 @@ const missioni = _prenotazioni.filter(p =>
   (!_ribConsentite || _ribConsentite.has(String(p.spotId || '').trim().toUpperCase()))
 );
 
-const ordinarie = _prenotazioni.filter(p => p.tipoMissione !== 'ribalta' && (!p.tipoMezzo || p.tipoMezzo === 'container'));
+const ordinarie = _prenotazioni.filter(p => p.tipoMissione !== 'ribalta' && p.tipoMissione !== 'navetta' && (!p.tipoMezzo || p.tipoMezzo === 'container'));
+
+// Missioni navettaggio interno visibili all'autista: solo quelle già abbinate
+// (stato 'creata'); le richieste 'in_attesa' non hanno ancora un mezzo/origine.
+const navetteMissioni = _prenotazioni.filter(p => p.tipoMissione === 'navetta' && p.stato === 'creata');
 
 const _ts = (p) => { const d = _parseDate(p.dataOra); return d ? d.getTime() : 0; };
 
@@ -390,7 +398,7 @@ return _ts(a) - _ts(b);
 
 const pendenti = ordinarie.filter(p => p.stato === 'creata');
 
-const attivi = missioni.concat(pendenti).sort(sortAsc);
+const attivi = missioni.concat(pendenti).concat(navetteMissioni).sort(sortAsc);
 
 // Completate: solo quelle delle ultime 2 ore (basato su completataAt)
 
@@ -412,7 +420,14 @@ return completataAt.getTime() >= due_ore_fa;
 
 });
 
-if (!attivi.length && !completate.length) {
+// Navette completate nelle ultime 2 ore
+const navetteCompletate = _prenotazioni.filter(p => {
+  if (p.tipoMissione !== 'navetta' || p.stato === 'creata' || p.stato === 'in_attesa') return false;
+  const c = p.completataAt?.toDate ? p.completataAt.toDate() : (p.completataAt ? new Date(p.completataAt) : null);
+  return c && c.getTime() >= due_ore_fa;
+});
+
+if (!attivi.length && !completate.length && !navetteCompletate.length) {
 
 el.innerHTML = '<div class="emptyState">Nessuna prenotazione container trovata.</div>';
 
@@ -452,17 +467,23 @@ html += (p.tipoMissione === 'ribalta')
 
 ? _missioneCard(p, bloccoIds.has('p:' + p.id))
 
+: (p.tipoMissione === 'navetta')
+
+? _navettaCard(p, bloccoIds.has('p:' + p.id))
+
 : _prenCard(p, bloccoIds.has('p:' + p.id), idx);
 
 });
 
 }
 
-if (completate.length) {
+const completateAll = completate.concat(navetteCompletate);
 
-html += `<div class="prenGroupTitle" style="margin-top:14px">COMPLETATE (${completate.length})</div>`;
+if (completateAll.length) {
 
-completate.forEach(p => { html += _prenCard(p, false, -1); });
+html += `<div class="prenGroupTitle" style="margin-top:14px">COMPLETATE (${completateAll.length})</div>`;
+
+completateAll.forEach(p => { html += (p.tipoMissione === 'navetta') ? _navettaCard(p, false) : _prenCard(p, false, -1); });
 
 }
 
@@ -745,6 +766,57 @@ ${btnHTML}
 
 </div>`;
 
+}
+
+// ── CARD NAVETTAGGIO INTERNO ──────────────────────────────────────────────────
+// plate/spotId sono null: l'identificativo è navettaId, il movimento è origine→destinazione.
+// Il completamento dichiara SOLO la ribalta di arrivo (non tocca spots/ribalte).
+function _navettaCard(p, abilitato = true) {
+  const d = _parseDate(p.dataOra);
+  const dataStr = d ? d.toLocaleString('it-IT', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' }) : '—';
+  const completata = p.stato !== 'creata';
+  const nav = _esc(p.navettaId || 'NAV');
+  const statoVeicolo = p.faseNavetta === 'pieno' ? '🟡 Pieno' : '🟢 Vuoto';
+  const badge = p.faseNavetta === 'pieno' ? '🚚 NAVETTA · PIENO' : '🚚 NAVETTA · VUOTO';
+
+  let btnHTML;
+  if (completata) {
+    btnHTML = p.ribaltaArrivo ? `<div class="pcmDove">📍 ${_esc(p.ribaltaArrivo)}</div>` : '';
+  } else if (abilitato) {
+    const def = _esc(p.destinazione || '');
+    btnHTML = `
+<button class="btnCompleta" onclick="aprirCompletaMissione('${p.id}')" style="margin-top:10px">✅ Completa navettaggio</button>
+<div class="completaForm" id="completaForm_${p.id}" style="display:none">
+  <div style="${_S.sectionLabel}">Ribalta di arrivo</div>
+  <input id="cfInput_${p.id}" class="inputField" value="${def}" spellcheck="false"
+    style="text-transform:uppercase" placeholder="es. PNT1-03"
+    onkeydown="if(event.key==='Enter')confermaNavetta('${p.id}')">
+  <button class="btnCompleta" style="margin-top:8px" onclick="confermaNavetta('${p.id}')">Conferma ribalta</button>
+</div>`;
+  } else {
+    btnHTML = `<button disabled class="btnBlocco">🔒 In attesa</button>
+<div style="font-size:11px;color:var(--muted);margin-top:4px;font-style:italic">Disponibile dopo il completamento delle prime 3</div>`;
+  }
+
+  const cardClass = completata
+    ? 'prenCardMissione completata'
+    : (p.urgente ? 'prenCardMissione pendente urgente' : 'prenCardMissione pendente');
+
+  return `
+<div class="${cardClass}">
+  <div class="pcmHeader">
+    <span class="pcmPlate">${nav}</span>
+    ${p.urgente ? '<span class="urgBadge">🚨 URGENTE</span>' : ''}
+    <span class="pcmStatoBadge ${completata ? 'completata' : 'creata'}">${completata ? '✅ Completata' : badge}</span>
+  </div>
+  <div class="pcmRoute">
+    <span class="pcmSpot">${_esc(p.origine || '—')}</span>
+    <span class="pcmArrow">→</span>
+    <span class="pcmDest">${_esc(p.destinazione || '—')}</span>
+  </div>
+  <div class="pcmMeta">${statoVeicolo} · ${dataStr}</div>
+  ${btnHTML}
+</div>`;
 }
 
 // ── BUILD PICKER PARCHEGGI (missioni: liberare una ribalta) ───────────────────
@@ -1078,6 +1150,22 @@ await _completaConPosto(id, posto);
 };
 
 window.confermaMissione = window.confermaCompletamento;
+
+// Completamento navettaggio: l'autista dichiara SOLO la ribalta di arrivo.
+window.confermaNavetta = async function(id) {
+  const input = document.getElementById('cfInput_' + id);
+  const arr = (input?.value || '').trim().toUpperCase();
+  if (!arr) { showToast('Inserisci la ribalta di arrivo', 'error'); return; }
+  if (!isValidRibalta(arr)) { showToast(`Ribalta "${arr}" non valida.`, 'error'); return; }
+  if (!window.NavetteCore) { showToast('Modulo navette non caricato', 'error'); return; }
+  try {
+    await window.NavetteCore.completaMissioneNavetta({ prenId: id, ribaltaArrivo: arr });
+    chiudiCompletaForm(id);
+    showToast('Navettaggio completato', 'success');
+  } catch (e) {
+    showToast('Errore: ' + (e.message || e), 'error');
+  }
+};
 
 async function _completaConPosto(id, postoFine) {
 

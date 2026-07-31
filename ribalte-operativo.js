@@ -43,6 +43,7 @@ const _gruppoPickerForm = {};
 // ── INIT ───────────────────────────────────────────────────────────────────────
 export function initRibalteOperativo({ getUser }) {
   _getUser = getUser;
+  if (window.NavetteCore) window.NavetteCore.startNavetteListener(() => renderRibalte());
   if (_unsubRibalte) _unsubRibalte();
   _unsubRibalte = onSnapshot(
     query(collection(window.db, 'ribalte'), orderBy('__name__')),
@@ -57,6 +58,7 @@ export function initRibalteOperativo({ getUser }) {
 
 export function stopRibalte() {
   if (_unsubRibalte) { _unsubRibalte(); _unsubRibalte = null; }
+  if (window.NavetteCore) window.NavetteCore.stopNavetteListener();
 }
 
 // ── UTILITY: ribalte libere divise per gruppo ─────────────────────────────────
@@ -132,7 +134,16 @@ export function renderRibalte() {
     }
   }
 
-  if (!ribalte.length) {
+  // ── Navette presenti (dal core), fuori missione ────────────────────────────
+  const navetteAll = (window.navette && typeof window.navette === 'object')
+    ? Object.values(window.navette) : [];
+  let navette = navetteAll.filter(n => n.attiva && (n.stato === 'vuoto' || n.stato === 'pieno'));
+  if (isOperativo) {
+    navette = navette.filter(n => n.posizione && consentite.has(String(n.posizione).trim().toUpperCase()));
+  }
+  navette.sort((a, b) => String(a.nome).localeCompare(String(b.nome)));
+
+  if (!ribalte.length && !navette.length) {
     el.innerHTML = isOperativo
       ? (repKey
           ? '<div class="emptyState">Nessuna ribalta occupata nel tuo reparto.</div>'
@@ -141,7 +152,11 @@ export function renderRibalte() {
     return;
   }
 
-  el.innerHTML = ribalte.map(r => _ribaltaCard(r, user)).join('');
+  const navHtml = navette.length
+    ? `<div class="prenGroupTitle" style="margin:2px 0 8px">🚚 NAVETTE (${navette.length})</div>`
+      + navette.map(n => _navettaCardOperativo(n, user)).join('')
+    : '';
+  el.innerHTML = navHtml + ribalte.map(r => _ribaltaCard(r, user)).join('');
 }
 
 function _ribaltaCard(r, user) {
@@ -258,6 +273,103 @@ window.confermaLibera = async function(id) {
     showToast(`Ribalta ${id} liberata — missione creata`, 'success');
   } catch (e) {
     showToast('Errore: ' + e.message, 'error');
+  }
+};
+
+// ── CARD NAVETTA (operativo) ──────────────────────────────────────────────────
+// Pieno  → "Dichiara scaricata" (pieno→vuoto, abbina la coda via NavetteCore)
+// Vuoto  → "Carica e spedisci"  (crea missione pieno verso una ribalta)
+function _navettaCardOperativo(n, user) {
+  const isPieno = n.stato === 'pieno';
+  const badge = isPieno ? '🟡 Pieno' : '🟢 Vuoto';
+  let body = `<div style="font-size:12px;color:var(--muted);margin-top:4px">Posizione: <strong>${_esc(n.posizione || '—')}</strong></div>`;
+
+  if (isPieno) {
+    body += `
+      <button class="btnRed" style="width:100%;margin-top:10px;padding:11px;font-size:14px"
+              onclick="dichiaraNavettaVuota('${_esc(n.nome)}')">
+        🟡→🟢 Dichiara scaricata
+      </button>`;
+  } else {
+    body += `
+      <button onclick="toggleSpedisciForm('${_esc(n.nome)}')"
+              style="width:100%;margin-top:10px;padding:11px;border-radius:8px;border:none;
+                     background:linear-gradient(135deg,var(--accent),var(--accent2));color:#1C1F26;
+                     font-family:inherit;font-size:14px;font-weight:700;cursor:pointer">
+        🚚 Carica e spedisci
+      </button>
+      <div id="spedForm_${_esc(n.nome)}" style="display:none;margin-top:10px">
+        <div style="font-size:13px;font-weight:600;color:var(--muted);margin-bottom:8px">Ribalta di destinazione:</div>
+        <input id="spedInput_${_esc(n.nome)}" class="inputField" spellcheck="false"
+               style="text-transform:uppercase" placeholder="es. PNT1-03"
+               onkeydown="if(event.key==='Enter')spedisciNavetta('${_esc(n.nome)}')">
+        <button onclick="spedisciNavetta('${_esc(n.nome)}')"
+                style="width:100%;margin-top:8px;padding:11px;border-radius:8px;border:none;
+                       background:var(--accent);color:#1C1F26;font-family:inherit;font-size:14px;
+                       font-weight:700;cursor:pointer">
+          ✓ Crea missione
+        </button>
+        <button onclick="toggleSpedisciForm('${_esc(n.nome)}')"
+                style="width:100%;margin-top:6px;padding:8px;border-radius:8px;border:1.5px solid var(--border);
+                       background:transparent;color:var(--muted);font-family:inherit;font-size:13px;cursor:pointer">
+          Annulla
+        </button>
+      </div>`;
+  }
+
+  return `
+    <div class="prenCard" style="margin-bottom:10px;border:1.5px solid var(--accent)">
+      <div class="prenHeader">
+        <span style="font-size:18px;font-weight:800;letter-spacing:1px">🚚 ${_esc(n.nome)}</span>
+        <span class="prenBadge ${isPieno ? 'creata' : 'completata'}">${badge}</span>
+      </div>
+      ${body}
+    </div>`;
+}
+
+function _isRibaltaValida(id) {
+  const k = String(id || '').trim().toUpperCase();
+  if (!k || !window._REPARTI) return false;
+  return Object.values(window._REPARTI).flat().some(r => String(r).trim().toUpperCase() === k);
+}
+
+window.toggleSpedisciForm = function(nome) {
+  const f = document.getElementById('spedForm_' + nome);
+  if (!f) return;
+  const open = f.style.display !== 'none';
+  f.style.display = open ? 'none' : 'block';
+  if (!open) setTimeout(() => document.getElementById('spedInput_' + nome)?.focus(), 60);
+};
+
+window.dichiaraNavettaVuota = async function(nome) {
+  if (!window.NavetteCore) { showToast('Modulo navette non caricato', 'error'); return; }
+  try {
+    const res = await window.NavetteCore.dichiaraVuoto({ navettaId: nome });
+    showToast(res.abbinata
+      ? `${nome} scaricata — abbinata a una richiesta vuoto`
+      : `${nome} ora vuota`, 'success');
+  } catch (e) {
+    showToast('Errore: ' + (e.message || e), 'error');
+  }
+};
+
+window.spedisciNavetta = async function(nome) {
+  const input = document.getElementById('spedInput_' + nome);
+  const dest = (input?.value || '').trim().toUpperCase();
+  if (!dest) { showToast('Inserisci la ribalta di destinazione', 'error'); return; }
+  if (!_isRibaltaValida(dest)) { showToast(`Ribalta "${dest}" non valida.`, 'error'); return; }
+  if (!window.NavetteCore) { showToast('Modulo navette non caricato', 'error'); return; }
+  const n = (window.navette || {})[nome];
+  const origine = n?.posizione || null;
+  if (!origine) { showToast('Posizione navetta sconosciuta', 'error'); return; }
+  try {
+    await window.NavetteCore.creaMissionePieno({
+      navettaId: nome, origine, destinazione: dest,
+      user: (_getUser ? _getUser() : null),
+    });
+    showToast(`Missione navetta ${nome} creata (${origine} → ${dest})`, 'success');
+  } catch (e) {
+    showToast('Errore: ' + (e.message || e), 'error');
   }
 };
 

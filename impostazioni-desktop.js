@@ -228,6 +228,83 @@ function _populateNewUserReparto(){
 }
 window._populateNewUserReparto = _populateNewUserReparto;
 
+// ── Navette (navettaggi interni) ───────────────────────────────────────────────
+function _isRibaltaValidaImp(id){
+  const k = String(id || '').trim().toUpperCase();
+  const R = window.REPARTI || window._REPARTI || {};
+  return Object.values(R).flat().some(r => String(r).trim().toUpperCase() === k);
+}
+
+function _navetteSectionHTML(){
+  const esc = window._esc || (s=>s);
+  const navArr = Object.values(window.navette || {}).sort((a,b)=>String(a.nome).localeCompare(String(b.nome)));
+  const statoOpts = (sel)=>['vuoto','pieno','in_missione']
+    .map(s=>`<option value="${s}" ${sel===s?'selected':''}>${s}</option>`).join('');
+  const cards = navArr.length ? navArr.map(n=>{
+    const st = n.stato==='pieno' ? '🟡 pieno' : (n.stato==='in_missione' ? '🔵 in missione' : '🟢 vuoto');
+    return `
+    <div class="imp-card">
+      <div class="imp-card-head">
+        <div>
+          <span class="imp-rep-label">🚚 ${esc(n.nome)}</span>
+          <span class="imp-rep-code">${esc(n.posizione||'—')}</span>
+          <span class="imp-count">${st}${n.attiva?'':' · disattivata'}</span>
+        </div>
+        <div>
+          <button class="btnEdit" title="Modifica posizione" onclick="window._navEditPos('${esc(n.nome)}')">✏️</button>
+          <button class="btnSecondary" onclick="window._navToggleAttiva('${esc(n.nome)}',${n.attiva?'false':'true'})">${n.attiva?'Disattiva':'Attiva'}</button>
+        </div>
+      </div>
+      <div class="imp-addrow">
+        <label style="font-size:12px;color:var(--muted,#94a3b8);display:flex;align-items:center;gap:6px">Stato manuale:
+          <select class="roleSelect" onchange="window._navSetStato('${esc(n.nome)}',this.value)">${statoOpts(n.stato)}</select>
+        </label>
+      </div>
+    </div>`;
+  }).join('') : '<div style="color:var(--muted);font-size:12px">Nessuna navetta. Aggiungine una qui sotto.</div>';
+
+  return `
+    <div class="imp-section">
+      <div class="imp-section-title">Navette (navettaggi interni)</div>
+      <div class="imp-note">Mezzi dedicati ai navettaggi interni. Imposta posizione e stato iniziali: lo stato poi si aggiorna da solo con le missioni. Lo stato manuale serve solo per correzioni.</div>
+      ${cards}
+      <div class="imp-addrep">
+        <input id="nav-new-nome"  class="inputField" placeholder="Nome (es. NAV3)" spellcheck="false" style="text-transform:uppercase;max-width:140px">
+        <input id="nav-new-pos"   class="inputField" placeholder="Posizione (es. PNT1-28)" spellcheck="false" style="text-transform:uppercase;max-width:190px">
+        <select id="nav-new-stato" class="roleSelect">${statoOpts('vuoto')}</select>
+        <button class="btnPrimary" style="margin-top:0" onclick="window._navAdd()">+ Nuova navetta</button>
+      </div>
+    </div>`;
+}
+
+window._navAdd = async function(){
+  const nome = (document.getElementById('nav-new-nome')?.value||'').trim().toUpperCase();
+  const pos  = (document.getElementById('nav-new-pos')?.value||'').trim().toUpperCase();
+  const stato = document.getElementById('nav-new-stato')?.value || 'vuoto';
+  if(!nome){ window.showToast('Inserisci il nome (es. NAV3)','error'); return; }
+  if(pos && !_isRibaltaValidaImp(pos)){ window.showToast('Posizione non valida','error'); return; }
+  if(!window.NavetteCore){ window.showToast('Modulo navette non caricato','error'); return; }
+  try{ await window.NavetteCore.creaNavetta({ nome, posizione: pos||null, stato }); window.showToast('Navetta '+nome+' creata','success'); }
+  catch(e){ window.showToast('Errore: '+(e.message||e),'error'); }
+};
+window._navToggleAttiva = async function(nome, attiva){
+  try{ await window.NavetteCore.setAttiva(nome, attiva===true || attiva==='true'); }
+  catch(e){ window.showToast('Errore: '+(e.message||e),'error'); }
+};
+window._navEditPos = async function(nome){
+  const cur = (window.navette||{})[nome]?.posizione || '';
+  const v = prompt('Posizione (ribalta) di '+nome+':', cur);
+  if(v===null) return;
+  const pos = v.trim().toUpperCase();
+  if(pos && !_isRibaltaValidaImp(pos)){ window.showToast('Ribalta non valida','error'); return; }
+  try{ await window.NavetteCore.aggiornaNavetta(nome, { posizione: pos||null }); }
+  catch(e){ window.showToast('Errore: '+(e.message||e),'error'); }
+};
+window._navSetStato = async function(nome, stato){
+  try{ await window.NavetteCore.setStatoManuale(nome, stato); }
+  catch(e){ window.showToast('Errore: '+(e.message||e),'error'); }
+};
+
 // ── Render del tab ─────────────────────────────────────────────────────────────
 function renderImpostazioni(){
   const wrap = document.getElementById('pageImpostazioni');
@@ -312,6 +389,7 @@ function renderImpostazioni(){
       ${repHTML}
       ${naHTML}
     </div>
+    ${_navetteSectionHTML()}
     <div class="imp-section">
       <div class="imp-section-title">Parcheggi e zone</div>
       <div class="imp-note">Gli ID posto e le coordinate sono legati alla planimetria e ai criteri della portineria:
