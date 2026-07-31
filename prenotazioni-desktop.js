@@ -258,7 +258,7 @@ function _renderNavettePanelDesk() {
     + ((!inAttesa.length && !inCorso.length) ? '<div style="font-size:12px;color:var(--muted,#9ca3af);padding:4px 0">Nessuna richiesta attiva.</div>' : '');
 
   head.innerHTML = `
-    <div class="pageSubtitle">Navettaggi interni (ribalta → ribalta)</div>
+    <div class="pren-col-title">NAVETTAGGI INTERNI</div>
     <div class="pren-card">
       <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px">
         <h3 class="pren-section-title" style="margin:0">🚚 Nuova richiesta vuoto</h3>

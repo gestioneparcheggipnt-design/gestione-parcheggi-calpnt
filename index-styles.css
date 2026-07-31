@@ -670,3 +670,14 @@
   .pren-two-col { flex-direction: column; }
   .pren-col-head { position: static; }
 }
+
+/* Titoli evidenti sopra le due colonne prenotazioni */
+.pren-col-title {
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: 1px;
+  color: var(--accent);
+  margin: 0 0 12px;
+  padding-bottom: 8px;
+  border-bottom: 2px solid var(--border);
+}
