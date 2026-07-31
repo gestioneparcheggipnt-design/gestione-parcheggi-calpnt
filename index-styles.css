@@ -660,26 +660,28 @@
 }
 
 /* ── Layout due colonne tab Prenotazioni: container (sx) | navettaggi (dx) ── */
-/* I riquadri in alto (.pren-col-head) restano fissi; scorre solo la parte liste. */
+/* Resta fisso SOLO il titolo di colonna; form e liste scorrono con la pagina. */
 #pagePrenotazioni { max-width: 1400px; }
 .pren-two-col { display: flex; gap: 18px; }
 .pren-two-col > .pren-col { flex: 1 1 0; min-width: 0; }
-.pren-col-head { position: sticky; top: 0; z-index: 5; background: var(--bg); padding-bottom: 10px; }
-.pren-col-body { min-width: 0; }
 @media (max-width: 900px) {
   .pren-two-col { flex-direction: column; }
-  .pren-col-head { position: static; }
+  .pren-col-title { position: static; }
 }
 
-/* Titoli evidenti sopra le due colonne prenotazioni */
+/* Titoli evidenti sopra le due colonne prenotazioni — restano fissi in cima */
 .pren-col-title {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  background: var(--bg);
   font-size: 24px;
   font-weight: 800;
   letter-spacing: 1px;
   text-align: center;
   color: var(--accent);
   margin: 0 0 12px;
-  padding-bottom: 8px;
+  padding: 4px 0 8px;
   border-bottom: 2px solid var(--border);
 }
 

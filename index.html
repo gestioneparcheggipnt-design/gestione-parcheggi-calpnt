@@ -235,7 +235,6 @@ if(!_forceDesktop && window.innerWidth<=768 && !location.href.includes('mobile.h
   <div id="pren-view-container">
     <div class="pren-two-col">
      <div class="pren-col">
-      <div class="pren-col-head">
        <div class="pren-col-title">CONTAINER</div>
     <div class="pren-card" id="pren-form-card">
       <h3 class="pren-section-title">&#x2795; Nuova Prenotazione Container</h3>
@@ -289,8 +288,6 @@ if(!_forceDesktop && window.innerWidth<=768 && !location.href.includes('mobile.h
              placeholder="&#x1F50D; Filtra per ID" style="text-transform:uppercase" />
       <button class="pren-btn-secondary" onclick="resetFiltri()">&#x21BA; Reset filtri</button>
     </div>
-      </div>
-      <div class="pren-col-body">
     <div class="pren-table-wrap">
       <table class="pren-table">
         <thead>
@@ -310,11 +307,11 @@ if(!_forceDesktop && window.innerWidth<=768 && !location.href.includes('mobile.h
         </tbody>
       </table>
     </div>
-      </div>
      </div>
      <div class="pren-col">
-      <div class="pren-col-head" id="navette-head"></div>
-      <div class="pren-col-body" id="navette-list"></div>
+      <div class="pren-col-title">NAVETTAGGI INTERNI</div>
+      <div id="navette-head"></div>
+      <div id="navette-list"></div>
      </div>
     </div>
   </div>
