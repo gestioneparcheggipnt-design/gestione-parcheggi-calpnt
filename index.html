@@ -415,6 +415,11 @@ if(!_forceDesktop && window.innerWidth<=768 && !location.href.includes('mobile.h
 
 
 
-<script type="module" src="./app-desktop.js"></script>
+<script type="module">
+  // Cache-busting a runtime: forza il fetch di app-desktop.js fresco a ogni
+  // caricamento, anche se index.html è servita dalla cache. I backtick evitano
+  // che il sed di deploy.yml (che agisce solo su virgolette '/") tocchi questa riga.
+  import(`./app-desktop.js?t=${Date.now()}`);
+</script>
 </body>
 </html>
