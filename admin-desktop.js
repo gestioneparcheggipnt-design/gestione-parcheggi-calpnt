@@ -657,7 +657,11 @@ window.renderUsers=renderUsers;
 async function deleteUser(uid, nome) {
   if(!confirm(`Eliminare l'utente "${nome}"? Questa operazione non Ã¨ reversibile.`)) return;
   try {
+    // Recupera lo username dal profilo per cancellare anche il doc pubblico in 'usernames'
+    const _uSnap = await getDoc(doc(window.db,"users",uid));
+    const _uname = _uSnap.exists() ? (_uSnap.data().username || null) : null;
     await deleteDoc(doc(window.db,"users",uid));
+    if(_uname){ await deleteDoc(doc(window.db,"usernames",_uname)); }
     showToast("Utente eliminato","success");
     renderUsers();
   } catch(e) {
