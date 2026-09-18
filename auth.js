@@ -115,6 +115,8 @@ function showApp(){
     // Mostra tab Portineria
     document.getElementById("tabPortineria").classList.remove("hidden");
     startListeners();
+    // Config magazzino live (elenco ribalte per invio diretto a ribalta) — read-only per non-admin
+    if(window.initImpostazioniConfig) window.initImpostazioniConfig();
     // Attiva pagina Portineria dopo aver preparato tutto
     showPage("Portineria", document.getElementById("tabPortineria"));
     return;

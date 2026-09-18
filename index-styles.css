@@ -688,3 +688,18 @@
 /* Tabella container: colonne su una riga sola, scroll orizzontale, Operatore in coda */
 .pren-table td { white-space: nowrap; }
 .pren-table td.pren-td-azioni { white-space: normal; }
+
+/* ── Portineria: invio diretto a ribalta ─────────────────────────────── */
+.port-rib-flagrow { margin-top:12px; }
+.port-rib-flag { display:flex; align-items:center; gap:8px; cursor:pointer; font-size:14px; color:var(--text); user-select:none; }
+.port-rib-flag input { width:18px; height:18px; accent-color:var(--accent); cursor:pointer; }
+.port-rib-step { font-size:12px; font-weight:700; letter-spacing:.5px; text-transform:uppercase; color:var(--text2); margin:6px 0 8px; }
+.port-rib-edifici { display:flex; gap:10px; }
+.port-rib-ebtn { flex:1; padding:14px; border-radius:10px; border:1.5px solid var(--border); background:var(--surface2); color:var(--text); font-family:inherit; font-size:16px; font-weight:700; letter-spacing:1px; cursor:pointer; transition:all .15s; }
+.port-rib-ebtn:hover { border-color:var(--accent); }
+.port-rib-ebtn.active { border:2px solid var(--accent); background:var(--accent); color:#1C1F26; }
+.port-rib-list { display:flex; flex-wrap:wrap; gap:8px; margin-top:4px; }
+.port-rib-rbtn { padding:9px 14px; border-radius:8px; border:1.5px solid var(--border); background:var(--surface2); color:var(--text); font-family:inherit; font-size:14px; font-weight:700; cursor:pointer; transition:all .15s; }
+.port-rib-rbtn:hover { border-color:var(--accent); }
+.port-rib-rbtn.active { border:2px solid var(--accent); background:var(--accent); color:#1C1F26; }
+.port-rib-empty { font-size:13px; color:var(--text2); padding:8px 0; }

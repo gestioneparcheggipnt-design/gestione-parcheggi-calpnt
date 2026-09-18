@@ -395,10 +395,30 @@ if(!_forceDesktop && window.innerWidth<=768 && !location.href.includes('mobile.h
           </select>
         </div>
         <div class="formGroup" style="flex:none;display:flex;align-items:flex-end;gap:8px">
-          <button class="btnPrimary" onclick="portineriaCerca()" style="margin-top:0">🔍 Cerca Posto</button>
+          <button class="btnPrimary" id="port-btn-cerca" onclick="portineriaCerca()" style="margin-top:0">🔍 Cerca Posto</button>
           <button class="btnSecondary" onclick="porteriaReset()" style="margin-top:0" title="Nuovo ingresso">↺ Reset</button>
         </div>
       </div>
+      <div class="port-rib-flagrow">
+        <label class="port-rib-flag">
+          <input type="checkbox" id="port-rib-flag" onchange="portRibToggle(this.checked)" />
+          <span>📦 Invia direttamente a ribalta (container in ingresso)</span>
+        </label>
+      </div>
+    </div>
+
+    <div id="port-rib-panel" style="display:none;margin-top:16px">
+      <div class="port-rib-step">1 · Seleziona edificio</div>
+      <div class="port-rib-edifici">
+        <button type="button" class="port-rib-ebtn" id="port-rib-ed-PNT1" onclick="portRibEdificio('PNT1')">PNT1</button>
+        <button type="button" class="port-rib-ebtn" id="port-rib-ed-PNT2" onclick="portRibEdificio('PNT2')">PNT2</button>
+      </div>
+      <div id="port-rib-liststep" style="display:none">
+        <div class="port-rib-step">2 · Seleziona ribalta libera</div>
+        <div id="port-rib-list" class="port-rib-list"></div>
+      </div>
+      <button class="btnPrimary" id="port-rib-btn-conferma" onclick="portRibConferma()" disabled
+              style="margin-top:14px;min-width:220px">✓ Conferma e stampa</button>
     </div>
 
     <div id="port-result" style="margin-top:16px"></div>
