@@ -375,9 +375,10 @@ if(!_forceDesktop && window.innerWidth<=768 && !location.href.includes('mobile.h
 </div>
 <div class="page" id="pagePortineria">
   <div class="pageHeader">Portineria</div>
-  <div class="pageSubtitle">Inserisci l'identificativo del veicolo in ingresso e assegna il posto</div>
   <div class="port-container">
     <div class="port-form-card">
+      <div class="port-section-title">🚚 Veicolo in entrata</div>
+      <div class="pageSubtitle" style="margin:0 0 12px">Inserisci l'identificativo del veicolo in ingresso e assegna il posto o la ribalta.</div>
       <div class="port-form-row">
         <div class="formGroup" style="flex:2">
           <label>Identificativo Veicolo</label>
@@ -394,9 +395,12 @@ if(!_forceDesktop && window.innerWidth<=768 && !location.href.includes('mobile.h
             <option value="vuoto">Vuoto</option>
           </select>
         </div>
-        <div class="formGroup" style="flex:none;display:flex;align-items:flex-end;gap:8px">
-          <button class="btnPrimary" id="port-btn-cerca" onclick="portineriaCerca()" style="margin-top:0">🔍 Cerca Posto</button>
-          <button class="btnSecondary" onclick="porteriaReset()" style="margin-top:0" title="Nuovo ingresso">↺ Reset</button>
+        <div class="formGroup" style="flex:none">
+          <label style="visibility:hidden" aria-hidden="true">.</label>
+          <div style="display:flex;gap:8px">
+            <button class="btnPrimary" id="port-btn-cerca" onclick="portineriaCerca()" style="margin-top:0">🔍 Cerca Posto</button>
+            <button class="btnSecondary" onclick="porteriaReset()" style="margin-top:0" title="Nuovo ingresso">↺ Reset</button>
+          </div>
         </div>
       </div>
       <div class="port-rib-flagrow">
@@ -432,7 +436,7 @@ if(!_forceDesktop && window.innerWidth<=768 && !location.href.includes('mobile.h
 
     <div class="port-uscita-sep"></div>
     <div class="port-form-card port-uscita-card">
-      <div class="port-uscita-title">🚪 Veicolo in uscita</div>
+      <div class="port-section-title">🚪 Veicolo in uscita</div>
       <div class="pageSubtitle" style="margin:0 0 12px">Dichiara un veicolo (cassa o container) che lascia lo stabilimento.</div>
       <div class="port-form-row">
         <div class="formGroup" style="flex:2">
@@ -440,9 +444,12 @@ if(!_forceDesktop && window.innerWidth<=768 && !location.href.includes('mobile.h
           <input type="text" id="port-out-veicolo" placeholder="Container: MSCU1234567  |  Cassa: 042"
                  style="text-transform:uppercase" oninput="this.value=this.value.toUpperCase()" />
         </div>
-        <div class="formGroup" style="flex:none;display:flex;align-items:flex-end;gap:8px">
-          <button class="btnPrimary" id="port-out-btn" onclick="portineriaUscita()" style="margin-top:0">🚪 Registra uscita</button>
-          <button class="btnSecondary" onclick="portineriaUscitaReset()" style="margin-top:0" title="Nuovo">↺ Reset</button>
+        <div class="formGroup" style="flex:none">
+          <label style="visibility:hidden" aria-hidden="true">.</label>
+          <div style="display:flex;gap:8px">
+            <button class="btnPrimary" id="port-out-btn" onclick="portineriaUscita()" style="margin-top:0">🚪 Registra uscita</button>
+            <button class="btnSecondary" onclick="portineriaUscitaReset()" style="margin-top:0" title="Nuovo">↺ Reset</button>
+          </div>
         </div>
       </div>
       <div id="port-out-result" style="margin-top:14px"></div>

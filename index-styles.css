@@ -705,5 +705,5 @@
 .port-rib-empty { font-size:13px; color:var(--text2); padding:8px 0; }
 
 /* ── Portineria: veicolo in uscita ───────────────────────────────────── */
-.port-uscita-sep { height:1px; background:var(--border); margin:26px 0; opacity:.7; }
-.port-uscita-title { font-family:'Barlow Condensed',sans-serif; font-size:22px; font-weight:700; margin-bottom:2px; color:var(--text); }
+.port-uscita-sep { height:1px; background:var(--border); margin:40px 0; opacity:.7; }
+.port-section-title { display:inline-block; font-family:'Barlow Condensed',sans-serif; font-size:25px; font-weight:700; letter-spacing:.5px; line-height:1.1; color:var(--text); margin-bottom:6px; padding-bottom:4px; border-bottom:3px solid var(--accent); }
