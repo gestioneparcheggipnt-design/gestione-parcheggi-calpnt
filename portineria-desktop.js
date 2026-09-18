@@ -649,9 +649,119 @@ window.portineriaCerca   = portineriaCerca;
 window.porteriaReset     = porteriaReset;
 window.porteriaConferma  = porteriaConferma;
 window.porteriaStampa    = porteriaStampa;
+// ── VEICOLO IN USCITA ─────────────────────────────────────────────────────────
+// Dichiara l'uscita di un veicolo (cassa/container). Verifica: (1) nessuna
+// missione attiva; (2) il veicolo è in un parcheggio o in una ribalta occupata.
+// Se ok: libera il luogo e registra l'uscita a storico (il plate viene azzerato,
+// quindi il veicolo non è più selezionabile per alcuna missione).
+async function portineriaUscita(){
+  const veicolo = (document.getElementById('port-out-veicolo').value || '').trim().toUpperCase();
+  const resEl   = document.getElementById('port-out-result');
+  const btn     = document.getElementById('port-out-btn');
+  resEl.innerHTML = '';
+
+  if (!veicolo){
+    resEl.innerHTML = '<div class="port-err">⚠ Inserisci l\'identificativo del veicolo.</div>';
+    return;
+  }
+  const tipo = _portRilevaTipo(veicolo);
+  if (!tipo){
+    resEl.innerHTML = '<div class="port-err">⚠ Formato non riconosciuto.<br>Container: 4 lettere + 7 cifre &nbsp;·&nbsp; Cassa: 3 cifre</div>';
+    return;
+  }
+
+  const _txt = btn.textContent;
+  btn.disabled = true; btn.textContent = 'Verifica…';
+  resEl.innerHTML = '<div class="port-err" style="opacity:.6">🔍 Verifica in corso…</div>';
+
+  try {
+    // CHECK 1 — nessuna missione attiva (in_attesa | creata)
+    const prenSnap = await getDocs(query(collection(window.db,'prenotazioni'), where('plate','==',veicolo)));
+    const attive = prenSnap.docs.filter(d => {
+      const st = d.data().stato;
+      return st === 'in_attesa' || st === 'creata';
+    });
+    if (attive.length){
+      const d0 = attive[0].data();
+      const dest = d0.destinazione ? ' → ' + d0.destinazione : '';
+      resEl.innerHTML = `<div class="port-err">⚠ <strong>${veicolo}</strong> è impegnato in una missione${dest}.<br>Impossibile registrare l'uscita finché la missione non è completata.</div>`;
+      btn.disabled = false; btn.textContent = _txt; return;
+    }
+
+    // CHECK 2 — dove si trova: parcheggio (stato locale) o ribalta (lettura).
+    // In ribalta l'uscita è consentita solo se l'operativo l'ha marcata inUscita.
+    let luogo = null; // { tipo:'parcheggio'|'ribalta', id }
+    let ribAttesa = null; // id ribalta occupata ma non ancora dichiarata in uscita
+    const inSpot = Object.entries(window.spots).find(([, sp]) => sp.occupied && sp.plate === veicolo);
+    if (inSpot){
+      luogo = { tipo:'parcheggio', id: inSpot[0] };
+    } else {
+      const ribSnap = await getDocs(query(collection(window.db,'ribalte'), where('plate','==',veicolo), limit(1)));
+      if (!ribSnap.empty && ribSnap.docs[0].data().occupied){
+        const rd = ribSnap.docs[0].data();
+        if (rd.inUscita === true){
+          luogo = { tipo:'ribalta', id: ribSnap.docs[0].id };
+        } else {
+          ribAttesa = ribSnap.docs[0].id;
+        }
+      }
+    }
+    if (!luogo){
+      if (ribAttesa){
+        resEl.innerHTML = `<div class="port-err">⚠ <strong>${veicolo}</strong> è alla ribalta <strong>${ribAttesa}</strong> ma non ancora dichiarato in uscita dall'operativo.<br>Attendere che l'operativo scelga «In uscita» sulla ribalta.</div>`;
+      } else {
+        resEl.innerHTML = `<div class="port-err">⚠ <strong>${veicolo}</strong> non risulta né in un parcheggio né in una ribalta.<br>Impossibile registrare l'uscita.</div>`;
+      }
+      btn.disabled = false; btn.textContent = _txt; return;
+    }
+
+    // ESITO POSITIVO — libera il luogo e registra l'uscita
+    const coll = luogo.tipo === 'parcheggio' ? 'spots' : 'ribalte';
+    await setDoc(doc(window.db, coll, luogo.id), {
+      occupied:false, plate:null, since:null, user:null, full:false
+    });
+    if (luogo.tipo === 'parcheggio' && window.spots[luogo.id]){
+      window.spots[luogo.id].occupied = false;
+      window.spots[luogo.id].plate    = null;
+      window.spots[luogo.id].since    = null;
+      window.spots[luogo.id].full     = false;
+    }
+    await window.logHistory({
+      action:  'Uscita veicolo',
+      plate:   veicolo,
+      origine: 'portineria',
+      spot:    luogo.id,
+      luogo:   luogo.tipo,
+      tipo:    tipo,
+    });
+
+    window.showToast(`Uscita registrata: ${veicolo} — ${luogo.tipo} ${luogo.id} liberato`);
+    resEl.innerHTML =
+      `<div class="port-ok"><div class="port-ok-badge">Uscita registrata</div>` +
+      `<div class="port-ok-spot">${veicolo}</div>` +
+      `<div class="port-ok-info">Liberato: <strong>${luogo.tipo} ${luogo.id}</strong> &nbsp;·&nbsp; Tipo: <strong>${tipo.charAt(0).toUpperCase()+tipo.slice(1)}</strong></div></div>`;
+    document.getElementById('port-out-veicolo').value = '';
+    btn.disabled = false; btn.textContent = _txt;
+
+  } catch(e){
+    console.error('Errore uscita veicolo:', e);
+    window.showToast('Errore durante la registrazione uscita. Riprova.', 'error');
+    btn.disabled = false; btn.textContent = _txt;
+  }
+}
+
+function portineriaUscitaReset(){
+  document.getElementById('port-out-veicolo').value = '';
+  document.getElementById('port-out-result').innerHTML = '';
+  const b = document.getElementById('port-out-btn');
+  if (b){ b.disabled = false; b.textContent = '🚪 Registra uscita'; }
+}
+
 window.portRibToggle     = portRibToggle;
 window.portRibEdificio   = portRibEdificio;
 window.portRibSeleziona  = portRibSeleziona;
 window.portRibConferma   = portRibConferma;
 window.portRibStampa     = portRibStampa;
+window.portineriaUscita      = portineriaUscita;
+window.portineriaUscitaReset = portineriaUscitaReset;
 

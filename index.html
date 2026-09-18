@@ -429,6 +429,24 @@ if(!_forceDesktop && window.innerWidth<=768 && !location.href.includes('mobile.h
       <button class="btnSecondary" id="port-btn-stampa" onclick="porteriaStampa()" disabled
               style="min-width:180px">🖨 Stampa Mappa Percorso</button>
     </div>
+
+    <div class="port-uscita-sep"></div>
+    <div class="port-form-card port-uscita-card">
+      <div class="port-uscita-title">🚪 Veicolo in uscita</div>
+      <div class="pageSubtitle" style="margin:0 0 12px">Dichiara un veicolo (cassa o container) che lascia lo stabilimento.</div>
+      <div class="port-form-row">
+        <div class="formGroup" style="flex:2">
+          <label>Identificativo Veicolo</label>
+          <input type="text" id="port-out-veicolo" placeholder="Container: MSCU1234567  |  Cassa: 042"
+                 style="text-transform:uppercase" oninput="this.value=this.value.toUpperCase()" />
+        </div>
+        <div class="formGroup" style="flex:none;display:flex;align-items:flex-end;gap:8px">
+          <button class="btnPrimary" id="port-out-btn" onclick="portineriaUscita()" style="margin-top:0">🚪 Registra uscita</button>
+          <button class="btnSecondary" onclick="portineriaUscitaReset()" style="margin-top:0" title="Nuovo">↺ Reset</button>
+        </div>
+      </div>
+      <div id="port-out-result" style="margin-top:14px"></div>
+    </div>
   </div>
 </div>
 <div class="toast" id="toast"></div>

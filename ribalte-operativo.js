@@ -173,6 +173,10 @@ function _ribaltaCard(r, user) {
       <div style="font-size:18px;font-weight:700;margin:6px 0 2px">${_esc(r.plate || '—')}</div>
       <div style="font-size:12px;color:var(--muted)">Da: ${sinceStr}${since ? ' · ' + fmtDur(since) : ''}</div>`;
 
+    if (r.inUscita) {
+      body += `<div style="margin-top:6px;font-size:12px;font-weight:700;color:var(--accent2)">🚪 In uscita — in attesa che la portineria registri l'uscita</div>`;
+    }
+
     if (canManage) {
       body += `
         <button class="btnRed" style="width:100%;margin-top:10px;padding:11px;font-size:14px"
@@ -180,21 +184,44 @@ function _ribaltaCard(r, user) {
           🚛 Libera ribalta
         </button>
         <div id="liberaForm_${r.id}" style="display:none;margin-top:10px">
-          <div style="font-size:13px;font-weight:600;color:var(--muted);margin-bottom:8px">Stato veicolo alla liberazione:</div>
+          <div style="font-size:13px;font-weight:600;color:var(--muted);margin-bottom:8px">Destinazione del veicolo:</div>
           <div style="display:flex;gap:8px;margin-bottom:10px">
-            <button id="btnVuota_${r.id}" onclick="setLiberaStato('${r.id}','vuota')"
-                    style="flex:1;padding:8px;border-radius:8px;border:2px solid var(--accent);background:var(--accent);color:#1C1F26;font-weight:700;font-family:inherit;font-size:13px;cursor:pointer">
-              🟢 Vuota
+            <button id="btnDestPark_${r.id}" onclick="setLiberaDest('${r.id}','parcheggio')"
+                    style="flex:1;padding:10px;border-radius:8px;border:1.5px solid var(--border);background:var(--surface2);color:var(--text);font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">
+              🅿️ A parcheggio
             </button>
-            <button id="btnPiena_${r.id}" onclick="setLiberaStato('${r.id}','piena')"
-                    style="flex:1;padding:8px;border-radius:8px;border:1.5px solid var(--border);background:var(--surface2);color:var(--text);font-family:inherit;font-size:13px;cursor:pointer">
-              🟡 Piena
+            <button id="btnDestExit_${r.id}" onclick="setLiberaDest('${r.id}','uscita')"
+                    style="flex:1;padding:10px;border-radius:8px;border:1.5px solid var(--border);background:var(--surface2);color:var(--text);font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">
+              🚪 In uscita
             </button>
           </div>
-          <button onclick="confermaLibera('${r.id}')"
-                  style="width:100%;padding:11px;border-radius:8px;border:none;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#1C1F26;font-family:inherit;font-size:14px;font-weight:700;cursor:pointer">
-            ✓ Conferma liberazione
-          </button>
+
+          <div id="parkSub_${r.id}" style="display:none">
+            <div style="font-size:13px;font-weight:600;color:var(--muted);margin-bottom:8px">Stato veicolo alla liberazione:</div>
+            <div style="display:flex;gap:8px;margin-bottom:10px">
+              <button id="btnVuota_${r.id}" onclick="setLiberaStato('${r.id}','vuota')"
+                      style="flex:1;padding:8px;border-radius:8px;border:2px solid var(--accent);background:var(--accent);color:#1C1F26;font-weight:700;font-family:inherit;font-size:13px;cursor:pointer">
+                🟢 Vuota
+              </button>
+              <button id="btnPiena_${r.id}" onclick="setLiberaStato('${r.id}','piena')"
+                      style="flex:1;padding:8px;border-radius:8px;border:1.5px solid var(--border);background:var(--surface2);color:var(--text);font-family:inherit;font-size:13px;cursor:pointer">
+                🟡 Piena
+              </button>
+            </div>
+            <button onclick="confermaLibera('${r.id}')"
+                    style="width:100%;padding:11px;border-radius:8px;border:none;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#1C1F26;font-family:inherit;font-size:14px;font-weight:700;cursor:pointer">
+              ✓ Conferma e crea missione
+            </button>
+          </div>
+
+          <div id="exitSub_${r.id}" style="display:none">
+            <div style="font-size:12px;color:var(--muted);margin-bottom:10px;line-height:1.4">Il veicolo lascerà lo stabilimento. Nessuna missione verrà creata: la ribalta resta occupata finché la portineria non registra l'uscita.</div>
+            <button onclick="confermaLiberaUscita('${r.id}')"
+                    style="width:100%;padding:11px;border-radius:8px;border:none;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#1C1F26;font-family:inherit;font-size:14px;font-weight:700;cursor:pointer">
+              ✓ Conferma uscita
+            </button>
+          </div>
+
           <button onclick="toggleLiberaForm('${r.id}')"
                   style="width:100%;margin-top:6px;padding:8px;border-radius:8px;border:1.5px solid var(--border);background:transparent;color:var(--muted);font-family:inherit;font-size:13px;cursor:pointer">
             Annulla
@@ -217,19 +244,50 @@ function _ribaltaCard(r, user) {
 
 // ── FORM LIBERA RIBALTA ───────────────────────────────────────────────────────
 const _liberaStato = {};
+const _liberaDest  = {};
 
 window.toggleLiberaForm = function(id) {
   const form = document.getElementById('liberaForm_' + id);
   if (!form) return;
   const isOpen = form.style.display !== 'none';
   form.style.display = isOpen ? 'none' : 'block';
-  if (!isOpen) { _liberaStato[id] = 'vuota'; _aggiornaToggle(id); }
+  if (!isOpen) {
+    _liberaStato[id] = 'vuota';
+    _liberaDest[id]  = null;
+    const ps = document.getElementById('parkSub_' + id); if (ps) ps.style.display = 'none';
+    const es = document.getElementById('exitSub_' + id); if (es) es.style.display = 'none';
+    _aggiornaDest(id);
+  }
 };
 
 window.setLiberaStato = function(id, stato) {
   _liberaStato[id] = stato;
   _aggiornaToggle(id);
 };
+
+window.setLiberaDest = function(id, dest) {
+  _liberaDest[id] = dest;
+  const ps = document.getElementById('parkSub_' + id);
+  const es = document.getElementById('exitSub_' + id);
+  if (ps) ps.style.display = dest === 'parcheggio' ? 'block' : 'none';
+  if (es) es.style.display = dest === 'uscita' ? 'block' : 'none';
+  if (dest === 'parcheggio') { _liberaStato[id] = _liberaStato[id] || 'vuota'; _aggiornaToggle(id); }
+  _aggiornaDest(id);
+};
+
+function _aggiornaDest(id) {
+  const bP = document.getElementById('btnDestPark_' + id);
+  const bE = document.getElementById('btnDestExit_' + id);
+  if (!bP || !bE) return;
+  const dest = _liberaDest[id];
+  const base = 'flex:1;padding:10px;border-radius:8px;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer';
+  bP.style.cssText = base + (dest === 'parcheggio'
+    ? ';border:2px solid var(--accent);background:var(--accent);color:#1C1F26'
+    : ';border:1.5px solid var(--border);background:var(--surface2);color:var(--text)');
+  bE.style.cssText = base + (dest === 'uscita'
+    ? ';border:2px solid var(--accent);background:var(--accent);color:#1C1F26'
+    : ';border:1.5px solid var(--border);background:var(--surface2);color:var(--text)');
+}
 
 function _aggiornaToggle(id) {
   const btnV = document.getElementById('btnVuota_' + id);
@@ -271,6 +329,21 @@ window.confermaLibera = async function(id) {
     });
     await window.logHistory({ spot: id, action: 'Ribalta richiesta', plate });
     showToast(`Ribalta ${id} liberata — missione creata`, 'success');
+  } catch (e) {
+    showToast('Errore: ' + e.message, 'error');
+  }
+};
+
+// Destinazione USCITA: nessuna missione. La ribalta resta occupata e viene
+// marcata inUscita; sarà liberata dalla portineria al momento dell'uscita.
+window.confermaLiberaUscita = async function(id) {
+  const r = _ribalteData[id];
+  if (!r) return;
+  const plate = r.plate || '—';
+  try {
+    await setDoc(doc(window.db, 'ribalte', id), { inUscita: true }, { merge: true });
+    await window.logHistory({ spot: id, action: 'Ribalta in uscita', plate });
+    showToast(`Ribalta ${id}: veicolo in uscita — la libererà la portineria`, 'success');
   } catch (e) {
     showToast('Errore: ' + e.message, 'error');
   }
