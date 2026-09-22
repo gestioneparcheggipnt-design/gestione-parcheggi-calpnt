@@ -425,6 +425,8 @@ window.stopImpostazioni = stopImpostazioni;
   #pageImpostazioni .imp-addrow,#pageImpostazioni .imp-addrep{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
   #pageImpostazioni .imp-addrow .inputField{max-width:160px}
   #pageImpostazioni .imp-addrep .inputField{max-width:220px}
+  #pageImpostazioni .inputField{border-radius:8px;border:1px solid var(--border);padding:8px 10px;font-family:inherit;font-size:13px;background:#fff;color:#1C1F26;outline:none}
+  #pageImpostazioni .inputField:focus{border-color:var(--accent)}
   #pageImpostazioni .imp-addrow > .btnPrimary,#pageImpostazioni .imp-addrow > .btnSecondary,
   #pageImpostazioni .imp-addrep > .btnPrimary,#pageImpostazioni .imp-addrep > .btnSecondary{
     width:auto;flex:0 0 auto;margin-top:0;padding:8px 14px;font-size:13px;white-space:nowrap}
