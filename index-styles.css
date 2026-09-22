@@ -707,13 +707,6 @@
 /* ── Portineria: veicolo in uscita ───────────────────────────────────── */
 .port-uscita-sep { height:1px; background:var(--border); margin:40px 0; opacity:.7; }
 .port-btn-actions { display:flex; gap:8px; }
-/* Stampa Mappa Percorso alta come Conferma Assegnazione */
-.port-actions { align-items:stretch; }
-.port-actions .btnPrimary,
-.port-actions .btnSecondary {
-  margin-top:0; display:inline-flex; align-items:center; justify-content:center;
-}
-
 /* Cerca posto / Registra uscita / Reset: stessa altezza del box Identificativo (44px) */
 .port-btn-actions .btnPrimary,
 .port-btn-actions .btnSecondary {
