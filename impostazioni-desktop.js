@@ -429,6 +429,9 @@ window.stopImpostazioni = stopImpostazioni;
   #pageImpostazioni .imp-addrep > .btnPrimary,#pageImpostazioni .imp-addrep > .btnSecondary{
     width:auto;flex:0 0 auto;margin-top:0;padding:8px 14px;font-size:13px;white-space:nowrap}
   #pageImpostazioni .imp-addrow,#pageImpostazioni .imp-addrep{justify-content:flex-start}
+  #pageImpostazioni .imp-addrep + .imp-card{margin-top:22px}
+  #pageImpostazioni .imp-addrow > .btnSecondary{background:#f59e0b1f;border:1px solid #f59e0b55;color:var(--orange,#f59e0b)}
+  #pageImpostazioni .imp-addrow > .btnSecondary:hover{background:#f59e0b33}
   `;
   document.head.appendChild(s);
 })();
