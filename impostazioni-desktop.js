@@ -364,7 +364,7 @@ function renderImpostazioni(){
   // Zone / parcheggi (overview; label editabile)
   const zone = _cfg.zone || {};
   const zoneHTML = Object.keys(window.ZONES||{}).map(z=>{
-    const spots = (window.ZONES[z]||[]);
+    const spots = (window.ZONES[z]||[]).slice().sort((a,b)=>a.localeCompare(b,undefined,{numeric:true}));
     const meta = zone[z] || {label:z, tipo:'cassa'};
     return `
     <div class="imp-card">
@@ -425,6 +425,10 @@ window.stopImpostazioni = stopImpostazioni;
   #pageImpostazioni .imp-addrow,#pageImpostazioni .imp-addrep{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
   #pageImpostazioni .imp-addrow .inputField{max-width:160px}
   #pageImpostazioni .imp-addrep .inputField{max-width:220px}
+  #pageImpostazioni .imp-addrow > .btnPrimary,#pageImpostazioni .imp-addrow > .btnSecondary,
+  #pageImpostazioni .imp-addrep > .btnPrimary,#pageImpostazioni .imp-addrep > .btnSecondary{
+    width:auto;flex:0 0 auto;margin-top:0;padding:8px 14px;font-size:13px;white-space:nowrap}
+  #pageImpostazioni .imp-addrow,#pageImpostazioni .imp-addrep{justify-content:flex-start}
   `;
   document.head.appendChild(s);
 })();
