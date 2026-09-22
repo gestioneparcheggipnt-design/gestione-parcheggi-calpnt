@@ -494,6 +494,7 @@ async function renderUsers(){
       <select class="roleSelect" onchange="window._changeRole('${u.uid}',this.value)">
         <option value="autista"       ${u.role==="autista"?"selected":""}>Autista</option>
         <option value="operativo"     ${u.role==="operativo"?"selected":""}>Operativo</option>
+        <option value="portineria"    ${u.role==="portineria"?"selected":""}>Portineria</option>
         <option value="amministrativo"${u.role==="amministrativo"?"selected":""}>Amministrativo</option>
         <option value="amministratore"${u.role==="amministratore"?"selected":""}>Amministratore</option>
       </select>
