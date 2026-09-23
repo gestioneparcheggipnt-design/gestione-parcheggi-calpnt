@@ -127,6 +127,8 @@ if(!_forceDesktop && window.innerWidth<=768 && !location.href.includes('mobile.h
           <th class="sortable" onclick="sortTable('since')">Data<span class="sortIndicator"></span></th>
           <th class="sortable" onclick="sortTable('damaged')">Danneg.<span class="sortIndicator"></span></th>
           <th class="sortable" onclick="sortTable('full')">Pieno/Vuoto<span class="sortIndicator"></span></th>
+          <th>Rib. richiesta</th>
+          <th>Rib. effettiva</th>
           <th class="sortable" onclick="sortTable('utente')">Utente<span class="sortIndicator"></span></th>
         </tr>
         <tr class="filterRow">
@@ -158,6 +160,8 @@ if(!_forceDesktop && window.innerWidth<=768 && !location.href.includes('mobile.h
             <option value="pieno">Pieno</option>
             <option value="vuoto">Vuoto</option>
           </select></td>
+          <td></td>
+          <td></td>
           <td><select id="fUtente" onchange="doSearch()"><option value="">Tutti</option></select></td>
         </tr>
       </thead>
@@ -173,6 +177,8 @@ if(!_forceDesktop && window.innerWidth<=768 && !location.href.includes('mobile.h
           <th class="sortable" onclick="sortStorico('ts')">Data/Ora<span class="sortIndicator"></span></th>
           <th class="sortable" onclick="sortStorico('spot')">Posto<span class="sortIndicator"></span></th>
           <th class="sortable" onclick="sortStorico('action')">Azione<span class="sortIndicator"></span></th>
+          <th class="sortable" onclick="sortStorico('richiesta')">Rib. richiesta<span class="sortIndicator"></span></th>
+          <th class="sortable" onclick="sortStorico('effettiva')">Rib. effettiva<span class="sortIndicator"></span></th>
           <th class="sortable" onclick="sortStorico('plate')">Targa<span class="sortIndicator"></span></th>
           <th class="sortable" onclick="sortStorico('tipo')">Tipo<span class="sortIndicator"></span></th>
           <th class="sortable" onclick="sortStorico('utente')">Utente<span class="sortIndicator"></span></th>
@@ -184,6 +190,8 @@ if(!_forceDesktop && window.innerWidth<=768 && !location.href.includes('mobile.h
           </td>
           <td><select id="sfPosto" onchange="renderStorico()"><option value="">Tutti</option></select></td>
           <td><select id="sfAzione" onchange="renderStorico()"><option value="">Tutti</option></select></td>
+          <td><select id="sfRichiesta" onchange="renderStorico()"><option value="">Tutti</option></select></td>
+          <td><select id="sfEffettiva" onchange="renderStorico()"><option value="">Tutti</option></select></td>
           <td><select id="sfTarga" onchange="renderStorico()"><option value="">Tutti</option></select></td>
           <td><select id="sfTipo" onchange="renderStorico()">
             <option value="">Tutti</option>
@@ -295,7 +303,8 @@ if(!_forceDesktop && window.innerWidth<=768 && !location.href.includes('mobile.h
           <tr>
             <th>ID Container</th>
             <th>Posto</th>
-            <th>Destinazione</th>
+            <th>Ribalta richiesta</th>
+            <th>Ribalta effettiva</th>
             <th>Data/Ora</th>
             <th>Stato</th>
             <th>Urgente</th>
@@ -304,7 +313,7 @@ if(!_forceDesktop && window.innerWidth<=768 && !location.href.includes('mobile.h
           </tr>
         </thead>
         <tbody id="pren-table-body">
-          <tr><td colspan="8" class="pren-empty">Caricamento&#x2026;</td></tr>
+          <tr><td colspan="9" class="pren-empty">Caricamento&#x2026;</td></tr>
         </tbody>
       </table>
     </div>
@@ -329,16 +338,19 @@ if(!_forceDesktop && window.innerWidth<=768 && !location.href.includes('mobile.h
         <div class="rtb-title">&#x1F3AF; Target Casse Giornaliero</div>
         <div class="rtb-input-row">
           <label class="rtb-label">Casse target</label>
-          <input type="number" id="reverse-target-input" min="0" placeholder="es. 120"
-                 oninput="aggiornaReverseTarget()" />
+          <input type="number" id="reverse-target-input" min="1" placeholder="es. 120"
+                 onkeydown="if(event.key==='Enter')salvaReverseTarget()" />
+          <button id="reverse-target-btn" onclick="salvaReverseTarget()"
+                  style="margin-left:6px;padding:6px 12px;border-radius:6px;border:none;background:var(--accent);color:#1C1F26;font-weight:700;cursor:pointer;white-space:nowrap">Imposta</button>
         </div>
+        <div id="reverse-target-info" style="font-size:11px;color:var(--text2);margin-top:4px"></div>
         <div class="rtb-divider"></div>
         <div class="rtb-stat-row">
-          <span class="rtb-stat-label">Scaricate oggi</span>
+          <span class="rtb-stat-label">Svuotate e liberate oggi</span>
           <span class="rtb-stat-value" id="reverse-scaricate">—</span>
         </div>
         <div class="rtb-stat-row rtb-stat-row-delta">
-          <span class="rtb-stat-label">Rimanenti</span>
+          <span class="rtb-stat-label">Delta vs target</span>
           <span class="rtb-stat-value" id="reverse-delta">—</span>
         </div>
         <div class="rtb-progress-wrap" id="reverse-progress-wrap" style="display:none;">

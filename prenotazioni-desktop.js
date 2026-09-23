@@ -14,8 +14,10 @@ let _prenotazioni = [];
 let _mezzoCorrente = null;
 let _prenListener = null;
 let _destinazioneValida = false;
-let _reverseHistoryListener = null;
-let _reverseScaricateOggi = 0;
+let _reverseTargetUnsub = null;     // listener doc reverseTarget/{giorno}
+let _reverseTargetGiorno = null;    // giorno a cui è agganciato il listener
+let _reverseTarget = null;          // { target, setBy, setAt } | null
+let _reverseEdit = false;           // true mentre l'utente sta modificando il target
 let _ribalteListener = null;
 let _ribalteData = {}; // { [id]: { occupied, plate } }
 const _gruppoPickerDesk = {}; // { [formKey]: 'PNT1'|'PNT2' }
@@ -316,7 +318,6 @@ function _aggiornaVistaPrenotazioni() {
   } else {
     renderPrenotazioni();
     _renderNavettePanelDesk();
-    if (_reverseHistoryListener) { _reverseHistoryListener(); _reverseHistoryListener = null; }
   }
 }
 
@@ -335,12 +336,15 @@ function renderCasse() {
     return;
   }
 
-  // Controlla se ci sono prenotazioni urgenti attive per ciascuna cassa
+  // Urgenza: flag sul posto (spots.urgente + urgentePlate, auto-invalidante se
+  // il posto passa a un'altra cassa) + eventuali prenotazioni urgenti legacy.
   const idUrgenti = new Set(
     _prenotazioni
       .filter(p => p.urgente && p.stato === 'creata')
       .map(p => p.plate)
   );
+  casseOccupate.forEach(s => { if (_cassaUrgente(s)) idUrgenti.add(s.plate); });
+  const puoUrgenza = _puoSegnareUrgenzaCasse();
 
   // Ordine: prima urgenti, poi per anzianità (since crescente = più vecchie prima)
   casseOccupate.sort((a, b) => {
@@ -371,10 +375,45 @@ function renderCasse() {
         <div class="cassa-badges">
           ${urgente ? '<span class="badge-urgente" style="font-size:1rem">🚨 Urgente</span>' : ''}
           ${s.full ? '<span class="badge-pieno" style="font-size:1rem">📦 Piena</span>' : ''}
+          ${puoUrgenza
+            ? (urgente
+                ? `<button onclick="toggleUrgenzaCassa('${_esc(s.id)}', false)" title="Togli urgenza" style="padding:4px 10px;border-radius:6px;border:1px solid var(--red,#ef4444);background:transparent;color:var(--red,#ef4444);font-size:12px;font-weight:700;cursor:pointer">✕ Togli urgenza</button>`
+                : `<button onclick="toggleUrgenzaCassa('${_esc(s.id)}', true)" title="Porta in cima all'elenco autista" style="padding:4px 10px;border-radius:6px;border:1px solid var(--border,#3a4050);background:var(--surface2,#2e333d);color:var(--text,#e8eaf0);font-size:12px;font-weight:700;cursor:pointer">🚨 Segna urgente</button>`)
+            : ''}
         </div>
       </div>`;
   }).join('');
 }
+
+function _cassaUrgente(s) {
+  return s && s.urgente === true && !!s.plate && s.urgentePlate === s.plate;
+}
+
+// Urgenza casse: amministrativo del reparto REVERSE (e amministratore)
+function _puoSegnareUrgenzaCasse() {
+  const u = window.currentUser;
+  if (!u) return false;
+  if (u.role === 'amministratore') return true;
+  return u.role === 'amministrativo' && _isReverseUser();
+}
+
+window.toggleUrgenzaCassa = async function(spotId, val) {
+  if (!_puoSegnareUrgenzaCasse()) { window.showToast('Non hai i permessi per gestire le urgenze.', 'error'); return; }
+  const s = window.spots?.[spotId];
+  if (!s || !s.occupied || !s.plate) { window.showToast('Posto non più occupato', 'error'); return; }
+  try {
+    await setDoc(doc(window.db, 'spots', spotId), {
+      urgente: !!val, urgentePlate: val ? s.plate : null
+    }, { merge: true });
+    // aggiornamento locale immediato (il listener spots allinea comunque)
+    s.urgente = !!val; s.urgentePlate = val ? s.plate : null;
+    await window.logHistory({ spot: spotId, action: val ? 'Urgenza impostata' : 'Urgenza rimossa', plate: s.plate, tipo: 'cassa' });
+    window.showToast(val ? `🚨 Cassa ${s.plate} urgente: in cima all'elenco autista` : `Urgenza rimossa da ${s.plate}`, 'success');
+    renderCasse();
+  } catch (e) {
+    window.showToast('Errore: ' + (e.message || e), 'error');
+  }
+};
 
 function _fmtAnzianita(date) {
   const ms = Date.now() - date.getTime();
@@ -626,8 +665,10 @@ function renderPrenotazioni() {
   // Vista container: missioni ribalta (sempre) + prenotazioni ordinarie su container.
   // Le missioni ribalta compaiono SOLO qui, mai nella vista casse.
   const _reContainer = window.RE_CONTAINER || /^[A-Z]{4}\d{7}$/;
+  const _reCassa = window.RE_CASSA || /^\d{3}$/;
   let lista = _prenotazioni.filter(p => {
-    if (p.tipoMissione === 'ribalta') return true;
+    // Missioni ribalta: solo se il mezzo NON è una cassa (le casse vivono nella vista casse)
+    if (p.tipoMissione === 'ribalta') return !_reCassa.test((p.plate || '').toUpperCase().trim());
     if (p.tipoMezzo && p.tipoMezzo !== 'container') return false;
     return _reContainer.test((p.plate || '').toUpperCase().trim());
   });
@@ -658,7 +699,7 @@ function renderPrenotazioni() {
   });
 
   if (!lista.length) {
-    tbody.innerHTML = '<tr><td colspan="8" class="pren-empty">Nessuna prenotazione trovata.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="9" class="pren-empty">Nessuna prenotazione trovata.</td></tr>';
     return;
   }
   tbody.innerHTML = lista.map(p => {
@@ -717,8 +758,18 @@ function renderPrenotazioni() {
     }
     if (canDelete && p.stato !== 'completata') azioni += '<button class="pren-action-btn btn-elimina" onclick="eliminaPrenotazione(\'' + p.id + '\')">🗑</button>';
     const rowClass = p.stato === 'completata' ? ' class="pren-row-completata"' : '';
+    // Ribalta richiesta (destinazione) vs effettiva (dove l'autista l'ha portato)
+    const richiesta = (p.destinazione && p.destinazione !== '—') ? String(p.destinazione).trim().toUpperCase() : '';
+    const effettiva = String(p.postoFine || p.ribaltaArrivo || '').trim().toUpperCase();
+    const cambiata  = richiesta && effettiva && richiesta !== effettiva;
+    const tdRich = '<td>' + (richiesta ? _esc(richiesta) : '<span style="color:var(--muted)">—</span>') + '</td>';
+    const tdEff  = '<td>' + (effettiva
+      ? (cambiata
+          ? '<span style="color:#f97316;font-weight:700" title="Ribalta cambiata dall\'autista">⚠ ' + _esc(effettiva) + '</span>'
+          : _esc(effettiva))
+      : '<span style="color:var(--muted)">—</span>') + '</td>';
     const operatoreDisplay = _esc(p.operatoreNome || p.operatoreEmail || p.utenteEmail || '—');
-    return '<tr' + rowClass + '><td><strong>' + _esc(p.plate || '—') + '</strong></td><td>' + _esc(p.spotId || '—') + '</td><td>' + _esc(p.destinazione || '—') + '</td><td>' + dataStr + '</td><td>' + badgeStato + '</td><td style="text-align:center">' + badgeUrgente + '</td><td class="pren-td-azioni"><div class="pren-actions">' + azioni + '</div></td><td style="font-size:.9rem">' + operatoreDisplay + '</td></tr>';
+    return '<tr' + rowClass + '><td><strong>' + _esc(p.plate || '—') + '</strong></td><td>' + _esc(p.spotId || '—') + '</td>' + tdRich + tdEff + '<td>' + dataStr + '</td><td>' + badgeStato + '</td><td style="text-align:center">' + badgeUrgente + '</td><td class="pren-td-azioni"><div class="pren-actions">' + azioni + '</div></td><td style="font-size:.9rem">' + operatoreDisplay + '</td></tr>';
   }).join('');
 }
 
@@ -776,8 +827,10 @@ window.confermaDeskCompleta = async function(id) {
     const pren  = _prenotazioni.find(p => p.id === id);
     const plate = pren?.plate || '—';
     // Aggiorna prenotazione
+    const ribaltaRichiesta = (pren?.destinazione && pren.destinazione !== '—')
+      ? String(pren.destinazione).trim().toUpperCase() : null;
     await updateDoc(doc(window.db, 'prenotazioni', id), {
-      stato: 'completata', completedAt: serverTimestamp(), postoFine: dest
+      stato: 'completata', completedAt: serverTimestamp(), postoFine: dest, ribaltaRichiesta
     });
     // Libera posto parcheggio origine (leggi full prima di liberarlo)
     let spotFull = false;
@@ -791,11 +844,11 @@ window.confermaDeskCompleta = async function(id) {
     // Occupa ribalta destinazione propagando il flag full della cassa
     await setDoc(doc(window.db, 'ribalte', dest), {
       occupied: true, plate, since: serverTimestamp(),
-      user: auth.currentUser?.email || '—', full: spotFull
+      user: window.auth.currentUser?.email || '—', full: spotFull, ribaltaRichiesta
     });
     await window.logHistory({
       spot: dest, action: 'Missione completata', tipo: /^\d{3}$/.test(String(plate||'').trim()) ? 'cassa' : 'container', plate,
-      origine: pren?.spotId || null, destinazione: dest,
+      origine: pren?.spotId || null, destinazione: dest, ribaltaRichiesta,
       richiedente: pren?.operatoreNome || pren?.utenteNome || pren?.operatoreEmail || pren?.utenteEmail || null
     });
   } catch(err) {
@@ -817,43 +870,56 @@ function _isReverseUser() {
     (window.currentUser.reparto || '').trim().toUpperCase() === 'REVERSE';
 }
 
-function _reverseTargetKey() {
+// Giorno corrente (chiave doc reverseTarget/{YYYY-MM-DD})
+function _reverseGiorno() {
   const d = new Date();
-  const ds = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-  return `reverse_target_${ds}`;
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 }
 
+// Il target è salvato su Firestore (non più in localStorage): resta fisso per
+// tutta la giornata, uguale su tutti i PC, e sopravvive a reload/logout.
 function _initReverseTarget() {
   const box = document.getElementById('reverse-target-box');
   if (!box) return;
   if (!_isReverseUser()) {
     box.style.display = 'none';
-    if (_reverseHistoryListener) { _reverseHistoryListener(); _reverseHistoryListener = null; }
     return;
   }
   box.style.display = 'block';
-  const input = document.getElementById('reverse-target-input');
-  const saved = localStorage.getItem(_reverseTargetKey());
-  if (input && saved !== null) input.value = saved;
-  _startReverseHistoryListener();
+  const giorno = _reverseGiorno();
+  if (_reverseTargetGiorno !== giorno) {
+    if (_reverseTargetUnsub) { _reverseTargetUnsub(); _reverseTargetUnsub = null; }
+    _reverseTargetGiorno = giorno;
+    _reverseTarget = null;
+    _reverseEdit = false;
+    _reverseTargetUnsub = onSnapshot(
+      doc(window.db, 'reverseTarget', giorno),
+      snap => { _reverseTarget = snap.exists() ? snap.data() : null; _aggiornaReverseUI(); },
+      err => console.error('Errore listener target reverse:', err)
+    );
+  }
+  _aggiornaReverseUI();
 }
 
-function _startReverseHistoryListener() {
-  if (_reverseHistoryListener) { _reverseHistoryListener(); _reverseHistoryListener = null; }
-  const oggi = new Date();
-  oggi.setHours(0, 0, 0, 0);
-  _reverseHistoryListener = onSnapshot(
-    query(collection(window.db, 'history'), where('ts', '>=', oggi), where('action', '==', 'Liberato')),
-    snap => {
-      const RE = /^\d{3}$/;
-      _reverseScaricateOggi = snap.docs.filter(d => {
-        const p = d.data().plate;
-        return p && RE.test(p.trim());
-      }).length;
-      _aggiornaReverseUI();
-    },
-    err => console.error('Errore listener reverse history:', err)
-  );
+// Casse svuotate e liberate dalla ribalta oggi = missioni ribalta create
+// dall'operativo alla "Libera ribalta" dichiarando il mezzo VUOTO, su casse,
+// su ribalte del reparto REVERSE. Calcolato dalle prenotazioni già in ascolto
+// (nessuna query su history → nessun indice composito richiesto).
+function _contaCasseSvuotateOggi() {
+  const inizio = new Date(); inizio.setHours(0, 0, 0, 0);
+  const t0 = inizio.getTime();
+  const RE = window.RE_CASSA || /^\d{3}$/;
+  const R = window.REPARTI || {};
+  const kRev = Object.keys(R).find(k => String(k).trim().toUpperCase().replace(/\s+/g, '') === 'REVERSE');
+  const ribRev = kRev ? new Set((R[kRev] || []).map(x => String(x).trim().toUpperCase())) : null;
+  return _prenotazioni.filter(p => {
+    if (p.tipoMissione !== 'ribalta' || p.fullAllaLibera) return false;
+    if (!RE.test(String(p.plate || '').trim())) return false;
+    if (ribRev && ribRev.size && !ribRev.has(String(p.spotId || '').trim().toUpperCase())) return false;
+    const raw = p.dataOra;
+    const ts = !raw ? Date.now() : (raw.toDate ? raw.toDate().getTime() : new Date(raw).getTime());
+    return ts >= t0;
+  }).length;
 }
 
 function _aggiornaReverseUI() {
@@ -862,20 +928,41 @@ function _aggiornaReverseUI() {
   const elPWrap     = document.getElementById('reverse-progress-wrap');
   const elPFill     = document.getElementById('reverse-progress-fill');
   const elPPct      = document.getElementById('reverse-progress-pct');
+  const input       = document.getElementById('reverse-target-input');
+  const btn         = document.getElementById('reverse-target-btn');
+  const info        = document.getElementById('reverse-target-info');
   if (!elScaricate) return;
-  elScaricate.textContent = _reverseScaricateOggi;
-  const targetRaw = document.getElementById('reverse-target-input')?.value;
-  const target = parseInt(targetRaw, 10);
-  if (!targetRaw || isNaN(target) || target <= 0) {
+
+  const svuotate = _contaCasseSvuotateOggi();
+  elScaricate.textContent = svuotate;
+
+  const target = (_reverseTarget && Number(_reverseTarget.target) > 0) ? Number(_reverseTarget.target) : null;
+
+  if (input && !_reverseEdit) {
+    input.value = target ?? '';
+    input.disabled = !!target;
+  }
+  if (btn) btn.textContent = _reverseEdit ? '💾 Salva' : (target ? '✏️ Modifica' : 'Imposta');
+  if (info) {
+    if (target) {
+      const at = _reverseTarget.setAt?.toDate ? _reverseTarget.setAt.toDate() : null;
+      const ora = at ? at.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' }) : '';
+      info.textContent = `Impostato${_reverseTarget.setBy ? ' da ' + _reverseTarget.setBy : ''}${ora ? ' alle ' + ora : ''} · valido fino a fine giornata`;
+    } else {
+      info.textContent = 'Inserisci il target a inizio turno';
+    }
+  }
+
+  if (!target) {
     elDelta.textContent = '—';
     elDelta.classList.remove('negativo');
     if (elPWrap) elPWrap.style.display = 'none';
     return;
   }
-  const rimanenti = target - _reverseScaricateOggi;
-  elDelta.textContent = rimanenti > 0 ? rimanenti : 0;
-  elDelta.classList.toggle('negativo', rimanenti < 0);
-  const pct = Math.min(100, Math.round((_reverseScaricateOggi / target) * 100));
+  const delta = target - svuotate;
+  elDelta.textContent = delta > 0 ? String(delta) : (delta === 0 ? '0 ✔' : `+${-delta} oltre target`);
+  elDelta.classList.toggle('negativo', delta < 0);
+  const pct = Math.min(100, Math.round((svuotate / target) * 100));
   if (elPWrap) {
     elPWrap.style.display = 'block';
     elPFill.style.width = pct + '%';
@@ -884,14 +971,36 @@ function _aggiornaReverseUI() {
   }
 }
 
-window.aggiornaReverseTarget = function() {
+window.salvaReverseTarget = async function() {
   const input = document.getElementById('reverse-target-input');
   if (!input) return;
-  const val = input.value.trim();
-  if (val) localStorage.setItem(_reverseTargetKey(), val);
-  else localStorage.removeItem(_reverseTargetKey());
-  _aggiornaReverseUI();
+  const haTarget = _reverseTarget && Number(_reverseTarget.target) > 0;
+  // Target già fissato: il primo click abilita solo la modifica
+  if (haTarget && !_reverseEdit) {
+    _reverseEdit = true;
+    input.disabled = false;
+    input.focus(); input.select();
+    _aggiornaReverseUI();
+    return;
+  }
+  const val = parseInt(String(input.value).trim(), 10);
+  if (isNaN(val) || val <= 0) { window.showToast('Inserisci un target valido (numero maggiore di 0)', 'error'); return; }
+  try {
+    const u = window.currentUser || {};
+    await setDoc(doc(window.db, 'reverseTarget', _reverseGiorno()), {
+      target: val, giorno: _reverseGiorno(),
+      setBy: u.name || u.email || null, setByUid: u.uid || null,
+      setAt: serverTimestamp()
+    });
+    _reverseEdit = false;
+    window.showToast(`Target giornaliero impostato: ${val} casse`, 'success');
+  } catch (e) {
+    window.showToast('Errore salvataggio target: ' + (e.message || e), 'error');
+  }
 };
+
+// compatibilità con eventuali vecchi riferimenti in index.html
+window.aggiornaReverseTarget = function() {};
 
 window.initPrenotazioni = initPrenotazioni;
 window._aggiornaVistaPrenotazioni = _aggiornaVistaPrenotazioni;

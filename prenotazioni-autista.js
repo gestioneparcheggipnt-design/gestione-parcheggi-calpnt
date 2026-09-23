@@ -187,38 +187,99 @@ function _casseOccupateOrdinate() {
     .sort((a, b) => _tsVal(a.since) - _tsVal(b.since));
 }
 
-// Blocco UNICO per la modalità cassa: le missioni ribalta e le casse parcheggiate
-// pescano dallo stesso gruppo di 3. Le chiavi sono namespaced ('p:' prenotazione,
-// 's:' spot) perché le due collezioni hanno spazi di ID diversi.
-function _calcolaBloccoCassa(missioni, casse) {
-  const marcateP = missioni.filter(p => p.bloccoAt);
-  const marcateS = casse.filter(s => s.bloccoPlate && s.bloccoPlate === s.plate);
+// ── SEQUENZA PIENO / VUOTO ALTERNATA ──────────────────────────────────────────
+// L'autista lavora con un solo rimorchio: porta un pieno alla ribalta e riporta
+// via un vuoto, così non fa mai un viaggio a motrice scarica. L'elenco quindi
+// alterna pieno ↔ vuoto (container o casse, missioni ribalta comprese).
+//  - Urgenti: sempre in cima e sempre sbloccati (fuori dal gruppo di 3).
+//  - Gruppo di 3: resta. Essendo dispari, a ogni gruppo la parità si invertirebbe
+//    (P-V-P | P-V-P → due pieni di fila). Per evitarlo il tipo dell'ultimo
+//    elemento del gruppo aperto è salvato su Firestore (stato/sequenzaAutista),
+//    e il gruppo successivo parte dal tipo opposto (P-V-P | V-P-V).
+let _unsubSeq = null;
+let _seqUltimo = {}; // { container: 'pieno'|'vuoto', cassa: 'pieno'|'vuoto' }
 
-  if (marcateP.length || marcateS.length) {
-    return new Set([
-      ...marcateP.map(p => 'p:' + p.id),
-      ...marcateS.map(s => 's:' + s.id),
-    ]);
+const _opposto = t => (t === 'pieno' ? 'vuoto' : (t === 'vuoto' ? 'pieno' : null));
+const _tipoItem = i => (i && i.pieno ? 'pieno' : 'vuoto');
+
+// Interleave di pieni e vuoti, ciascuna coda ordinata per anzianità.
+// start null → parte dal tipo più numeroso (a parità: dal più vecchio).
+function _alterna(items, start) {
+  const byTs = (a, b) => a.ts - b.ts;
+  const P = items.filter(i => i.pieno).sort(byTs);
+  const V = items.filter(i => !i.pieno).sort(byTs);
+  let next = start;
+  if (next !== 'pieno' && next !== 'vuoto') {
+    if (P.length !== V.length) next = P.length > V.length ? 'pieno' : 'vuoto';
+    else next = (P[0] && V[0] && V[0].ts < P[0].ts) ? 'vuoto' : 'pieno';
+  }
+  const out = [];
+  while (P.length || V.length) {
+    const q = next === 'pieno' ? (P.length ? P : V) : (V.length ? V : P);
+    const it = q.shift();
+    out.push(it);
+    next = _opposto(_tipoItem(it));
+  }
+  return out;
+}
+
+function _apriGruppo(gruppoOrd, mode) {
+  const prens = gruppoOrd.filter(i => i.pren).map(i => i.pren);
+  const spots = gruppoOrd.filter(i => i.spot).map(i => i.spot);
+  if (prens.length) _apriBloccoPren(prens);
+  if (spots.length) _apriBloccoCasse(spots);
+  const ultimo = _tipoItem(gruppoOrd[gruppoOrd.length - 1]);
+  if (_seqUltimo[mode] !== ultimo) {
+    _seqUltimo[mode] = ultimo;
+    setDoc(doc(window.db, 'stato', 'sequenzaAutista'), { [mode]: ultimo }, { merge: true })
+      .catch(e => console.error('Errore salvataggio sequenza:', e));
+  }
+}
+
+// items: [{ key, pieno, urg, ts, marcato, pren?|spot? }]
+// → { ordinati:[item], abilitati:Set<key> }
+function _calcolaSequenza(items, mode) {
+  const urgenti = items.filter(i => i.urg).sort((a, b) => a.ts - b.ts);
+  const normali = items.filter(i => !i.urg);
+  const lastUrg = urgenti.length ? _tipoItem(urgenti[urgenti.length - 1]) : null;
+
+  let gruppo = normali.filter(i => i.marcato);
+  let gruppoOrd;
+  if (!items.some(i => i.marcato)) {
+    // Nessun gruppo aperto → se ne apre uno nuovo, dal tipo opposto all'ultimo.
+    const start = lastUrg ? _opposto(lastUrg) : _opposto(_seqUltimo[mode]);
+    gruppoOrd = _alterna(normali, start).slice(0, BLOCCO_SIZE);
+    gruppo = gruppoOrd;
+    if (gruppoOrd.length) _apriGruppo(gruppoOrd, mode);
+  } else {
+    gruppoOrd = _alterna(gruppo, lastUrg ? _opposto(lastUrg) : null);
   }
 
-  // Nessun gruppo aperto → se ne apre uno nuovo con i 3 più vecchi delle due liste
-  // fuse insieme (urgenti in cima, poi anzianità).
-  const cand = [
-    ...missioni.map(p => {
-      const d = _parseDate(p.dataOra);
-      return { key: 'p:' + p.id, urg: p.urgente ? 0 : 1, ts: d ? d.getTime() : 0, pren: p };
-    }),
-    ...casse.map(s => ({ key: 's:' + s.id, urg: 1, ts: _tsVal(s.since), spot: s })),
-  ].sort((a, b) => (a.urg - b.urg) || (a.ts - b.ts));
+  const gKeys = new Set(gruppo.map(i => i.key));
+  const prima = gruppoOrd.length ? gruppoOrd[gruppoOrd.length - 1] : urgenti[urgenti.length - 1];
+  const resto = _alterna(normali.filter(i => !gKeys.has(i.key)), prima ? _opposto(_tipoItem(prima)) : null);
 
-  const gruppo = cand.slice(0, BLOCCO_SIZE);
+  const abilitati = new Set([...urgenti.map(i => i.key), ...gKeys]);
+  return { ordinati: urgenti.concat(gruppoOrd, resto), abilitati };
+}
 
-  const nuoveP = gruppo.filter(c => c.pren).map(c => c.pren);
-  const nuoveS = gruppo.filter(c => c.spot).map(c => c.spot);
-  if (nuoveP.length) _apriBloccoPren(nuoveP);
-  if (nuoveS.length) _apriBloccoCasse(nuoveS);
+// Timestamp ordinamento prenotazione (dataOra)
+function _tsPren(p) {
+  const d = _parseDate(p.dataOra);
+  return d && !isNaN(d.getTime()) ? d.getTime() : Date.now();
+}
 
-  return new Set(gruppo.map(c => c.key));
+// Pieno/vuoto del veicolo da movimentare
+function _isPienoPren(p) {
+  if (p.tipoMissione === 'ribalta') return !!p.fullAllaLibera;
+  if (p.tipoMissione === 'navetta') return p.faseNavetta === 'pieno';
+  return true; // prenotazione container ordinaria: si prenotano solo container pieni
+}
+
+// Urgenza su cassa parcheggiata (impostata da amministrativo REVERSE).
+// urgentePlate rende il flag auto-invalidante se il posto passa a un'altra cassa.
+function _cassaUrgente(s) {
+  return s.urgente === true && !!s.plate && s.urgentePlate === s.plate;
 }
 
 async function _apriBloccoCasse(lista) {
@@ -282,6 +343,14 @@ err => console.error('Errore spots:', err)
 
 );
 
+if (_unsubSeq) _unsubSeq();
+
+_unsubSeq = onSnapshot(
+  doc(window.db, 'stato', 'sequenzaAutista'),
+  snap => { _seqUltimo = snap.exists() ? (snap.data() || {}) : {}; },
+  err => console.error('Errore sequenza autista:', err)
+);
+
 if (_unsubRibalte) _unsubRibalte();
 
 _unsubRibalte = onSnapshot(
@@ -310,6 +379,8 @@ if (_unsubSpots) { _unsubSpots(); _unsubSpots = null; }
 
 if (_unsubRibalte) { _unsubRibalte(); _unsubRibalte = null; }
 
+if (_unsubSeq) { _unsubSeq(); _unsubSeq = null; }
+
 if (window.NavetteCore) window.NavetteCore.stopNavetteListener();
 
 }
@@ -323,33 +394,33 @@ const el = document.getElementById('prenList');
 if (!el) return;
 
 // ── MODALITÀ CASSA ────────────────────────────────────────────────────────────
-
-// Le missioni ribalta NON sono più mostrate qui: solo in modalità container.
-
+// Un'unica lista: missioni ribalta su casse (vuote o piene) + casse piene
+// parcheggiate, alternate pieno/vuoto. Le urgenti stanno in cima.
 if (mode === 'cassa') {
 
-// Missioni ribalta la cui ribalta è occupata da una CASSA
 const missioniCasse = _prenotazioni
-  .filter(p => p.tipoMissione === 'ribalta' && p.stato === 'creata' && _tipoDaPlate(p.plate) === 'cassa')
-  .sort((a, b) => {
-    const u = (a.urgente ? 0 : 1) - (b.urgente ? 0 : 1);
-    if (u !== 0) return u;
-    const da = _parseDate(a.dataOra), db_ = _parseDate(b.dataOra);
-    return (da ? da.getTime() : 0) - (db_ ? db_.getTime() : 0);
-  });
+  .filter(p => p.tipoMissione === 'ribalta' && p.stato === 'creata' && _tipoDaPlate(p.plate) === 'cassa');
 
 const casseOccupate = _casseOccupateOrdinate();
 
-// Gruppo UNICO di 3 condiviso fra "RIBALTE DA LIBERARE" e "Casse parcheggiate".
-const bloccoIds = _calcolaBloccoCassa(missioniCasse, casseOccupate);
+const items = [
+  ...missioniCasse.map(p => ({ key: 'p:' + p.id, pren: p, pieno: _isPienoPren(p), urg: !!p.urgente, ts: _tsPren(p), marcato: !!p.bloccoAt })),
+  ...casseOccupate.map(s => ({ key: 's:' + s.id, spot: s, pieno: true, urg: _cassaUrgente(s), ts: _tsVal(s.since), marcato: !!(s.bloccoPlate && s.bloccoPlate === s.plate) })),
+];
 
-let prefixHtml = '';
-if (missioniCasse.length) {
-  prefixHtml += `<div class="prenGroupTitle">RIBALTE DA LIBERARE (${missioniCasse.length})</div>`;
-  missioniCasse.forEach(p => { prefixHtml += _missioneCard(p, bloccoIds.has('p:' + p.id)); });
+if (!items.length) {
+  el.innerHTML = '<div class="emptyState">Nessuna cassa da movimentare al momento.</div>';
+  return;
 }
 
-_renderCasse(el, prefixHtml, casseOccupate, bloccoIds);
+const seq = _calcolaSequenza(items, 'cassa');
+
+let html = `<div class="prenGroupTitle">DA MOVIMENTARE (${seq.ordinati.length})</div>`;
+seq.ordinati.forEach((it, idx) => {
+  const ab = seq.abilitati.has(it.key);
+  html += it.pren ? _missioneCard(it.pren, ab) : _cassaCard(it.spot, idx, ab, it.urg);
+});
+el.innerHTML = html;
 
 if (_openCompletaId) {
   const form = document.getElementById('completaForm_' + _openCompletaId);
@@ -361,11 +432,8 @@ return;
 }
 
 // ── MODALITÀ CONTAINER ────────────────────────────────────────────────────────
-
-// Missioni ribalta + prenotazioni da movimentare in un'unica lista,
-
-// ordinata unicamente dalla meno recente alla più recente.
-
+// Missioni ribalta + prenotazioni + navettaggi in un'unica lista alternata
+// pieno/vuoto. Urgenti in cima.
 // Ruolo `operativo`: solo le ribalte del reparto associato all'utente.
 const _ribConsentite = _ribalteConsentiteUtente();
 
@@ -380,44 +448,20 @@ const ordinarie = _prenotazioni.filter(p => p.tipoMissione !== 'ribalta' && p.ti
 // (stato 'creata'); le richieste 'in_attesa' non hanno ancora un mezzo/origine.
 const navetteMissioni = _prenotazioni.filter(p => p.tipoMissione === 'navetta' && p.stato === 'creata');
 
-const _ts = (p) => { const d = _parseDate(p.dataOra); return d ? d.getTime() : 0; };
-
-// Urgenti in cima, poi dalla meno recente alla più recente.
-
-const sortAsc = (a, b) => {
-
-const aUrg = a.urgente ? 0 : 1;
-
-const bUrg = b.urgente ? 0 : 1;
-
-if (aUrg !== bUrg) return aUrg - bUrg;
-
-return _ts(a) - _ts(b);
-
-};
-
 const pendenti = ordinarie.filter(p => p.stato === 'creata');
 
-const attivi = missioni.concat(pendenti).concat(navetteMissioni).sort(sortAsc);
+const attiviRaw = missioni.concat(pendenti).concat(navetteMissioni);
 
 // Completate: solo quelle delle ultime 2 ore (basato su completataAt)
-
 const due_ore_fa = Date.now() - 2 * 60 * 60 * 1000;
 
 const completate = ordinarie.filter(p => {
-
-if (p.stato === 'creata') return false;
-
-const completataAt = p.completataAt?.toDate
-
-? p.completataAt.toDate()
-
-: (p.completataAt ? new Date(p.completataAt) : null);
-
-if (!completataAt) return false;
-
-return completataAt.getTime() >= due_ore_fa;
-
+  if (p.stato === 'creata') return false;
+  const completataAt = p.completataAt?.toDate
+    ? p.completataAt.toDate()
+    : (p.completataAt ? new Date(p.completataAt) : null);
+  if (!completataAt) return false;
+  return completataAt.getTime() >= due_ore_fa;
 });
 
 // Navette completate nelle ultime 2 ore
@@ -427,167 +471,78 @@ const navetteCompletate = _prenotazioni.filter(p => {
   return c && c.getTime() >= due_ore_fa;
 });
 
-if (!attivi.length && !completate.length && !navetteCompletate.length) {
-
-el.innerHTML = '<div class="emptyState">Nessuna prenotazione container trovata.</div>';
-
-return;
-
+if (!attiviRaw.length && !completate.length && !navetteCompletate.length) {
+  el.innerHTML = '<div class="emptyState">Nessuna prenotazione container trovata.</div>';
+  return;
 }
 
-// Gruppo corrente = missioni già marcate con bloccoAt.
-// Se ne restano 0 (tutte completate) se ne apre uno nuovo con le prime 3.
-const gruppoCorrente = attivi.filter(p => p.bloccoAt);
-
-let bloccoIds;
-
-if (gruppoCorrente.length) {
-
-bloccoIds = new Set(gruppoCorrente.map(p => 'p:' + p.id));
-
-} else {
-
-const nuovoGruppo = attivi.slice(0, BLOCCO_SIZE);
-
-bloccoIds = new Set(nuovoGruppo.map(p => 'p:' + p.id));
-
-_apriBloccoPren(nuovoGruppo);
-
-}
+const seq = _calcolaSequenza(
+  attiviRaw.map(p => ({ key: 'p:' + p.id, pren: p, pieno: _isPienoPren(p), urg: !!p.urgente, ts: _tsPren(p), marcato: !!p.bloccoAt })),
+  'container'
+);
+const attivi = seq.ordinati.map(i => i.pren);
+const bloccoIds = seq.abilitati;
 
 let html = '';
 
 if (attivi.length) {
-
-html += `<div class="prenGroupTitle">DA MOVIMENTARE (${attivi.length})</div>`;
-
-attivi.forEach((p, idx) => {
-
-html += (p.tipoMissione === 'ribalta')
-
-? _missioneCard(p, bloccoIds.has('p:' + p.id))
-
-: (p.tipoMissione === 'navetta')
-
-? _navettaCard(p, bloccoIds.has('p:' + p.id))
-
-: _prenCard(p, bloccoIds.has('p:' + p.id), idx);
-
-});
-
+  html += `<div class="prenGroupTitle">DA MOVIMENTARE (${attivi.length})</div>`;
+  attivi.forEach((p, idx) => {
+    const ab = bloccoIds.has('p:' + p.id);
+    html += (p.tipoMissione === 'ribalta')
+      ? _missioneCard(p, ab)
+      : (p.tipoMissione === 'navetta')
+        ? _navettaCard(p, ab)
+        : _prenCard(p, ab, idx);
+  });
 }
 
 const completateAll = completate.concat(navetteCompletate);
 
 if (completateAll.length) {
-
-html += `<div class="prenGroupTitle" style="margin-top:14px">COMPLETATE (${completateAll.length})</div>`;
-
-completateAll.forEach(p => { html += (p.tipoMissione === 'navetta') ? _navettaCard(p, false) : _prenCard(p, false, -1); });
-
+  html += `<div class="prenGroupTitle" style="margin-top:14px">COMPLETATE (${completateAll.length})</div>`;
+  completateAll.forEach(p => { html += (p.tipoMissione === 'navetta') ? _navettaCard(p, false) : _prenCard(p, false, -1); });
 }
 
 el.innerHTML = html;
 
 if (_openCompletaId) {
-
-const form = document.getElementById('completaForm_' + _openCompletaId);
-
-if (form) form.style.display = 'block';
-
+  const form = document.getElementById('completaForm_' + _openCompletaId);
+  if (form) form.style.display = 'block';
 }
 
 }
 
-// ── VISTA CASSE ───────────────────────────────────────────────────────────────
-
-function _renderCasse(el, htmlPrefix = '', casseOccupate = null, bloccoIds = null) {
-
-if (!casseOccupate) casseOccupate = _casseOccupateOrdinate();
-
-if (!bloccoIds) bloccoIds = _calcolaBloccoCassa([], casseOccupate);
-
-/* lista calcolata a monte:
-
-const casseOccupate = Object.values(_spots).filter(s =>
-
-s.occupied && s.full && s.plate && RE_CASSA.test(s.plate.trim())
-); */
-
-if (!casseOccupate.length) {
-
-el.innerHTML = htmlPrefix + '<div class="emptyState">Nessuna cassa piena al momento.</div>';
-
-return;
-
-}
-
-let html = htmlPrefix + `<div class="prenGroupTitle">Casse parcheggiate (${casseOccupate.length})</div>`;
-
-casseOccupate.forEach((s, idx) => {
-
-const sinceTs = s.since ? (s.since.toDate ? s.since.toDate() : new Date(s.since)) : null;
-
-const anzianita = sinceTs ? _fmtAnzianita(sinceTs) : '—';
-
-const sinceStr = sinceTs
-
-? sinceTs.toLocaleDateString('it-IT', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' })
-
-: '—';
-
-const abilitato = bloccoIds.has('s:' + s.id);
-
-const rankClass = abilitato ? 'cassa-rank top' : 'cassa-rank';
-
-let completaBtn = '';
-
-if (abilitato) {
-
-completaBtn = `<button class="btnCompletaOrange" onclick="aprirCompletaCassa('${_esc(s.id)}','${_esc(s.plate)}','cassa_${_esc(s.id)}')">✅ Completa missione</button>
+// ── CARD CASSA PARCHEGGIATA (piena, parcheggio → ribalta) ─────────────────────
+function _cassaCard(s, idx, abilitato, urgente) {
+  const sinceTs = s.since ? (s.since.toDate ? s.since.toDate() : new Date(s.since)) : null;
+  const anzianita = sinceTs ? _fmtAnzianita(sinceTs) : '—';
+  const sinceStr = sinceTs
+    ? sinceTs.toLocaleDateString('it-IT', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' })
+    : '—';
+  const rankClass = abilitato ? 'cassa-rank top' : 'cassa-rank';
+  const completaBtn = abilitato
+    ? `<button class="btnCompletaOrange" onclick="aprirCompletaCassa('${_esc(s.id)}','${_esc(s.plate)}','cassa_${_esc(s.id)}')">✅ Completa missione</button>
 <div id="cfCassa_cassa_${_esc(s.id)}" style="display:none"></div>
-<div id="cfCassaUndo_cassa_${_esc(s.id)}" style="display:none"></div>`;
-
-} else {
-
-completaBtn = `<button disabled class="btnBlocco">🔒 In attesa</button>`;
-
-}
-
-const cardClass = abilitato ? 'casseCard pendente' : 'casseCard bloccata';
-
-html += `
-
-<div class="${cardClass}">
-
-<div class="casseCardTop">
-
-<span class="${rankClass}">${idx + 1}</span>
-
-<span class="casseCardPlate">${_esc(s.plate)}</span>
-
-</div>
-
-<div class="casseCardRoute">
-
-<span class="casseCardPosto">${_esc(s.id)}</span>
-
-<span class="casseCardArrow">→</span>
-
-<span class="casseCardDest">Ribalta</span>
-
-</div>
-
-<div class="casseCardMeta" title="Entrata: ${sinceStr}">⏱ ${anzianita}</div>
-
-${completaBtn}
-
+<div id="cfCassaUndo_cassa_${_esc(s.id)}" style="display:none"></div>`
+    : `<button disabled class="btnBlocco">🔒 In attesa</button>`;
+  const cardClass = abilitato ? 'casseCard pendente' : 'casseCard bloccata';
+  const urgStyle = urgente ? ' style="border:2px solid var(--red,#ef4444)"' : '';
+  return `
+<div class="${cardClass}"${urgStyle}>
+  <div class="casseCardTop">
+    <span class="${rankClass}">${idx + 1}</span>
+    <span class="casseCardPlate">${_esc(s.plate)}</span>
+    ${urgente ? '<span class="urgBadge">🚨 URGENTE</span>' : ''}
+  </div>
+  <div class="casseCardRoute">
+    <span class="casseCardPosto">${_esc(s.id)}</span>
+    <span class="casseCardArrow">→</span>
+    <span class="casseCardDest">Ribalta</span>
+  </div>
+  <div class="casseCardMeta" title="Entrata: ${sinceStr}">🟡 Piena · ⏱ ${anzianita}</div>
+  ${completaBtn}
 </div>`;
-
-});
-
-el.innerHTML = html;
-
 }
 
 function _tsVal(since) {
@@ -699,7 +654,11 @@ let btnHTML;
 
 if (completata) {
 
-const dove = p.postoFine ? `<div class="pcmDove">📍 ${_esc(p.postoFine)}</div>` : '';
+const _rich = (p.destinazione && p.destinazione !== '—') ? String(p.destinazione).trim().toUpperCase() : '';
+const _eff  = p.postoFine ? String(p.postoFine).trim().toUpperCase() : '';
+const dove = _eff
+  ? `<div class="pcmDove">📍 ${_esc(_eff)}${_rich && _rich !== _eff ? ` <span style="font-size:11px;color:var(--muted)">(richiesta ${_esc(_rich)})</span>` : ''}</div>`
+  : '';
 
 btnHTML = `${dove}`;
 
@@ -758,7 +717,7 @@ ${urgenteHtml && !p.urgente ? urgenteHtml : ''}
 
 </div>
 
-<div class="pcmMeta">${dataStr}</div>
+<div class="pcmMeta">${completata ? '' : '🟡 Pieno · '}${dataStr}</div>
 
 ${bloccatoNote}
 
@@ -781,7 +740,9 @@ function _navettaCard(p, abilitato = true) {
 
   let btnHTML;
   if (completata) {
-    btnHTML = p.ribaltaArrivo ? `<div class="pcmDove">📍 ${_esc(p.ribaltaArrivo)}</div>` : '';
+    btnHTML = p.ribaltaArrivo
+      ? `<div class="pcmDove">📍 ${_esc(p.ribaltaArrivo)}${p.destinazione && p.destinazione !== p.ribaltaArrivo ? ` <span style="font-size:11px;color:var(--muted)">(richiesta ${_esc(p.destinazione)})</span>` : ''}</div>`
+      : '';
   } else if (abilitato) {
     const def = _esc(p.destinazione || '');
     btnHTML = `
@@ -1159,7 +1120,16 @@ window.confermaNavetta = async function(id) {
   if (!isValidRibalta(arr)) { showToast(`Ribalta "${arr}" non valida.`, 'error'); return; }
   if (!window.NavetteCore) { showToast('Modulo navette non caricato', 'error'); return; }
   try {
+    const pren = _prenotazioni.find(p => p.id === id);
     await window.NavetteCore.completaMissioneNavetta({ prenId: id, ribaltaArrivo: arr });
+    try {
+      await window.logHistory({
+        spot: arr, action: 'Missione completata', tipo: 'container',
+        plate: pren?.navettaId || null, origine: pren?.origine || null,
+        destinazione: arr, ribaltaRichiesta: pren?.destinazione || null,
+        navettaId: pren?.navettaId || null,
+      });
+    } catch (e) { console.error('Errore storico navetta:', e); }
     chiudiCompletaForm(id);
     showToast('Navettaggio completato', 'success');
   } catch (e) {
@@ -1175,6 +1145,10 @@ if (!destCheck.ok) { showToast(destCheck.msg, 'error'); return; }
 
 const pren = _prenotazioni.find(p => p.id === id);
 
+// Ribalta richiesta (da prenotazione) vs effettiva (postoFine): tracciate entrambe.
+const ribaltaRichiesta = (pren && isValidRibalta(pren.destinazione))
+  ? String(pren.destinazione).trim().toUpperCase() : null;
+
 try {
 
 const ops = [];
@@ -1185,7 +1159,9 @@ stato: 'completata',
 
 completataAt: serverTimestamp(),
 
-postoFine
+postoFine,
+
+ribaltaRichiesta
 
 }));
 
@@ -1214,7 +1190,7 @@ occupied: false, plate: null, since: null, user: null, full: false
 
 ops.push(setDoc(doc(window.db, 'ribalte', origine), {
 
-occupied: false, plate: null, since: null, user: null, full: false
+occupied: false, plate: null, since: null, user: null, full: false, inUscita: false, ribaltaRichiesta: null
 
 }, { merge: true }));
 
@@ -1250,6 +1226,10 @@ user: pren.utenteEmail || null,
 
 full: statoPieno,
 
+inUscita: false,
+
+ribaltaRichiesta,
+
 }, { merge: true }));
 
 }
@@ -1267,6 +1247,8 @@ plate: pren.plate || null,
 origine,
 
 destinazione: dest,
+
+ribaltaRichiesta,
 
 richiedente: pren.operatoreNome || pren.utenteNome || pren.operatoreEmail || pren.utenteEmail || null,
 
@@ -1487,14 +1469,17 @@ async function selezionaRibalta_cassa_exec(spotId, plate, ribaltaId, user) {
     const eraPieno = !!(_spots[spotId] && _spots[spotId].full);
     const ops = [];
     ops.push(setDoc(doc(window.db, 'spots', spotId), {
-      occupied: false, plate: null, since: null, user: null, full: false, bloccoPlate: null
+      occupied: false, plate: null, since: null, user: null, full: false, bloccoPlate: null,
+      urgente: false, urgentePlate: null
     }, { merge: true }));
     ops.push(setDoc(doc(window.db, 'ribalte', ribaltaId), {
       occupied: true, plate: plate || null, since: serverTimestamp(), user: user?.email || null, full: eraPieno,
+      inUscita: false, ribaltaRichiesta: null,
     }, { merge: true }));
     ops.push(window.logHistory({
       spot: ribaltaId, action: 'Missione completata', tipo: 'cassa',
       plate: plate || null, origine: spotId, destinazione: ribaltaId,
+      ribaltaRichiesta: null,
     }));
     await Promise.all(ops);
     showToast(`✅ ${plate} → ${ribaltaId}`, 'success');
@@ -1523,7 +1508,8 @@ const ops = [];
 
 ops.push(updateDoc(doc(window.db, 'prenotazioni', prenId), {
 
-stato: 'completata', destinazione: ribaltaId, completataAt: serverTimestamp(), postoFine: ribaltaId,
+stato: 'completata', completataAt: serverTimestamp(), postoFine: ribaltaId,
+ribaltaRichiesta: isValidRibalta(pren.destinazione) ? String(pren.destinazione).trim().toUpperCase() : null,
 
 }));
 
@@ -1545,6 +1531,8 @@ occupied: false, plate: null, since: null, user: null, full: false
 ops.push(setDoc(doc(window.db, 'ribalte', ribaltaId), {
 
 occupied: true, plate: pren.plate || null, since: serverTimestamp(), user: pren.operatoreEmail || null, full: eraPieno,
+inUscita: false,
+ribaltaRichiesta: isValidRibalta(pren.destinazione) ? String(pren.destinazione).trim().toUpperCase() : null,
 
 }, { merge: true }));
 
@@ -1553,6 +1541,8 @@ ops.push(window.logHistory({
 spot: ribaltaId, action: 'Missione completata', tipo: 'cassa',
 
 plate: pren.plate || null, origine: spotId, destinazione: ribaltaId,
+
+ribaltaRichiesta: isValidRibalta(pren.destinazione) ? String(pren.destinazione).trim().toUpperCase() : null,
 
 richiedente: pren.operatoreNome || pren.operatoreEmail || null,
 

@@ -19,6 +19,8 @@ function startListeners(){
           window.spots[id].damaged  = data.damaged||false;
           window.spots[id].full     = data.full||false;
           window.spots[id].unusable = data.unusable||false;
+          window.spots[id].urgente      = data.urgente||false;
+          window.spots[id].urgentePlate = data.urgentePlate||null;
         }
       }
     });
@@ -27,6 +29,11 @@ function startListeners(){
       updateMapStats();
       renderSearch();
       renderStatistiche();
+      // Vista casse del tab Prenotazioni: aggiornata anche ai cambi dei posti
+      if(window.currentMode==='cassa' && window.renderCasse &&
+         document.getElementById('pagePrenotazioni')?.classList.contains('active')){
+        try { window.renderCasse(); } catch(e){}
+      }
     }
   });
 
@@ -46,6 +53,8 @@ function startListeners(){
           since:    data.since?.toDate()||null,
           user:     data.user||null,
           full:     data.full||false,
+          inUscita: data.inUscita||false,
+          ribaltaRichiesta: data.ribaltaRichiesta||null,
         };
       }
     });

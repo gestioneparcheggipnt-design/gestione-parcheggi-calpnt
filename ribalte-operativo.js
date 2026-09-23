@@ -106,10 +106,12 @@ export function renderRibalte() {
 
   // ── Lista ribalte ───────────────────────────────────────────────────────────
   // Operativo: SOLO le ribalte occupate del proprio reparto (nessuna libera).
+  // Le ribalte già dichiarate "in uscita" spariscono dalla sua schermata: restano
+  // occupate (per tutti gli altri) finché la portineria non registra l'uscita.
   let ribalte = Object.values(_ribalteData);
   if (isOperativo) {
     ribalte = ribalte.filter(r =>
-      r.occupied && consentite.has(String(r.id).trim().toUpperCase())
+      r.occupied && !r.inUscita && consentite.has(String(r.id).trim().toUpperCase())
     );
   }
 
@@ -157,6 +159,7 @@ export function renderRibalte() {
       + navette.map(n => _navettaCardOperativo(n, user)).join('')
     : '';
   el.innerHTML = navHtml + ribalte.map(r => _ribaltaCard(r, user)).join('');
+  _ripristinaFormLibera();
 }
 
 function _ribaltaCard(r, user) {
@@ -184,6 +187,7 @@ function _ribaltaCard(r, user) {
           🚛 Libera ribalta
         </button>
         <div id="liberaForm_${r.id}" style="display:none;margin-top:10px">
+         <div id="liberaScelta_${r.id}">
           <div style="font-size:13px;font-weight:600;color:var(--muted);margin-bottom:8px">Destinazione del veicolo:</div>
           <div style="display:flex;gap:8px;margin-bottom:10px">
             <button id="btnDestPark_${r.id}" onclick="setLiberaDest('${r.id}','parcheggio')"
@@ -208,7 +212,7 @@ function _ribaltaCard(r, user) {
                 🟡 Piena
               </button>
             </div>
-            <button onclick="confermaLibera('${r.id}')"
+            <button onclick="chiediConfermaLibera('${r.id}','parcheggio')"
                     style="width:100%;padding:11px;border-radius:8px;border:none;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#1C1F26;font-family:inherit;font-size:14px;font-weight:700;cursor:pointer">
               ✓ Conferma e crea missione
             </button>
@@ -216,7 +220,7 @@ function _ribaltaCard(r, user) {
 
           <div id="exitSub_${r.id}" style="display:none">
             <div style="font-size:12px;color:var(--muted);margin-bottom:10px;line-height:1.4">Il veicolo lascerà lo stabilimento. Nessuna missione verrà creata: la ribalta resta occupata finché la portineria non registra l'uscita.</div>
-            <button onclick="confermaLiberaUscita('${r.id}')"
+            <button onclick="chiediConfermaLibera('${r.id}','uscita')"
                     style="width:100%;padding:11px;border-radius:8px;border:none;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#1C1F26;font-family:inherit;font-size:14px;font-weight:700;cursor:pointer">
               ✓ Conferma uscita
             </button>
@@ -226,6 +230,8 @@ function _ribaltaCard(r, user) {
                   style="width:100%;margin-top:6px;padding:8px;border-radius:8px;border:1.5px solid var(--border);background:transparent;color:var(--muted);font-family:inherit;font-size:13px;cursor:pointer">
             Annulla
           </button>
+         </div>
+         <div id="liberaConferma_${r.id}" style="display:none"></div>
         </div>`;
     }
   } else {
@@ -245,6 +251,8 @@ function _ribaltaCard(r, user) {
 // ── FORM LIBERA RIBALTA ───────────────────────────────────────────────────────
 const _liberaStato = {};
 const _liberaDest  = {};
+let _formAperto = null;            // { id, fase: 'scelta'|'conferma' } — sopravvive ai re-render
+const _liberaInCorso = new Set();  // evita doppi invii
 
 window.toggleLiberaForm = function(id) {
   const form = document.getElementById('liberaForm_' + id);
@@ -252,13 +260,84 @@ window.toggleLiberaForm = function(id) {
   const isOpen = form.style.display !== 'none';
   form.style.display = isOpen ? 'none' : 'block';
   if (!isOpen) {
+    // un solo form aperto alla volta
+    if (_formAperto && _formAperto.id !== id) {
+      const altro = document.getElementById('liberaForm_' + _formAperto.id);
+      if (altro) altro.style.display = 'none';
+    }
+    _formAperto = { id, fase: 'scelta' };
     _liberaStato[id] = 'vuota';
     _liberaDest[id]  = null;
     const ps = document.getElementById('parkSub_' + id); if (ps) ps.style.display = 'none';
     const es = document.getElementById('exitSub_' + id); if (es) es.style.display = 'none';
+    _mostraFase(id, 'scelta');
     _aggiornaDest(id);
+  } else if (_formAperto?.id === id) {
+    _formAperto = null;
   }
 };
+
+function _mostraFase(id, fase) {
+  const sc = document.getElementById('liberaScelta_' + id);
+  const cf = document.getElementById('liberaConferma_' + id);
+  if (sc) sc.style.display = fase === 'scelta' ? 'block' : 'none';
+  if (cf) {
+    cf.style.display = fase === 'conferma' ? 'block' : 'none';
+    cf.innerHTML = fase === 'conferma' ? _confermaHTML(id) : '';
+  }
+}
+
+// Seconda richiesta di conferma (riepilogo) prima di scrivere su Firestore
+function _confermaHTML(id) {
+  const r = _ribalteData[id] || {};
+  const dest = _liberaDest[id];
+  const plate = _esc(r.plate || '—');
+  const testo = dest === 'uscita'
+    ? `Il veicolo <strong>${plate}</strong> lascerà lo stabilimento.<br>La ribalta <strong>${_esc(id)}</strong> sparirà dalla tua lista ma resterà occupata finché la portineria non registra l'uscita.`
+    : `Ribalta <strong>${_esc(id)}</strong> → parcheggio.<br>Veicolo <strong>${plate}</strong> dichiarato <strong>${(_liberaStato[id] || 'vuota') === 'piena' ? '🟡 PIENO' : '🟢 VUOTO'}</strong>: verrà creata la missione per l'autista.`;
+  const onYes = dest === 'uscita' ? `confermaLiberaUscita('${id}')` : `confermaLibera('${id}')`;
+  return `
+    <div style="padding:12px;border-radius:10px;border:2px solid var(--accent2,orange);background:var(--surface2)">
+      <div style="font-size:14px;font-weight:800;margin-bottom:6px">⚠️ Sei sicuro?</div>
+      <div style="font-size:13px;line-height:1.45;margin-bottom:12px">${testo}</div>
+      <div style="display:flex;gap:8px">
+        <button onclick="annullaConfermaLibera('${id}')"
+                style="flex:1;padding:11px;border-radius:8px;border:1.5px solid var(--border);background:transparent;color:var(--text);font-family:inherit;font-size:14px;font-weight:700;cursor:pointer">
+          ✕ No
+        </button>
+        <button id="btnSiLibera_${id}" onclick="${onYes}"
+                style="flex:1;padding:11px;border-radius:8px;border:none;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#1C1F26;font-family:inherit;font-size:14px;font-weight:800;cursor:pointer">
+          ✓ Sì, confermo
+        </button>
+      </div>
+    </div>`;
+}
+
+window.chiediConfermaLibera = function(id, dest) {
+  _liberaDest[id] = dest;
+  _formAperto = { id, fase: 'conferma' };
+  _mostraFase(id, 'conferma');
+};
+
+window.annullaConfermaLibera = function(id) {
+  _formAperto = { id, fase: 'scelta' };
+  _mostraFase(id, 'scelta');
+};
+
+// Dopo ogni re-render (snapshot ribalte/navette) riapre il form che era aperto
+function _ripristinaFormLibera() {
+  if (!_formAperto) return;
+  const { id, fase } = _formAperto;
+  const form = document.getElementById('liberaForm_' + id);
+  if (!form) { _formAperto = null; return; }  // ribalta sparita/liberata
+  form.style.display = 'block';
+  const dest = _liberaDest[id];
+  const ps = document.getElementById('parkSub_' + id); if (ps) ps.style.display = dest === 'parcheggio' ? 'block' : 'none';
+  const es = document.getElementById('exitSub_' + id); if (es) es.style.display = dest === 'uscita' ? 'block' : 'none';
+  _aggiornaDest(id);
+  _aggiornaToggle(id);
+  _mostraFase(id, fase);
+}
 
 window.setLiberaStato = function(id, stato) {
   _liberaStato[id] = stato;
@@ -309,6 +388,9 @@ window.confermaLibera = async function(id) {
   if (!r) return;
   const full  = (_liberaStato[id] || 'vuota') === 'piena';
   const plate = r.plate || '—';
+  if (_liberaInCorso.has(id)) return;
+  _liberaInCorso.add(id);
+  const b = document.getElementById('btnSiLibera_' + id); if (b) { b.disabled = true; b.textContent = '⏳…'; }
   try {
     await setDoc(doc(window.db, 'ribalte', id), {
       occupied: false, plate: null, since: null, user: null, full: false
@@ -327,10 +409,14 @@ window.confermaLibera = async function(id) {
       fullAllaLibera: full,
       note:           `Ribalta ${id} liberata — veicolo ${full ? 'PIENO' : 'VUOTO'}`
     });
-    await window.logHistory({ spot: id, action: 'Ribalta richiesta', plate });
+    await window.logHistory({ spot: id, action: 'Ribalta richiesta', plate, tipo: /^\d{3}$/.test(String(plate).trim()) ? 'cassa' : 'container', full });
+    if (_formAperto?.id === id) _formAperto = null;
     showToast(`Ribalta ${id} liberata — missione creata`, 'success');
   } catch (e) {
     showToast('Errore: ' + e.message, 'error');
+    if (b) { b.disabled = false; b.textContent = '✓ Sì, confermo'; }
+  } finally {
+    _liberaInCorso.delete(id);
   }
 };
 
@@ -340,12 +426,19 @@ window.confermaLiberaUscita = async function(id) {
   const r = _ribalteData[id];
   if (!r) return;
   const plate = r.plate || '—';
+  if (_liberaInCorso.has(id)) return;
+  _liberaInCorso.add(id);
+  const b = document.getElementById('btnSiLibera_' + id); if (b) { b.disabled = true; b.textContent = '⏳…'; }
   try {
     await setDoc(doc(window.db, 'ribalte', id), { inUscita: true }, { merge: true });
     await window.logHistory({ spot: id, action: 'Ribalta in uscita', plate });
+    if (_formAperto?.id === id) _formAperto = null;
     showToast(`Ribalta ${id}: veicolo in uscita — la libererà la portineria`, 'success');
   } catch (e) {
     showToast('Errore: ' + e.message, 'error');
+    if (b) { b.disabled = false; b.textContent = '✓ Sì, confermo'; }
+  } finally {
+    _liberaInCorso.delete(id);
   }
 };
 

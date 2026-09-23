@@ -174,6 +174,8 @@ function doSearch(){
       <td>${s.since?fmtDate(s.since):"&mdash;"}</td>
       <td style="text-align:center">${s.unusable ? '<span style="color:#a78bfa;font-weight:600;font-size:13px">🚫 Inutilizzabile</span>' : s.damaged ? '<span style="color:#ef4444;font-weight:600;font-size:13px">⚠️ Guasto</span>' : '<span style="color:var(--muted);font-size:12px">&mdash;</span>'}</td>
       <td style="text-align:center">${s.occupied ? (s.full ? '<span class="tagPieno">🔴 Piena/o</span>' : '<span class="tagVuoto">🟢 Vuota/o</span>') : '<span style="color:var(--muted);font-size:12px">&mdash;</span>'}</td>
+      <td style="color:var(--muted);font-size:12px">&mdash;</td>
+      <td style="color:var(--muted);font-size:12px">&mdash;</td>
       <td style="color:var(--muted);font-size:11px">${nomeUtente}</td>
     </tr>`;});
 
@@ -231,6 +233,7 @@ function doSearch(){
         <td>${r.since?fmtDate(r.since):"&mdash;"}</td>
         <td style="text-align:center"><span style="color:var(--muted);font-size:12px">&mdash;</span></td>
         <td style="text-align:center">${r.occupied ? (r.full ? '<span class="tagPieno">🔴 Piena/o</span>' : '<span class="tagVuoto">🟢 Vuota/o</span>') : '<span style="color:var(--muted);font-size:12px">&mdash;</span>'}</td>
+        ${_ribCelle(r.occupied ? r.ribaltaRichiesta : '', r.occupied ? r.id : '')}
         <td style="color:var(--muted);font-size:11px">${nomeUtente}</td>
       </tr>`;});
   }
@@ -249,9 +252,31 @@ window._goToSpot=goToSpot;
 
 function renderSearch(){ doSearch(); }
 
+// Celle "Rib. richiesta" / "Rib. effettiva": se diverse, l'effettiva è evidenziata.
+function _ribCelle(richiesta, effettiva){
+  const R = String(richiesta||'').trim().toUpperCase(), E = String(effettiva||'').trim().toUpperCase();
+  const dash = '<span style="color:var(--muted);font-size:12px">&mdash;</span>';
+  const eff = E ? (R && R!==E ? `<span style="color:#f97316;font-weight:700" title="Ribalta cambiata dall'autista">⚠ ${_optEsc(E)}</span>` : _optEsc(E)) : dash;
+  return `<td class="mono">${R ? _optEsc(R) : dash}</td><td class="mono">${eff}</td>`;
+}
+
+// Storico: ribalta richiesta / effettiva di una riga history.
+//  - 'Missione completata': richiesta = ribaltaRichiesta (se registrata), effettiva = destinazione
+//  - 'Prenotazione creata': richiesta = destinazione (effettiva non ancora nota)
+function _ribStorico(h){
+  const isRib = id => !!id && (window.REPARTI ? Object.values(window.REPARTI).flat().includes(String(id).trim().toUpperCase()) : /^PNT/i.test(id));
+  if (h.action === 'Missione completata') {
+    // Missioni ribalta→parcheggio: la destinazione è un posto, non una ribalta → vuoto
+    const eff = h.destinazione || '';
+    return { richiesta: h.ribaltaRichiesta || '', effettiva: isRib(eff) ? eff : '' };
+  }
+  if (h.action === 'Prenotazione creata') return { richiesta: h.destinazione || '', effettiva: '' };
+  return { richiesta: '', effettiva: '' };
+}
+
 function resetFiltriStorico(){
   ['sfDa','sfA','sfPosto','sfTarga','sfUtente'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
-  ['sfAzione','sfTipo'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  ['sfAzione','sfTipo','sfRichiesta','sfEffettiva'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
   renderStorico();
 }
 window.resetFiltriStorico = resetFiltriStorico;
@@ -272,6 +297,10 @@ function renderStorico(){
     const targhe = [...new Set(H.map(h=>h.plate).filter(Boolean))].sort();
     const utenti = [...new Set(H.map(h=>h.userName||h.user).filter(Boolean))].sort();
     const azioni = [...new Set(H.map(h=>h.action).filter(Boolean))].sort();
+    const richieste = [...new Set(H.map(h=>_ribStorico(h).richiesta).filter(Boolean))].sort();
+    const effettive = [...new Set(H.map(h=>_ribStorico(h).effettiva).filter(Boolean))].sort();
+    _popolaSelectFiltro('sfRichiesta', richieste);
+    _popolaSelectFiltro('sfEffettiva', effettive);
     _popolaSelectFiltro('sfPosto', posti);
     _popolaSelectFiltro('sfTarga', targhe);
     _popolaSelectFiltro('sfUtente', utenti);
@@ -287,6 +316,8 @@ function renderStorico(){
   const sfTarga  = _norm(document.getElementById('sfTarga')?.value || '', v=>v.trim().toUpperCase());
   const sfTipo   = document.getElementById('sfTipo')?.value || '';
   const sfUtente = _norm(document.getElementById('sfUtente')?.value || '', v=>v.trim().toLowerCase());
+  const sfRich   = document.getElementById('sfRichiesta')?.value || '';
+  const sfEff    = document.getElementById('sfEffettiva')?.value || '';
 
   const daDt = sfDa ? new Date(sfDa + 'T00:00:00') : null;
   const aDt  = sfA  ? new Date(sfA  + 'T23:59:59') : null;
@@ -314,6 +345,13 @@ function renderStorico(){
       const u = (h.userName||h.user||'').toLowerCase();
       if(!u.includes(sfUtente)) return false;
     }
+    if(sfRich || sfEff){
+      const rb = _ribStorico(h);
+      if(sfRich===F_CON_DATI){ if(!rb.richiesta) return false; }
+      else if(sfRich && rb.richiesta!==sfRich) return false;
+      if(sfEff===F_CON_DATI){ if(!rb.effettiva) return false; }
+      else if(sfEff && rb.effettiva!==sfEff) return false;
+    }
     return true;
   });
 
@@ -328,6 +366,8 @@ function renderStorico(){
       case 'plate':  va=(a.plate||''); vb=(b.plate||''); break;
       case 'tipo':   va=_tipoRank(a.plate); vb=_tipoRank(b.plate); break;
       case 'utente': va=(a.userName||a.user||'').toLowerCase(); vb=(b.userName||b.user||'').toLowerCase(); break;
+      case 'richiesta': va=_ribStorico(a).richiesta; vb=_ribStorico(b).richiesta; break;
+      case 'effettiva': va=_ribStorico(a).effettiva; vb=_ribStorico(b).effettiva; break;
       default:       va=0; vb=0;
     }
     if(va<vb) return storicoSortDir==='asc'?-1:1;
@@ -347,11 +387,12 @@ function renderStorico(){
       <td class="mono" style="font-size:11px">${fmtDate(h.ts)}</td>
       <td class="mono">${h.spot}</td>
       <td>${actionBadge(h.action)}</td>
+      ${(()=>{ const rb=_ribStorico(h); return _ribCelle(rb.richiesta, rb.effettiva); })()}
       <td class="mono">${h.plate||"&mdash;"}</td>
       <td>${tipoMezzo}</td>
       <td style="color:var(--muted);font-size:11px">${nomeUtente}</td>
     </tr>`;
-  }).join("") || '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:16px">Nessun risultato</td></tr>';
+  }).join("") || '<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:16px">Nessun risultato</td></tr>';
 }
 
 function renderStatistiche(){
