@@ -173,6 +173,18 @@
     <div id="prenList"></div>
   </div>
 
+  <!-- ── PAGINA: SPOSTAMENTI (solo autista) ─────────────────────────────────── -->
+  <div class="page" id="pageSpostamenti">
+    <div class="pageHeader">Spostamenti</div>
+    <div class="pageSubtitle">Sposta un veicolo da un parcheggio a un altro</div>
+    <div class="statsRow" id="spostStats"></div>
+    <div class="card" style="padding:12px">
+      <input type="text" id="spostSearch" class="inputField" placeholder="🔍 Filtra per posto o targa"
+             spellcheck="false" style="text-transform:uppercase" oninput="spostFiltra()">
+    </div>
+    <div id="spostList"><div class="emptyState">Caricamento…</div></div>
+  </div>
+
   <!-- ── PAGINA: RIBALTE (solo operativo) ───────────────────────────────────── -->
   <div class="page" id="pageRibalte">
     <div class="pageHeader">Ribalte</div>
@@ -204,6 +216,9 @@
     </button>
     <button class="navBtn hidden"  id="navPrenotazioni"  onclick="showPage('Prenotazioni',this)">
       <span class="navIcon">📋</span>Prenotazioni
+    </button>
+    <button class="navBtn hidden"  id="navSpostamenti"   onclick="showPage('Spostamenti',this)">
+      <span class="navIcon">🔀</span>Spostamenti
     </button>
     <button class="navBtn hidden"  id="navRibalte"       onclick="showPage('Ribalte',this)">
       <span class="navIcon">🚚</span>Ribalte
@@ -313,6 +328,7 @@ import { initCheckin, updateCheckinUI, doCheckinRapido,
 
 import { initPrenotazioni, renderPrenotazioni, completaSingola } from './prenotazioni-autista.js?v=1778777806';
 import { initRibalteOperativo, renderRibalte } from './ribalte-operativo.js?v=1778777806';
+import { initSpostamenti, render as renderSpostamenti } from './spostamenti-autista.js?v=1778777806';
 
 // ── STATO ─────────────────────────────────────────────────────────────────────
 let currentUser  = null;
@@ -416,6 +432,7 @@ function showApp() {
   document.getElementById('navCheckin').classList.toggle('hidden', isOperativo);
   document.getElementById('navAdmin').classList.toggle('hidden', !isAdmin);
   document.getElementById('navRibalte').classList.toggle('hidden', !isOperativo);
+  document.getElementById('navSpostamenti').classList.toggle('hidden', !isAutista);
 
   // portineria: mostra ribalte box in check-in
   document.getElementById('ribalteBox').style.display = isPortineria ? 'block' : 'none';
@@ -440,6 +457,7 @@ function showApp() {
     document.getElementById('navCheckin').classList.add('hidden');
     document.getElementById('navPosti').classList.remove('hidden');
     document.getElementById('navPrenotazioni').classList.remove('hidden');
+    initSpostamenti({ getSpots: () => spots, getUser: () => currentUser });
     // aggiorna label pillOcc in base alla modalità
     _updatePillOccLabel();
     startListeners();
@@ -555,6 +573,8 @@ function startListeners() {
     updateAdminStats();
     // aggiorna ribalte se operativo
     if (currentUser?.role === 'operativo') renderRibalte();
+    // aggiorna spostamenti se autista
+    if (currentUser?.role === 'autista') renderSpostamenti();
   });
 
   const hq = query(collection(window.db, 'history'), orderBy('ts', 'desc'), limit(100));
@@ -580,6 +600,7 @@ function showPage(id, btn) {
     initPrenotazioni({ getUser: () => currentUser, getMode: () => currentMode });
   }
   if (id === 'Ribalte') renderRibalte();
+  if (id === 'Spostamenti') renderSpostamenti();
 }
 
 // ── ADMIN ─────────────────────────────────────────────────────────────────────
@@ -636,6 +657,7 @@ window.completaSingola      = completaSingola;
 window.renderPrenotazioni   = renderPrenotazioni;
 window.setFilterPill        = setFilterPill;
 window.renderRibalte        = renderRibalte;
+window.renderSpostamenti    = renderSpostamenti;
 </script>
 
 </body>

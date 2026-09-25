@@ -482,6 +482,111 @@ function initPrenotazioni() {
   );
 }
 
+// ── AUTOCOMPLETE CONTAINER ────────────────────────────────────────────────────
+// Suggerisce i container effettivamente prenotabili: parcheggiati, pieni,
+// non inutilizzabili e senza una prenotazione già aperta. Gli stessi controlli
+// che cercaMezzo() applica dopo, così l'elenco non propone mai un vicolo cieco.
+function _containerPrenotabili(prefisso) {
+  const RE = window.RE_CONTAINER || /^[A-Z]{4}\d{7}$/;
+  const q = String(prefisso || '').trim().toUpperCase();
+  const occupateInPren = new Set(
+    _prenotazioni.filter(p => p.stato === 'creata' && p.plate).map(p => String(p.plate).toUpperCase())
+  );
+  // Container attualmente a una ribalta: non prenotabili
+  const allaRibalta = new Set(
+    Object.values(_ribalteData).filter(r => r.occupied && r.plate).map(r => String(r.plate).toUpperCase())
+  );
+  return Object.values(window.spots || {})
+    .filter(s => {
+      if (!s.occupied || !s.full || !s.plate) return false;
+      if (s.unusable) return false;
+      const p = String(s.plate).trim().toUpperCase();
+      if (!RE.test(p)) return false;
+      if (occupateInPren.has(p) || allaRibalta.has(p)) return false;
+      return !q || p.includes(q);
+    })
+    .sort((a, b) => String(a.plate).localeCompare(String(b.plate)))
+    .slice(0, 50);
+}
+
+let _suggIdx = -1;
+
+window.prenSuggerisci = function() {
+  const box = document.getElementById('pren-sugg');
+  const inp = document.getElementById('pren-targa');
+  if (!box || !inp) return;
+  const q = inp.value.trim().toUpperCase();
+  // Sotto le 2 lettere l'elenco sarebbe l'intero piazzale: si aspetta.
+  if (q.length < 2) { _chiudiSugg(); return; }
+  const lista = _containerPrenotabili(q);
+  _suggIdx = -1;
+  if (!lista.length) {
+    box.innerHTML = `<div style="padding:10px 12px;font-size:12px;color:var(--muted)">Nessun container prenotabile con "${_esc(q)}"</div>`;
+    box.style.display = 'block';
+    return;
+  }
+  box.innerHTML = lista.map((s, i) => {
+    const p = _esc(String(s.plate).toUpperCase());
+    const hit = q && p.indexOf(q) >= 0
+      ? p.replace(q, `<strong style="color:#A4D200">${q}</strong>`)
+      : p;
+    return `<div class="pren-sugg-item" data-i="${i}" onclick="prenScegliSugg('${p}')"
+      style="padding:9px 12px;cursor:pointer;display:flex;justify-content:space-between;gap:10px;align-items:center;border-bottom:1px solid var(--border,#3a4050)">
+      <span style="font-family:var(--mono,monospace);font-size:13px;letter-spacing:.3px">${hit}</span>
+      <span style="font-size:11px;color:var(--text2,#9ca3af);white-space:nowrap">📍 ${_esc(s.id)} · 🟡 pieno</span>
+    </div>`;
+  }).join('');
+  box.style.display = 'block';
+};
+
+function _chiudiSugg() {
+  const box = document.getElementById('pren-sugg');
+  if (box) { box.style.display = 'none'; box.innerHTML = ''; }
+  _suggIdx = -1;
+}
+window.prenChiudiSugg = _chiudiSugg;
+
+function _evidenziaSugg() {
+  const box = document.getElementById('pren-sugg');
+  if (!box) return;
+  [...box.querySelectorAll('.pren-sugg-item')].forEach((el, i) => {
+    el.style.background = i === _suggIdx ? 'var(--surface2,#2e333d)' : 'transparent';
+    if (i === _suggIdx) el.scrollIntoView({ block: 'nearest' });
+  });
+}
+
+window.prenSuggKeydown = function(ev) {
+  const box = document.getElementById('pren-sugg');
+  const aperto = box && box.style.display === 'block';
+  const items = aperto ? box.querySelectorAll('.pren-sugg-item') : [];
+  if (ev.key === 'ArrowDown' && items.length) {
+    ev.preventDefault(); _suggIdx = Math.min(_suggIdx + 1, items.length - 1); _evidenziaSugg();
+  } else if (ev.key === 'ArrowUp' && items.length) {
+    ev.preventDefault(); _suggIdx = Math.max(_suggIdx - 1, 0); _evidenziaSugg();
+  } else if (ev.key === 'Enter') {
+    ev.preventDefault();
+    if (aperto && _suggIdx >= 0 && items[_suggIdx]) items[_suggIdx].click();
+    else { _chiudiSugg(); cercaMezzo(); }
+  } else if (ev.key === 'Escape') {
+    _chiudiSugg();
+  }
+};
+
+window.prenScegliSugg = function(plate) {
+  const inp = document.getElementById('pren-targa');
+  if (inp) inp.value = plate;
+  _chiudiSugg();
+  cercaMezzo();
+};
+
+// Chiude l'elenco al click fuori
+document.addEventListener('click', ev => {
+  const box = document.getElementById('pren-sugg');
+  if (!box || box.style.display !== 'block') return;
+  if (ev.target.closest('#pren-sugg') || ev.target.closest('#pren-targa')) return;
+  _chiudiSugg();
+});
+
 async function cercaMezzo() {
   const targa = document.getElementById('pren-targa').value.trim().toUpperCase();
   const feedback = document.getElementById('pren-mezzo-feedback');
@@ -794,6 +899,7 @@ function resetFormPrenotazione() {
   document.getElementById('pren-btn-salva').textContent = '💾 Salva Prenotazione';
   _mezzoCorrente = null;
   _destinazioneValida = false;
+  _chiudiSugg();
   _gruppoPickerDesk['prenForm'] = 'PNT1';
   _aggiornaPickerForm();
   const now = new Date();

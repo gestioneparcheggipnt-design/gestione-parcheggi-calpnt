@@ -127,8 +127,6 @@ if(!_forceDesktop && window.innerWidth<=768 && !location.href.includes('mobile.h
           <th class="sortable" onclick="sortTable('since')">Data<span class="sortIndicator"></span></th>
           <th class="sortable" onclick="sortTable('damaged')">Danneg.<span class="sortIndicator"></span></th>
           <th class="sortable" onclick="sortTable('full')">Pieno/Vuoto<span class="sortIndicator"></span></th>
-          <th>Rib. richiesta</th>
-          <th>Rib. effettiva</th>
           <th class="sortable" onclick="sortTable('utente')">Utente<span class="sortIndicator"></span></th>
         </tr>
         <tr class="filterRow">
@@ -160,8 +158,6 @@ if(!_forceDesktop && window.innerWidth<=768 && !location.href.includes('mobile.h
             <option value="pieno">Pieno</option>
             <option value="vuoto">Vuoto</option>
           </select></td>
-          <td></td>
-          <td></td>
           <td><select id="fUtente" onchange="doSearch()"><option value="">Tutti</option></select></td>
         </tr>
       </thead>
@@ -213,6 +209,7 @@ if(!_forceDesktop && window.innerWidth<=768 && !location.href.includes('mobile.h
       <div class="chartCard"><h4>Veicoli per durata</h4><div id="chartVehicles"></div></div>
       <div class="chartCard"><h4>â ï¸ Veicoli danneggiati</h4><div id="chartDamaged"></div></div>
       <div class="chartCard"><h4>Ore di punta</h4><div id="chartHours"></div></div>
+      <div class="chartCard"><h4>&#x2753; Veicoli non trovati</h4><div id="chartNonTrovati"></div></div>
     </div>
     <div class="chartCard" style="margin-top:14px">
       <h4>ð¡ï¸ Mappa di calore â Parcheggi piÃ¹ utilizzati</h4>
@@ -250,10 +247,16 @@ if(!_forceDesktop && window.innerWidth<=768 && !location.href.includes('mobile.h
       <div class="pren-form-grid">
         <div class="pren-field">
           <label for="pren-targa">Identificativo container</label>
-          <div class="pren-input-row">
+          <div class="pren-input-row" style="position:relative">
             <input type="text" id="pren-targa" placeholder="es. ABCD1234567" autocomplete="off"
-                   oninput="this.value = this.value.toUpperCase()" />
+                   oninput="this.value = this.value.toUpperCase(); prenSuggerisci()"
+                   onfocus="prenSuggerisci()"
+                   onkeydown="prenSuggKeydown(event)" />
             <button class="pren-btn-cerca" onclick="cercaMezzo()">&#x1F50D; Cerca</button>
+            <div id="pren-sugg" style="display:none;position:absolute;top:100%;left:0;right:0;z-index:60;
+                 margin-top:4px;max-height:280px;overflow-y:auto;background:var(--surface,#252930);
+                 border:1px solid var(--border,#3a4050);border-radius:8px;
+                 box-shadow:0 8px 24px rgba(0,0,0,.45)"></div>
           </div>
           <div id="pren-mezzo-feedback" class="pren-feedback"></div>
         </div>

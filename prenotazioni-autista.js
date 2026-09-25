@@ -522,7 +522,11 @@ function _cassaCard(s, idx, abilitato, urgente) {
     : '—';
   const rankClass = abilitato ? 'cassa-rank top' : 'cassa-rank';
   const completaBtn = abilitato
-    ? `<button class="btnCompletaOrange" onclick="aprirCompletaCassa('${_esc(s.id)}','${_esc(s.plate)}','cassa_${_esc(s.id)}')">✅ Completa missione</button>
+    ? `<div id="nfRow_s_${_esc(s.id)}" style="display:flex;gap:8px;align-items:stretch">
+  <button class="btnCompletaOrange" style="flex:2;margin:0" onclick="aprirCompletaCassa('${_esc(s.id)}','${_esc(s.plate)}','cassa_${_esc(s.id)}')">✅ Completa missione</button>
+  ${_btnNonTrovato(`nonTrovatoSpot('${_esc(s.id)}')`)}
+</div>
+<div id="nfConf_s_${_esc(s.id)}" style="display:none"></div>
 <div id="cfCassa_cassa_${_esc(s.id)}" style="display:none"></div>
 <div id="cfCassaUndo_cassa_${_esc(s.id)}" style="display:none"></div>`
     : `<button disabled class="btnBlocco">🔒 In attesa</button>`;
@@ -582,7 +586,11 @@ const dataStr = d ? d.toLocaleString('it-IT', { day:'2-digit', month:'2-digit', 
 const statoVeicolo = p.fullAllaLibera ? '🟡 Piena' : '🟢 Vuota';
 
 const btnHTML = abilitato
-? `<button class="btnCompleta" onclick="aprirCompletaMissione('${p.id}')" style="margin-top:10px">✅ Completa missione</button>
+? `<div id="nfRow_${p.id}" style="display:flex;gap:8px;align-items:stretch;margin-top:10px">
+  <button class="btnCompleta" style="flex:2;margin:0" onclick="aprirCompletaMissione('${p.id}')">✅ Completa missione</button>
+  ${_btnNonTrovato(`nonTrovatoPren('${p.id}')`)}
+</div>
+<div id="nfConf_${p.id}" style="display:none"></div>
 <div class="completaForm" id="completaForm_${p.id}" style="display:none">
   <div data-step="picker" id="cfStep_${p.id}">
     ${_buildPostiPicker(p)}
@@ -665,7 +673,11 @@ btnHTML = `${dove}`;
 } else if (abilitato) {
 
 btnHTML = `
-<button class="btnCompletaOrange" onclick="aprirCompletaForm('${p.id}')">✅ Completa</button>
+<div id="nfRow_${p.id}" style="display:flex;gap:8px;align-items:stretch">
+  <button class="btnCompletaOrange" style="flex:2;margin:0" onclick="aprirCompletaForm('${p.id}')">✅ Completa</button>
+  ${_btnNonTrovato(`nonTrovatoPren('${p.id}')`)}
+</div>
+<div id="nfConf_${p.id}" style="display:none"></div>
 <div class="completaForm" id="completaForm_${p.id}" style="display:none">
   <div data-step="picker" id="cfStep_${p.id}">
     ${_buildContainerPicker(p)}
@@ -779,6 +791,167 @@ function _navettaCard(p, abilitato = true) {
   ${btnHTML}
 </div>`;
 }
+
+// ── VEICOLO NON TROVATO ───────────────────────────────────────────────────────
+// L'autista arriva sul posto e il veicolo non c'è. Il luogo di partenza
+// (parcheggio o ribalta) viene liberato e la missione annullata.
+// Ogni dichiarazione finisce sia in `history` sia nella collection dedicata
+// `veicoliNonTrovati`, che alimenta le statistiche desktop.
+
+// Pulsante stretto (1/3) accanto al pulsante di conferma (2/3)
+function _btnNonTrovato(onclick) {
+  return `<button onclick="${onclick}"
+    style="flex:1;margin:0;padding:8px 6px;border-radius:9px;border:1.5px solid var(--red,#ef4444);
+           background:transparent;color:var(--red,#ef4444);font-family:inherit;font-size:12px;
+           font-weight:700;line-height:1.25;cursor:pointer">❓ Veicolo<br>non trovato</button>`;
+}
+
+function _nfChiedi(key, titolo, testo, onYes) {
+  const row  = document.getElementById('nfRow_' + key);
+  const conf = document.getElementById('nfConf_' + key);
+  if (!conf) return;
+  if (row) row.style.display = 'none';
+  conf.style.display = 'block';
+  conf.innerHTML = `
+<div style="padding:12px;border-radius:10px;border:2px solid var(--red,#ef4444);background:var(--surface2);margin-top:8px">
+  <div style="font-size:14px;font-weight:800;margin-bottom:6px">❓ ${titolo}</div>
+  <div style="font-size:13px;line-height:1.45;margin-bottom:12px">${testo}</div>
+  <div style="display:flex;gap:8px">
+    <button onclick="nfAnnulla('${key}')"
+            style="flex:1;padding:11px;border-radius:8px;border:1.5px solid var(--border);background:transparent;color:var(--text);font-family:inherit;font-size:14px;font-weight:700;cursor:pointer">
+      ✕ No
+    </button>
+    <button id="nfSi_${key}" onclick="${onYes}"
+            style="flex:1;padding:11px;border-radius:8px;border:none;background:var(--red,#ef4444);color:#fff;font-family:inherit;font-size:14px;font-weight:800;cursor:pointer">
+      ✓ Sì, non c'è
+    </button>
+  </div>
+</div>`;
+}
+
+window.nfAnnulla = function(key) {
+  const row  = document.getElementById('nfRow_' + key);
+  const conf = document.getElementById('nfConf_' + key);
+  if (conf) { conf.style.display = 'none'; conf.innerHTML = ''; }
+  if (row) row.style.display = 'flex';
+};
+
+const _nfInCorso = new Set();
+
+// Registra la dichiarazione (storico + collection statistiche)
+async function _nfRegistra({ plate, luogo, tipoLuogo, prenId, tipoMissione }) {
+  const user = _getUser ? _getUser() : null;
+  const tipo = _tipoDaPlate(plate);
+  await window.logHistory({
+    spot: luogo, action: 'Veicolo non trovato', plate: plate || null, tipo,
+    origine: luogo, luogoTipo: tipoLuogo,
+  });
+  await addDoc(collection(window.db, 'veicoliNonTrovati'), {
+    ts: serverTimestamp(),
+    plate: plate || null,
+    tipo,
+    luogo,
+    luogoTipo: tipoLuogo,
+    prenId: prenId || null,
+    tipoMissione: tipoMissione || null,
+    utenteUid:   user?.uid   || null,
+    utenteNome:  user?.name  || user?.email || null,
+    utenteEmail: user?.email || null,
+  });
+}
+
+// Missione / prenotazione: libera l'origine e annulla la missione
+window.nonTrovatoPren = function(id) {
+  const p = _prenotazioni.find(x => x.id === id);
+  if (!p) { showToast('Missione non trovata', 'error'); return; }
+  const luogo = String(p.spotId || '').trim().toUpperCase();
+  const tipoLuogo = isValidRibalta(luogo) ? 'ribalta' : 'parcheggio';
+  _nfChiedi(id, 'Il veicolo non è sul posto?',
+    `<strong>${_esc(p.plate || '—')}</strong> risulta ${tipoLuogo === 'ribalta' ? 'alla ribalta' : 'al parcheggio'} <strong>${_esc(luogo || '—')}</strong>.<br>
+     Confermando, ${tipoLuogo === 'ribalta' ? 'la ribalta' : 'il parcheggio'} viene liberato e la missione annullata.`,
+    `nonTrovatoPrenExec('${id}')`);
+};
+
+window.nonTrovatoPrenExec = async function(id) {
+  if (_nfInCorso.has(id)) return;
+  const p = _prenotazioni.find(x => x.id === id);
+  if (!p) { showToast('Missione non trovata', 'error'); return; }
+  _nfInCorso.add(id);
+  const btn = document.getElementById('nfSi_' + id);
+  if (btn) { btn.disabled = true; btn.textContent = '⏳…'; }
+  const luogo = String(p.spotId || '').trim().toUpperCase();
+  const user  = _getUser ? _getUser() : null;
+  try {
+    const ops = [];
+    ops.push(updateDoc(doc(window.db, 'prenotazioni', id), {
+      stato: 'annullata',
+      motivoAnnullamento: 'veicolo_non_trovato',
+      annullataAt: serverTimestamp(),
+      annullataDaUid:  user?.uid  || null,
+      annullataDaNome: user?.name || user?.email || null,
+    }));
+    if (isValidSpot(luogo)) {
+      ops.push(setDoc(doc(window.db, 'spots', luogo), {
+        occupied: false, plate: null, since: null, user: null, full: false,
+        bloccoPlate: null, urgente: false, urgentePlate: null,
+      }, { merge: true }));
+    } else if (isValidRibalta(luogo)) {
+      ops.push(setDoc(doc(window.db, 'ribalte', luogo), {
+        occupied: false, plate: null, since: null, user: null, full: false,
+        inUscita: false, ribaltaRichiesta: null,
+      }, { merge: true }));
+    }
+    ops.push(_nfRegistra({
+      plate: p.plate, luogo,
+      tipoLuogo: isValidRibalta(luogo) ? 'ribalta' : 'parcheggio',
+      prenId: id, tipoMissione: p.tipoMissione || 'prenotazione',
+    }));
+    await Promise.all(ops);
+    _openCompletaId = null;
+    showToast(`Segnalato: ${p.plate || '—'} non trovato — ${luogo} liberato`, 'success');
+  } catch (e) {
+    showToast('Errore: ' + (e.message || e), 'error');
+    if (btn) { btn.disabled = false; btn.textContent = "✓ Sì, non c'è"; }
+  } finally {
+    _nfInCorso.delete(id);
+  }
+};
+
+// Cassa parcheggiata (nessuna prenotazione): libera solo il posto
+window.nonTrovatoSpot = function(spotId) {
+  const s = _spots[spotId];
+  if (!s) { showToast('Posto non trovato', 'error'); return; }
+  _nfChiedi('s_' + spotId, 'Il veicolo non è sul posto?',
+    `<strong>${_esc(s.plate || '—')}</strong> risulta al parcheggio <strong>${_esc(spotId)}</strong>.<br>
+     Confermando, il parcheggio viene liberato.`,
+    `nonTrovatoSpotExec('${spotId}')`);
+};
+
+window.nonTrovatoSpotExec = async function(spotId) {
+  const key = 's_' + spotId;
+  if (_nfInCorso.has(key)) return;
+  const s = _spots[spotId];
+  if (!s) { showToast('Posto non trovato', 'error'); return; }
+  _nfInCorso.add(key);
+  const btn = document.getElementById('nfSi_' + key);
+  if (btn) { btn.disabled = true; btn.textContent = '⏳…'; }
+  const plate = s.plate;
+  try {
+    await Promise.all([
+      setDoc(doc(window.db, 'spots', spotId), {
+        occupied: false, plate: null, since: null, user: null, full: false,
+        bloccoPlate: null, urgente: false, urgentePlate: null,
+      }, { merge: true }),
+      _nfRegistra({ plate, luogo: spotId, tipoLuogo: 'parcheggio', prenId: null, tipoMissione: 'cassa_parcheggiata' }),
+    ]);
+    showToast(`Segnalato: ${plate || '—'} non trovato — ${spotId} liberato`, 'success');
+  } catch (e) {
+    showToast('Errore: ' + (e.message || e), 'error');
+    if (btn) { btn.disabled = false; btn.textContent = "✓ Sì, non c'è"; }
+  } finally {
+    _nfInCorso.delete(key);
+  }
+};
 
 // ── BUILD PICKER PARCHEGGI (missioni: liberare una ribalta) ───────────────────
 

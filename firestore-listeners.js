@@ -75,6 +75,14 @@ function startListeners(){
     });
   }
 
+  // Listener veicoli non trovati (statistiche): solo orderBy, nessun indice composito
+  window.nonTrovatiCache = window.nonTrovatiCache || [];
+  const ntq = query(collection(window.db,"veicoliNonTrovati"), orderBy("ts","desc"), limit(200));
+  window.unsubNonTrovati = onSnapshot(ntq, (snapshot) => {
+    window.nonTrovatiCache = snapshot.docs.map(d => ({ id:d.id, ...d.data() }));
+    if(window.currentUser?.role !== 'portineria') renderStatistiche();
+  }, err => console.error('Errore listener veicoli non trovati:', err));
+
   // Listener storico: ultimi 200 movimenti
   const hq = query(collection(window.db,"history"), orderBy("ts","desc"), limit(200));
   window.unsubHistory = onSnapshot(hq, (snapshot) => {
@@ -91,6 +99,7 @@ function stopListeners(){
   if(window.unsubSpots)  { window.unsubSpots();  window.unsubSpots=null;  }
   if(window.unsubRibalte){ window.unsubRibalte();window.unsubRibalte=null;}
   if(window.unsubHistory){ window.unsubHistory();window.unsubHistory=null; }
+  if(window.unsubNonTrovati){ window.unsubNonTrovati();window.unsubNonTrovati=null; }
   if(window.NavetteCore) window.NavetteCore.stopNavetteListener();
 }
 

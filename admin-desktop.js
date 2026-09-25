@@ -174,8 +174,6 @@ function doSearch(){
       <td>${s.since?fmtDate(s.since):"&mdash;"}</td>
       <td style="text-align:center">${s.unusable ? '<span style="color:#a78bfa;font-weight:600;font-size:13px">🚫 Inutilizzabile</span>' : s.damaged ? '<span style="color:#ef4444;font-weight:600;font-size:13px">⚠️ Guasto</span>' : '<span style="color:var(--muted);font-size:12px">&mdash;</span>'}</td>
       <td style="text-align:center">${s.occupied ? (s.full ? '<span class="tagPieno">🔴 Piena/o</span>' : '<span class="tagVuoto">🟢 Vuota/o</span>') : '<span style="color:var(--muted);font-size:12px">&mdash;</span>'}</td>
-      <td style="color:var(--muted);font-size:12px">&mdash;</td>
-      <td style="color:var(--muted);font-size:12px">&mdash;</td>
       <td style="color:var(--muted);font-size:11px">${nomeUtente}</td>
     </tr>`;});
 
@@ -233,7 +231,6 @@ function doSearch(){
         <td>${r.since?fmtDate(r.since):"&mdash;"}</td>
         <td style="text-align:center"><span style="color:var(--muted);font-size:12px">&mdash;</span></td>
         <td style="text-align:center">${r.occupied ? (r.full ? '<span class="tagPieno">🔴 Piena/o</span>' : '<span class="tagVuoto">🟢 Vuota/o</span>') : '<span style="color:var(--muted);font-size:12px">&mdash;</span>'}</td>
-        ${_ribCelle(r.occupied ? r.ribaltaRichiesta : '', r.occupied ? r.id : '')}
         <td style="color:var(--muted);font-size:11px">${nomeUtente}</td>
       </tr>`;});
   }
@@ -433,6 +430,32 @@ function renderStatistiche(){
           <div style="font-size:12px;color:#ef4444;font-weight:600;white-space:nowrap">${dur}</div>
         </div>`;
       }).join("");
+  // Veicoli non trovati: dichiarazioni dell'autista (collection veicoliNonTrovati)
+  const nt = window.nonTrovatiCache || [];
+  const _ntDate = v => { const d = v.ts?.toDate ? v.ts.toDate() : (v.ts instanceof Date ? v.ts : (v.ts ? new Date(v.ts) : null)); return d && !isNaN(d) ? d : null; };
+  const _oggi0 = new Date(); _oggi0.setHours(0,0,0,0);
+  const ntOggi = nt.filter(v => { const d=_ntDate(v); return d && d >= _oggi0; }).length;
+  const elNT = document.getElementById("chartNonTrovati");
+  if (elNT) {
+    elNT.innerHTML = nt.length === 0
+      ? '<div style="color:var(--muted);font-size:13px">Nessun veicolo non trovato</div>'
+      : `<div style="font-size:12px;color:var(--muted);margin-bottom:8px">
+           <strong style="color:var(--text);font-size:14px">${ntOggi}</strong> oggi &nbsp;·&nbsp;
+           <strong style="color:var(--text);font-size:14px">${nt.length}</strong> in archivio
+         </div>` +
+        nt.slice(0,50).map(v=>{
+          const d=_ntDate(v);
+          const quando = d ? d.toLocaleString('it-IT',{day:'2-digit',month:'2-digit',year:'2-digit',hour:'2-digit',minute:'2-digit'}) : '&mdash;';
+          return `<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border)">
+            <div style="min-width:0">
+              <span class="mono" style="font-weight:600;font-size:14px">${_optEsc(v.plate||'—')}</span>
+              <span style="color:var(--muted);font-size:11px;margin-left:8px">${_optEsc(v.luogoTipo==='ribalta'?'Ribalta':'Posto')} ${_optEsc(v.luogo||'—')}</span>
+              <div style="color:var(--muted);font-size:11px;margin-top:2px">${_optEsc(v.utenteNome||v.utenteEmail||'—')}</div>
+            </div>
+            <div style="font-size:11px;color:var(--muted);white-space:nowrap">${quando}</div>
+          </div>`;
+        }).join('');
+  }
   const hrs=[8,9,10,11,12,13,14,15,16,17,18], pk=[3,8,12,14,10,9,13,15,11,7,4], mxp=Math.max(...pk);
   document.getElementById("chartHours").innerHTML=hrs.map((h,i)=>`
     <div class="barRow"><div class="barLabel">${h}:00</div>
