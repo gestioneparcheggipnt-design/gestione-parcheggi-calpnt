@@ -51,6 +51,73 @@ function _updateSortArrows(tableSel, col, dir){
   });
 }
 
+// ── STATO VEICOLO NEL CICLO DI SCARICO ────────────────────────────────────────
+// parcheggio + pieno, senza missione aperta → da scaricare
+// parcheggio + pieno, con missione aperta   → prenotato
+// ribalta occupata                          → in scarico
+// parcheggio + vuoto                        → scaricato
+const _STATI_VEICOLO = {
+  da_scaricare: { lbl:'Da scaricare', cls:'tagDaScar', ico:'⏳', rank:1 },
+  prenotato:    { lbl:'Prenotato',    cls:'tagPrenot', ico:'📋', rank:2 },
+  in_scarico:   { lbl:'In scarico',   cls:'tagInScar', ico:'🔄', rank:3 },
+  scaricato:    { lbl:'Scaricato',    cls:'tagScaric', ico:'✅', rank:4 },
+};
+
+// Targhe già impegnate in una missione aperta (listener in firestore-listeners.js)
+function _targhePrenotate(){
+  return new Set((window.prenotazioniAperte||[])
+    .map(p=>String(p.plate||'').trim().toUpperCase()).filter(Boolean));
+}
+
+function _statoVeicolo(x, isRibalta, prenotate){
+  if(!x.occupied || !x.plate) return '';
+  if(isRibalta) return 'in_scarico';
+  if(!x.full) return 'scaricato';
+  return prenotate.has(String(x.plate).trim().toUpperCase()) ? 'prenotato' : 'da_scaricare';
+}
+
+function _statoVeicoloCella(key){
+  const d = _STATI_VEICOLO[key];
+  if(!d) return '<td><span style="color:var(--muted);font-size:12px">&mdash;</span></td>';
+  return `<td><span class="${d.cls}">${d.ico} ${d.lbl}</span></td>`;
+}
+
+// ── FILTRI PREIMPOSTATI (tab Ricerca) ─────────────────────────────────────────
+// '' | 'container-scaricare' | 'casse-scaricare'
+let _presetRicerca = '';
+
+function _svuotaFiltriColonne(){
+  ['fPosto','fTarga','fStato','fTipo','fUtente','fData','fDanneggiato','fPieno','fStatoVeicolo']
+    .forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
+}
+
+function _aggiornaPresetBtn(){
+  const map={'container-scaricare':'presetContainer','casse-scaricare':'presetCasse'};
+  Object.values(map).forEach(id=>document.getElementById(id)?.classList.remove('active'));
+  if(_presetRicerca && map[_presetRicerca]) document.getElementById(map[_presetRicerca])?.classList.add('active');
+}
+
+// Un secondo clic sullo stesso pulsante lo disattiva.
+function setPresetRicerca(p){
+  _presetRicerca = (_presetRicerca === p) ? '' : p;
+  // il preset comanda da solo: i filtri di colonna ripartono puliti
+  _svuotaFiltriColonne();
+  const si=document.getElementById('searchInput'); if(si) si.value='';
+  _aggiornaPresetBtn();
+  doSearch();
+}
+window.setPresetRicerca = setPresetRicerca;
+
+function resetFiltriRicerca(){
+  _presetRicerca = '';
+  _svuotaFiltriColonne();
+  const si=document.getElementById('searchInput'); if(si) si.value='';
+  const rb=document.querySelector('input[name=stype][value=posto]'); if(rb) rb.checked=true;
+  _aggiornaPresetBtn();
+  doSearch();
+}
+window.resetFiltriRicerca = resetFiltriRicerca;
+
 // rank tipo mezzo dalla targa: cassa(1) < container(2) < altro(0)
 function _tipoRank(plate){
   if(!plate) return 0;
@@ -115,7 +182,18 @@ function doSearch(){
   const fTipo=(document.getElementById("fTipo")?.value||"");
   const fUtente=(document.getElementById("fUtente")?.value||"");
   const fData=(document.getElementById("fData")?.value||"");
+  const fStatoVeicolo=(document.getElementById("fStatoVeicolo")?.value||"");
+  const _prenotate=_targhePrenotate();
+  _aggiornaPresetBtn();
   let res=Object.values(window.spots);
+  // Filtri preimpostati: agiscono solo sui parcheggi (le ribalte sono escluse sotto)
+  if(_presetRicerca==='container-scaricare'){
+    res=res.filter(s=>s.occupied && s.full && !s.unusable && s.plate
+      && /^[A-Z]{4}\d{7}$/.test(s.plate.trim())
+      && !_prenotate.has(s.plate.trim().toUpperCase()));
+  } else if(_presetRicerca==='casse-scaricare'){
+    res=res.filter(s=>s.occupied && s.full && s.plate && /^\d{3}$/.test(s.plate.trim()));
+  }
   // global search bar
   if(q) res=res.filter(s=>type==="posto"?s.id.includes(q):s.plate&&s.plate.includes(q));
   // column filters
@@ -143,6 +221,8 @@ function doSearch(){
   if(fPieno===F_CON_DATI) res=res.filter(s=>s.occupied);
   if(fPieno==="pieno") res=res.filter(s=>s.occupied && s.full);
   if(fPieno==="vuoto") res=res.filter(s=>s.occupied && !s.full);
+  if(fStatoVeicolo===F_CON_DATI) res=res.filter(s=>!!_statoVeicolo(s,false,_prenotate));
+  else if(fStatoVeicolo) res=res.filter(s=>_statoVeicolo(s,false,_prenotate)===fStatoVeicolo);
   // sort
   res.sort((a,b)=>{
     let va,vb;
@@ -154,6 +234,7 @@ function doSearch(){
     else if(sortCol==='full')  { va=a.full?1:0; vb=b.full?1:0; }
     else if(sortCol==='tipo')  { va=_tipoRank(a.plate); vb=_tipoRank(b.plate); }
     else if(sortCol==='utente'){ va=(a.userName||a.user||"").toLowerCase(); vb=(b.userName||b.user||"").toLowerCase(); }
+    else if(sortCol==='statoVeicolo'){ va=_STATI_VEICOLO[_statoVeicolo(a,false,_prenotate)]?.rank||0; vb=_STATI_VEICOLO[_statoVeicolo(b,false,_prenotate)]?.rank||0; }
     if(va<vb) return sortDir==='asc'?-1:1;
     if(va>vb) return sortDir==='asc'?1:-1;
     return 0;
@@ -174,13 +255,16 @@ function doSearch(){
       <td>${s.since?fmtDate(s.since):"&mdash;"}</td>
       <td style="text-align:center">${s.unusable ? '<span style="color:#a78bfa;font-weight:600;font-size:13px">🚫 Inutilizzabile</span>' : s.damaged ? '<span style="color:#ef4444;font-weight:600;font-size:13px">⚠️ Guasto</span>' : '<span style="color:var(--muted);font-size:12px">&mdash;</span>'}</td>
       <td style="text-align:center">${s.occupied ? (s.full ? '<span class="tagPieno">🔴 Piena/o</span>' : '<span class="tagVuoto">🟢 Vuota/o</span>') : '<span style="color:var(--muted);font-size:12px">&mdash;</span>'}</td>
+      ${_statoVeicoloCella(_statoVeicolo(s,false,_prenotate))}
       <td style="color:var(--muted);font-size:11px">${nomeUtente}</td>
     </tr>`;});
 
   // righe ribalte: escluse se filtro danneggiato (non applicabile alle ribalte)
   const _ribalteIds = window.REPARTI ? Object.values(window.REPARTI).flat() : [];
   const showRibalte = (!fPosto || _ribalteIds.includes(fPosto))
-                   && (fDanneggiato==="" || fDanneggiato==="no");
+                   && (fDanneggiato==="" || fDanneggiato==="no")
+                   && !_presetRicerca
+                   && (fStatoVeicolo==="" || fStatoVeicolo===F_CON_DATI || fStatoVeicolo==="in_scarico");
   let rowsRibalte = [];
   if(showRibalte && window.REPARTI){
     // Lista completa da REPARTI (fonte di verità); merge dati Firestore per quelle occupate
@@ -214,6 +298,9 @@ function doSearch(){
     // filtro data (giorno)
     if(fData===F_CON_DATI) ribalteArr = ribalteArr.filter(r=>!!r.since);
     else if(fData) ribalteArr = ribalteArr.filter(r=>_giornoKey(r.since)===fData);
+    // filtro stato veicolo (una ribalta occupata è sempre "in scarico")
+    if(fStatoVeicolo===F_CON_DATI)      ribalteArr = ribalteArr.filter(r=>!!_statoVeicolo(r,true,_prenotate));
+    else if(fStatoVeicolo==="in_scarico") ribalteArr = ribalteArr.filter(r=>_statoVeicolo(r,true,_prenotate)==='in_scarico');
     // sort
     ribalteArr.sort((a,b)=>a.id.localeCompare(b.id));
     rowsRibalte = ribalteArr.map(r=>{
@@ -231,6 +318,7 @@ function doSearch(){
         <td>${r.since?fmtDate(r.since):"&mdash;"}</td>
         <td style="text-align:center"><span style="color:var(--muted);font-size:12px">&mdash;</span></td>
         <td style="text-align:center">${r.occupied ? (r.full ? '<span class="tagPieno">🔴 Piena/o</span>' : '<span class="tagVuoto">🟢 Vuota/o</span>') : '<span style="color:var(--muted);font-size:12px">&mdash;</span>'}</td>
+        ${_statoVeicoloCella(_statoVeicolo(r,true,_prenotate))}
         <td style="color:var(--muted);font-size:11px">${nomeUtente}</td>
       </tr>`;});
   }
@@ -240,6 +328,7 @@ function doSearch(){
 }
 window.doSearch=doSearch;
 window.clearSearch=()=>{document.getElementById("searchInput").value="";doSearch();};
+window.resetFiltri_Ricerca=resetFiltriRicerca;
 
 function goToSpot(id){
   showPage("Mappa",document.querySelectorAll(".navTab")[0]);

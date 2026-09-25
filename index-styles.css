@@ -84,12 +84,24 @@
   .occupiedInfo{font-size:12px;color:var(--muted);line-height:1.8;margin-bottom:11px;}
   .occupiedInfo strong{color:var(--text);font-family:'DM Mono',monospace;}
   .searchBar{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:12px 14px;display:flex;flex-direction:column;gap:10px;margin-bottom:14px;}
-  .searchBarRow{display:flex;gap:8px;align-items:center;flex-wrap:nowrap;}
+  .searchBarRow{display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
   .searchType{display:flex;gap:0;background:var(--surface2);border:1px solid var(--border);border-radius:8px;overflow:hidden;flex-shrink:0;}
   .searchType label{display:flex;align-items:center;gap:5px;font-size:13px;color:var(--muted);cursor:pointer;padding:7px 12px;white-space:nowrap;transition:background .15s;}
   .searchType label:has(input:checked){background:var(--accent);color:#1C1F26;font-weight:700;}
   .searchType input[type=radio]{display:none;}
-  .searchBar input[type=text]{flex:1;min-width:0;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:8px 12px;color:var(--text);font-family:inherit;font-size:14px;outline:none;}
+  .searchBar input[type=text]{flex:0 1 240px;min-width:120px;max-width:240px;height:36px;box-sizing:border-box;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:0 12px;color:var(--text);font-family:inherit;font-size:14px;outline:none;}
+  /* Filtri preimpostati: stessa riga e stessa altezza del campo di ricerca */
+  .presetFilters{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-left:auto;}
+  .presetBtn{display:inline-flex;align-items:center;gap:6px;height:36px;box-sizing:border-box;padding:0 14px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;transition:background .15s,border-color .15s,color .15s;}
+  .presetBtn:hover{border-color:var(--accent);}
+  .presetBtn.active{background:var(--accent);border-color:var(--accent);color:#1C1F26;font-weight:700;}
+  .presetBtn.reset{color:var(--muted);font-weight:500;}
+  .presetBtn.reset:hover{color:var(--text);}
+  /* Stato veicolo nel ciclo di scarico */
+  .tagDaScar{color:#f59e0b;font-size:11px;font-weight:700;background:#f59e0b13;padding:2px 8px;border-radius:20px;white-space:nowrap;}
+  .tagPrenot{color:#60a5fa;font-size:11px;font-weight:700;background:#60a5fa13;padding:2px 8px;border-radius:20px;white-space:nowrap;}
+  .tagInScar{color:#a78bfa;font-size:11px;font-weight:700;background:#a78bfa13;padding:2px 8px;border-radius:20px;white-space:nowrap;}
+  .tagScaric{color:#22c55e;font-size:11px;font-weight:700;background:#22c55e13;padding:2px 8px;border-radius:20px;white-space:nowrap;}
   .searchBar input[type=text]:focus{border-color:var(--accent);}
   .sortIndicator{display:inline-block;margin-left:4px;opacity:.5;font-size:10px;}
   th.sortable{cursor:pointer;user-select:none;}
@@ -101,7 +113,7 @@
   .filterRow input{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:5px 8px;color:var(--text);font-family:inherit;font-size:12px;outline:none;}
   .filterRow input:focus{border-color:var(--accent);}
   .filterRow select{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:5px 6px;color:var(--text);font-family:inherit;font-size:12px;outline:none;cursor:pointer;}
-  .btnClear{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 13px;color:var(--muted);font-family:inherit;font-size:12px;cursor:pointer;}
+  .btnClear{display:inline-flex;align-items:center;height:36px;box-sizing:border-box;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:0 13px;color:var(--muted);font-family:inherit;font-size:12px;cursor:pointer;}
   .tableWrap{background:var(--surface);border:1px solid var(--border);border-radius:13px;overflow:hidden;}
   table{width:100%;border-collapse:collapse;}
   th{background:var(--surface2);padding:10px 14px;text-align:left;font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;}

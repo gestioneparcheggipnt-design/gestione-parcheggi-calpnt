@@ -1,4 +1,4 @@
-import { collection, doc, limit, onSnapshot, orderBy, query } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
+import { collection, doc, limit, onSnapshot, orderBy, query, where } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
 // ── FIRESTORE LISTENERS ──────────────────────────────────────────────────────
 function startListeners(){
   // Listener parcheggi: aggiornamento real-time
@@ -75,6 +75,19 @@ function startListeners(){
     });
   }
 
+  // Listener prenotazioni APERTE: serve al tab Ricerca per sapere quali veicoli
+  // sono già impegnati in una missione. Solo where di uguaglianza, nessun
+  // orderBy → nessun indice composito richiesto.
+  window.prenotazioniAperte = window.prenotazioniAperte || [];
+  window.unsubPrenAperte = onSnapshot(
+    query(collection(window.db,"prenotazioni"), where("stato","==","creata")),
+    (snapshot) => {
+      window.prenotazioniAperte = snapshot.docs.map(d => ({ id:d.id, ...d.data() }));
+      if(window.currentUser?.role !== 'portineria') renderSearch();
+    },
+    err => console.error('Errore listener prenotazioni aperte:', err)
+  );
+
   // Listener veicoli non trovati (statistiche): solo orderBy, nessun indice composito
   window.nonTrovatiCache = window.nonTrovatiCache || [];
   const ntq = query(collection(window.db,"veicoliNonTrovati"), orderBy("ts","desc"), limit(200));
@@ -100,6 +113,7 @@ function stopListeners(){
   if(window.unsubRibalte){ window.unsubRibalte();window.unsubRibalte=null;}
   if(window.unsubHistory){ window.unsubHistory();window.unsubHistory=null; }
   if(window.unsubNonTrovati){ window.unsubNonTrovati();window.unsubNonTrovati=null; }
+  if(window.unsubPrenAperte){ window.unsubPrenAperte();window.unsubPrenAperte=null; }
   if(window.NavetteCore) window.NavetteCore.stopNavetteListener();
 }
 

@@ -115,6 +115,11 @@ if(!_forceDesktop && window.innerWidth<=768 && !location.href.includes('mobile.h
         </div>
         <input type="text" id="searchInput" placeholder="Cerca..." oninput="doSearch()">
         <button class="btnClear" onclick="clearSearch()">&#10005;</button>
+        <div class="presetFilters">
+          <button class="presetBtn" id="presetContainer" onclick="setPresetRicerca('container-scaricare')">&#x1F6A2; Container da scaricare</button>
+          <button class="presetBtn" id="presetCasse" onclick="setPresetRicerca('casse-scaricare')">&#x1F4E6; Casse da scaricare</button>
+          <button class="presetBtn reset" onclick="resetFiltriRicerca()">&#x21BA; Reset filtri</button>
+        </div>
       </div>
     </div>
     <div class="tableWrap"><table id="searchTable">
@@ -127,6 +132,7 @@ if(!_forceDesktop && window.innerWidth<=768 && !location.href.includes('mobile.h
           <th class="sortable" onclick="sortTable('since')">Data<span class="sortIndicator"></span></th>
           <th class="sortable" onclick="sortTable('damaged')">Danneg.<span class="sortIndicator"></span></th>
           <th class="sortable" onclick="sortTable('full')">Pieno/Vuoto<span class="sortIndicator"></span></th>
+          <th class="sortable" onclick="sortTable('statoVeicolo')">Stato veicolo<span class="sortIndicator"></span></th>
           <th class="sortable" onclick="sortTable('utente')">Utente<span class="sortIndicator"></span></th>
         </tr>
         <tr class="filterRow">
@@ -157,6 +163,14 @@ if(!_forceDesktop && window.innerWidth<=768 && !location.href.includes('mobile.h
             <option value="__CON_DATI__">(solo con dati)</option>
             <option value="pieno">Pieno</option>
             <option value="vuoto">Vuoto</option>
+          </select></td>
+          <td><select id="fStatoVeicolo" onchange="doSearch()">
+            <option value="">Tutti</option>
+            <option value="__CON_DATI__">(solo con dati)</option>
+            <option value="da_scaricare">Da scaricare</option>
+            <option value="prenotato">Prenotato</option>
+            <option value="in_scarico">In scarico</option>
+            <option value="scaricato">Scaricato</option>
           </select></td>
           <td><select id="fUtente" onchange="doSearch()"><option value="">Tutti</option></select></td>
         </tr>
