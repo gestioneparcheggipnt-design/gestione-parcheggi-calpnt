@@ -4,6 +4,10 @@ import { addDoc, collection, doc, serverTimestamp, setDoc, updateDoc } from 'htt
 // Dipende da: firebase-config.js, shared-utils.js, stato globale (spots, currentUser, currentMode)
 
 import { fmtDate, fmtDur, showToast, validatePlate, checkVehicleNotDuplicate, checkSpotFree } from './shared-utils.js';
+import * as _SU from './shared-utils.js';
+// RE_CONTAINER letto dal namespace: se il browser servisse per qualche minuto una
+// copia in cache di shared-utils.js senza il nuovo export, il modulo non si rompe.
+const RE_CONTAINER = _SU.RE_CONTAINER || /^(?:[A-Z]{4}\d{7}|[A-Z]{2}\d{3}(?:[A-Z]{2}|\d{1,3}))$/;
 
 // Riferimento allo stato condiviso (definito in mobile.html e passato a questo modulo)
 // Usato tramite getters per evitare problemi di riferimento circolare
@@ -65,7 +69,7 @@ export async function doCheckinRapido() {
     showResult(res, '⚠️ ' + plateCheck.msg, 'warn');
     return;
   }
-  const plate = raw.toUpperCase();
+  const plate = plateCheck.plate;
 
   // Verifica che il veicolo non sia già parcheggiato
   const dupCheck = checkVehicleNotDuplicate(spots, plate);
@@ -128,7 +132,7 @@ export function renderPosti() {
     if (mode === 'cassa') {
       res = res.filter(s => s.occupied && s.plate && /^\d{3}$/.test(s.plate.trim()));
     } else {
-      res = res.filter(s => s.occupied && s.plate && /^[A-Z]{4}\d{7}$/.test(s.plate.trim().toUpperCase()));
+      res = res.filter(s => s.occupied && s.plate && RE_CONTAINER.test(s.plate.trim().toUpperCase()));
     }
   }
 
@@ -178,7 +182,7 @@ export function openSpotDrawer(id) {
     html += `<div style="background:#A4D20013;border:1px solid #A4D20030;border-radius:10px;padding:10px 14px;margin-bottom:14px;font-weight:700;color:var(--accent2)">🟢 Libero</div>`;
     if (canManage) {
       html += `<label style="font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;display:block;margin-bottom:6px">${modeLabel} / Identificativo</label>
-        <input class="inputField" id="drawerInput" type="text" placeholder="${mode === 'cassa' ? '042' : 'ABCD1234567'}" maxlength="15" oninput="this.value=this.value.toUpperCase()" onkeydown="if(event.key==='Enter')assignFromDrawer('${id}')">
+        <input class="inputField" id="drawerInput" type="text" placeholder="${mode === 'cassa' ? '042' : 'ABCD1234567 / AB123CD'}" maxlength="15" oninput="this.value=this.value.toUpperCase()" onkeydown="if(event.key==='Enter')assignFromDrawer('${id}')">
         <label class="checkLabel"><input type="checkbox" id="drawerFull" style="accent-color:var(--orange)"> 🟡 Piena/o (carico completo)</label>
         <button class="btnGreen" onclick="assignFromDrawer('${id}')">✓ Assegna ${modeLabel}</button>`;
     } else {
@@ -240,7 +244,7 @@ export async function assignFromDrawer(id) {
   // Validazione formato
   const plateCheck = validatePlate(raw, mode);
   if (!plateCheck.ok) { showToast(plateCheck.msg, 'error'); return; }
-  const plate = raw.toUpperCase();
+  const plate = plateCheck.plate;
 
   // Verifica duplicato
   const dupCheck = checkVehicleNotDuplicate(spots, plate, id);

@@ -14,9 +14,11 @@ import { doc, serverTimestamp, setDoc } from 'https://www.gstatic.com/firebasejs
 // Dipende da: firebase-config.js (window.db), shared-utils.js, spots-data-mobile.js
 
 import { _esc, fmtDur, showToast } from './shared-utils.js';
-
+import * as _SU from './shared-utils.js';
+// RE_CONTAINER letto dal namespace: se il browser servisse per qualche minuto una
+// copia in cache di shared-utils.js senza il nuovo export, il modulo non si rompe.
 const RE_CASSA     = /^\d{3}$/;
-const RE_CONTAINER = /^[A-Z]{4}\d{7}$/;
+const RE_CONTAINER = _SU.RE_CONTAINER || /^(?:[A-Z]{4}\d{7}|[A-Z]{2}\d{3}(?:[A-Z]{2}|\d{1,3}))$/;
 
 let _getSpots = () => ({});
 let _getUser  = () => null;

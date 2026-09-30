@@ -224,6 +224,7 @@ if(!_forceDesktop && window.innerWidth<=768 && !location.href.includes('mobile.h
       <div class="chartCard"><h4>â ï¸ Veicoli danneggiati</h4><div id="chartDamaged"></div></div>
       <div class="chartCard"><h4>Ore di punta</h4><div id="chartHours"></div></div>
       <div class="chartCard"><h4>&#x2753; Veicoli non trovati</h4><div id="chartNonTrovati"></div></div>
+      <div class="chartCard"><h4>&#x1F69A; Missioni per tipo</h4><div id="chartMissioni"></div></div>
     </div>
     <div class="chartCard" style="margin-top:14px">
       <h4>ð¡ï¸ Mappa di calore â Parcheggi piÃ¹ utilizzati</h4>
@@ -262,7 +263,7 @@ if(!_forceDesktop && window.innerWidth<=768 && !location.href.includes('mobile.h
         <div class="pren-field">
           <label for="pren-targa">Identificativo container</label>
           <div class="pren-input-row" style="position:relative">
-            <input type="text" id="pren-targa" placeholder="es. ABCD1234567" autocomplete="off"
+            <input type="text" id="pren-targa" placeholder="es. ABCD1234567 / AB123CD" autocomplete="off"
                    oninput="this.value = this.value.toUpperCase(); prenSuggerisci()"
                    onfocus="prenSuggerisci()"
                    onkeydown="prenSuggKeydown(event)" />
@@ -347,8 +348,14 @@ if(!_forceDesktop && window.innerWidth<=768 && !location.href.includes('mobile.h
   <div id="pren-view-casse" style="display:none;">
     <div class="pageSubtitle">Casse parcheggiate &#x2014; ordinate per priorit&#xE0; e anzianit&#xE0;</div>
     <div class="casse-view-layout">
-      <div id="casse-list-container" class="casse-list">
-        <div class="casse-empty">Caricamento&#x2026;</div>
+      <div style="flex:1;min-width:0">
+        <div id="casse-list-container" class="casse-list">
+          <div class="casse-empty">Caricamento&#x2026;</div>
+        </div>
+        <div class="pageSubtitle" style="margin-top:18px">Missioni casse &#x2014; richieste cassa vuota, spostamenti e liberazioni</div>
+        <div id="casse-missioni-container" class="casse-list">
+          <div class="casse-empty">Caricamento&#x2026;</div>
+        </div>
       </div>
       <!-- Riquadro target casse giornaliero (solo reparto REVERSE) -->
       <div id="reverse-target-box" style="display:none;">
@@ -412,10 +419,10 @@ if(!_forceDesktop && window.innerWidth<=768 && !location.href.includes('mobile.h
       <div class="port-form-row">
         <div class="formGroup" style="flex:2">
           <label>Identificativo Veicolo</label>
-          <input type="text" id="port-veicolo" placeholder="Container: MSCU1234567  |  Cassa: 042"
+          <input type="text" id="port-veicolo" placeholder="Container: MSCU1234567 / AB123CD  |  Cassa: 042"
                  style="text-transform:uppercase" oninput="this.value=this.value.toUpperCase()" />
           <div style="font-size:11px;color:var(--muted);margin-top:4px">
-            Container: 4 lettere + 7 cifre &nbsp;|&nbsp; Cassa: 3 cifre
+            Container: 4 lettere + 7 cifre oppure 2 lettere + 3 cifre + 2 lettere/1–3 cifre &nbsp;|&nbsp; Cassa: 3 cifre
           </div>
         </div>
         <div class="formGroup" style="flex:1">
@@ -471,7 +478,7 @@ if(!_forceDesktop && window.innerWidth<=768 && !location.href.includes('mobile.h
       <div class="port-form-row">
         <div class="formGroup" style="flex:2">
           <label>Identificativo Veicolo</label>
-          <input type="text" id="port-out-veicolo" placeholder="Container: MSCU1234567  |  Cassa: 042"
+          <input type="text" id="port-out-veicolo" placeholder="Container: MSCU1234567 / AB123CD  |  Cassa: 042"
                  style="text-transform:uppercase" oninput="this.value=this.value.toUpperCase()" />
         </div>
         <div class="formGroup" style="flex:none">

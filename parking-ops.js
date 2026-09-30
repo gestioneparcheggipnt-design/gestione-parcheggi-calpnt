@@ -1,6 +1,6 @@
 import { addDoc, collection, doc, serverTimestamp, setDoc, updateDoc } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
 async function inlineAssign(id){
-  const plate=(document.getElementById("inlineplate")?.value||"").trim().toUpperCase();
+  const plate=window.normalizzaId(document.getElementById("inlineplate")?.value||"");
   if(!plate){ window.showToast(`Inserisci ${window.getModeLabel().toLowerCase()} o identificativo`,"error"); return; }
 
     // Check se il posto scelto e' gia' occupato

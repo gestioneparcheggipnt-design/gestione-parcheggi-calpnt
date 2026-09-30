@@ -50,7 +50,7 @@ function initPanZoom(){
 function _tipoMezzo(plate) {
   if (!plate) return null;
   if (/^\d{3}$/.test(plate)) return 'cassa';
-  if (/^[A-Z]{4}\d{7}$/.test(plate)) return 'container';
+  if (window.RE_CONTAINER.test(plate)) return 'container';
   return null;
 }
 function _labelMezzo(plate) {
@@ -111,7 +111,7 @@ function selectSpot(id){
   const puoUnusable = window.currentUser && (window.currentUser.role === 'amministrativo' || window.currentUser.role === 'amministratore');
   const puoAssegna  = window.currentUser && (window.currentUser.role === 'autista' || window.currentUser.role === 'amministratore');
   const ml = _labelMezzo(sp.plate);
-  const placeholderInput = window.currentMode === 'cassa' ? 'Es. 001' : 'Es. ABCD1234567';
+  const placeholderInput = window.currentMode === 'cassa' ? 'Es. 001' : 'Es. ABCD1234567 / AB123CD';
   const inputLabel = window.currentMode === 'cassa' ? 'Numero cassa' : 'ID Container';
 
   // Stili condivisi per le righe info

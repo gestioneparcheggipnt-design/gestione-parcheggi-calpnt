@@ -123,7 +123,7 @@ function _tipoRank(plate){
   if(!plate) return 0;
   const p=String(plate).trim();
   if(/^\d{3}$/.test(p)) return 1;
-  if(/^[A-Z]{4}\d{7}$/.test(p)) return 2;
+  if(window.RE_CONTAINER.test(p)) return 2;
   return 0;
 }
 
@@ -189,7 +189,7 @@ function doSearch(){
   // Filtri preimpostati: agiscono solo sui parcheggi (le ribalte sono escluse sotto)
   if(_presetRicerca==='container-scaricare'){
     res=res.filter(s=>s.occupied && s.full && !s.unusable && s.plate
-      && /^[A-Z]{4}\d{7}$/.test(s.plate.trim())
+      && window.RE_CONTAINER.test(s.plate.trim())
       && !_prenotate.has(s.plate.trim().toUpperCase()));
   } else if(_presetRicerca==='casse-scaricare'){
     res=res.filter(s=>s.occupied && s.full && s.plate && /^\d{3}$/.test(s.plate.trim()));
@@ -203,10 +203,10 @@ function doSearch(){
   if(fStato==="libero")             res=res.filter(s=>!s.occupied);
   if(fStato==="occupato")           res=res.filter(s=>s.occupied);
   if(fStato==="occupato-cassa")     res=res.filter(s=>s.occupied && s.plate && /^\d{3}$/.test(s.plate.trim()));
-  if(fStato==="occupato-container") res=res.filter(s=>s.occupied && s.plate && /^[A-Z]{4}\d{7}$/.test(s.plate.trim()));
+  if(fStato==="occupato-container") res=res.filter(s=>s.occupied && s.plate && window.RE_CONTAINER.test(s.plate.trim()));
   if(fTipo===F_CON_DATI)  res=res.filter(s=>_tipoRank(s.plate)>0);
   if(fTipo==="cassa")     res=res.filter(s=>s.plate && /^\d{3}$/.test(s.plate.trim()));
-  if(fTipo==="container") res=res.filter(s=>s.plate && /^[A-Z]{4}\d{7}$/.test(s.plate.trim()));
+  if(fTipo==="container") res=res.filter(s=>s.plate && window.RE_CONTAINER.test(s.plate.trim()));
   if(fUtente===F_CON_DATI) res=res.filter(s=>!!(s.userName||s.user));
   else if(fUtente) res=res.filter(s=>(s.userName||s.user||"")===fUtente);
   if(fData===F_CON_DATI) res=res.filter(s=>!!s.since);
@@ -243,7 +243,7 @@ function doSearch(){
   const rowsSpots = res.map(s=>{
     const tipoMezzo = s.plate
       ? (/^\d{3}$/.test(s.plate.trim()) ? '<span style="color:#f59e0b;font-size:11px;font-weight:600">📦 Cassa</span>'
-        : (/^[A-Z]{4}\d{7}$/.test(s.plate.trim()) ? '<span style="color:#60a5fa;font-size:11px;font-weight:600">🚢 Container</span>' : '<span style="color:var(--muted);font-size:11px">&mdash;</span>'))
+        : (window.RE_CONTAINER.test(s.plate.trim()) ? '<span style="color:#60a5fa;font-size:11px;font-weight:600">🚢 Container</span>' : '<span style="color:var(--muted);font-size:11px">&mdash;</span>'))
       : '<span style="color:var(--muted);font-size:11px">&mdash;</span>';
     const nomeUtente = s.userName || s.user || '&mdash;';
     return `
@@ -283,7 +283,7 @@ function doSearch(){
     if(fStato==="libero")             ribalteArr = ribalteArr.filter(r=>!r.occupied);
     if(fStato==="occupato")           ribalteArr = ribalteArr.filter(r=>r.occupied);
     if(fStato==="occupato-cassa")     ribalteArr = ribalteArr.filter(r=>r.occupied && r.plate && /^\d{3}$/.test(r.plate.trim()));
-    if(fStato==="occupato-container") ribalteArr = ribalteArr.filter(r=>r.occupied && r.plate && /^[A-Z]{4}\d{7}$/.test(r.plate.trim()));
+    if(fStato==="occupato-container") ribalteArr = ribalteArr.filter(r=>r.occupied && r.plate && window.RE_CONTAINER.test(r.plate.trim()));
     // filtro pieno: solo ribalte occupate (le libere non hanno un mezzo)
     if(fPieno===F_CON_DATI) ribalteArr = ribalteArr.filter(r=>r.occupied);
     if(fPieno==="pieno") ribalteArr = ribalteArr.filter(r=>r.occupied && r.full);
@@ -291,7 +291,7 @@ function doSearch(){
     // filtro tipo mezzo
     if(fTipo===F_CON_DATI)  ribalteArr = ribalteArr.filter(r=>_tipoRank(r.plate)>0);
     if(fTipo==="cassa")     ribalteArr = ribalteArr.filter(r=>r.plate && /^\d{3}$/.test(r.plate.trim()));
-    if(fTipo==="container") ribalteArr = ribalteArr.filter(r=>r.plate && /^[A-Z]{4}\d{7}$/.test(r.plate.trim()));
+    if(fTipo==="container") ribalteArr = ribalteArr.filter(r=>r.plate && window.RE_CONTAINER.test(r.plate.trim()));
     // filtro utente
     if(fUtente===F_CON_DATI) ribalteArr = ribalteArr.filter(r=>!!(r.userName||r.user));
     else if(fUtente) ribalteArr = ribalteArr.filter(r=>(r.userName||r.user||"")===fUtente);
@@ -306,7 +306,7 @@ function doSearch(){
     rowsRibalte = ribalteArr.map(r=>{
       const tipoMezzo = r.plate
         ? (/^\d{3}$/.test(r.plate.trim()) ? '<span style="color:#f59e0b;font-size:11px;font-weight:600">📦 Cassa</span>'
-          : (/^[A-Z]{4}\d{7}$/.test(r.plate.trim()) ? '<span style="color:#60a5fa;font-size:11px;font-weight:600">🚢 Container</span>' : '<span style="color:var(--muted);font-size:11px">&mdash;</span>'))
+          : (window.RE_CONTAINER.test(r.plate.trim()) ? '<span style="color:#60a5fa;font-size:11px;font-weight:600">🚢 Container</span>' : '<span style="color:var(--muted);font-size:11px">&mdash;</span>'))
         : '<span style="color:var(--muted);font-size:11px">&mdash;</span>';
       const nomeUtente = r.user || '&mdash;';
       return `
@@ -423,7 +423,7 @@ function renderStorico(){
     } else if(sfTipo) {
       const p = String(h.plate||'').trim();
       if(sfTipo==='cassa'     && !/^\d{3}$/.test(p))           return false;
-      if(sfTipo==='container' && !/^[A-Z]{4}\d{7}$/.test(p))  return false;
+      if(sfTipo==='container' && !window.RE_CONTAINER.test(p))  return false;
     }
     if(sfUtente===F_CON_DATI){
       if(!(h.userName||h.user)) return false;
@@ -465,7 +465,7 @@ function renderStorico(){
   document.getElementById("storicoBody").innerHTML = rows.map(h=>{
     const tipoMezzo = h.plate
       ? (/^\d{3}$/.test(String(h.plate).trim()) ? '<span style="color:#f59e0b;font-size:11px;font-weight:600">📦 Cassa</span>'
-        : (/^[A-Z]{4}\d{7}$/.test(String(h.plate).trim()) ? '<span style="color:#60a5fa;font-size:11px;font-weight:600">🚢 Container</span>' : '<span style="color:var(--muted);font-size:11px">&mdash;</span>'))
+        : (window.RE_CONTAINER.test(String(h.plate).trim()) ? '<span style="color:#60a5fa;font-size:11px;font-weight:600">🚢 Container</span>' : '<span style="color:var(--muted);font-size:11px">&mdash;</span>'))
       : '<span style="color:var(--muted);font-size:11px">&mdash;</span>';
     const nomeUtente = h.userName || h.user || '&mdash;';
     return `
@@ -545,12 +545,59 @@ function renderStatistiche(){
           </div>`;
         }).join('');
   }
+  _renderMissioniPerTipo();
   const hrs=[8,9,10,11,12,13,14,15,16,17,18], pk=[3,8,12,14,10,9,13,15,11,7,4], mxp=Math.max(...pk);
   document.getElementById("chartHours").innerHTML=hrs.map((h,i)=>`
     <div class="barRow"><div class="barLabel">${h}:00</div>
     <div class="barTrack"><div class="barFill" style="width:${pk[i]/mxp*100}%"></div></div>
     <div class="barVal">${pk[i]}</div></div>`).join("");
   renderHeatmap(cnt);
+}
+
+// ── Missioni per tipo (derivate dalle prenotazioni completate) ───────────────
+function _tipoMissioneLabel(p){
+  if(p.tipoMissione==='cassa_vuota') return 'cassa_vuota';
+  if(p.tipoMissione==='spostamento' || (p.tipoMissione==='navetta' && p.spostamento)) return 'spostamento';
+  if(p.tipoMissione==='navetta') return 'navetta';
+  if(p.tipoMissione==='ribalta') return 'ribalta';
+  return 'prenotazione';
+}
+function _renderMissioniPerTipo(){
+  const el=document.getElementById("chartMissioni");
+  if(!el) return;
+  const arr=window.prenCompletateCache||[];
+  const toD=v=>{ const d=v?.toDate?v.toDate():(v instanceof Date?v:(v?new Date(v):null)); return d&&!isNaN(d)?d:null; };
+  const oggi0=new Date(); oggi0.setHours(0,0,0,0);
+  const sett0=new Date(oggi0.getTime()-6*86400000);
+  const TIPI=[
+    ['prenotazione','&#x1F69B; Prenotazioni container'],
+    ['ribalta','&#x1F69B; Liberazioni ribalta'],
+    ['spostamento','&#x1F500; Spostamenti ribalta'],
+    ['cassa_vuota','&#x1F4E6; Richieste cassa vuota'],
+    ['navetta','&#x1F69A; Navettaggi interni'],
+  ];
+  const acc={}; TIPI.forEach(([k])=>acc[k]={oggi:0,sett:0,tot:0});
+  const durCassa=[];
+  arr.forEach(p=>{
+    const k=_tipoMissioneLabel(p);
+    const d=toD(p.completataAt||p.completedAt||p.oraFine||p.dataOra);
+    acc[k].tot++;
+    if(d&&d>=sett0) acc[k].sett++;
+    if(d&&d>=oggi0) acc[k].oggi++;
+    if(k==='cassa_vuota'){
+      const a=toD(p.dataOra), b=toD(p.completataAt);
+      if(a&&b&&b>a) durCassa.push(b-a);
+    }
+  });
+  const fmtMin=ms=>{ const m=Math.round(ms/60000); return m<60?m+' min':Math.floor(m/60)+'h '+(m%60)+'min'; };
+  const medio=durCassa.length?fmtMin(durCassa.reduce((s,x)=>s+x,0)/durCassa.length):'&mdash;';
+  const th='style="text-align:right;padding:4px 6px;font-size:11px;color:var(--muted);font-weight:600"';
+  const td='style="text-align:right;padding:6px;font-family:DM Mono,monospace;font-weight:600"';
+  el.innerHTML=`<table style="width:100%;border-collapse:collapse;font-size:13px">
+    <tr><th style="text-align:left;padding:4px 6px;font-size:11px;color:var(--muted);font-weight:600">Tipo</th><th ${th}>Oggi</th><th ${th}>7 giorni</th><th ${th}>Archivio</th></tr>
+    ${TIPI.map(([k,l])=>`<tr style="border-top:1px solid var(--border)"><td style="padding:6px">${l}</td><td ${td}>${acc[k].oggi}</td><td ${td}>${acc[k].sett}</td><td ${td}>${acc[k].tot}</td></tr>`).join('')}
+  </table>
+  <div style="font-size:12px;color:var(--muted);margin-top:8px">&#x23F1; Tempo medio evasione richiesta cassa vuota: <strong style="color:var(--text)">${medio}</strong>${durCassa.length?` <span>(${durCassa.length} richieste)</span>`:''}</div>`;
 }
 
 function renderHeatmap(cnt){
@@ -956,8 +1003,7 @@ function showToast(msg,type="success"){
 }
 window.addEventListener("resize",()=>{ window.applyT(); });
 
-window.RE_CASSA     = /^\d{3}$/;
-window.RE_CONTAINER = /^[A-Z]{4}\d{7}$/;
+// RE_CASSA / RE_CONTAINER / normalizzaId: definiti in shared-utils-desktop.js
 
 function riconosciTipoMezzo(id) {
   if (window.RE_CASSA.test(id))     return 'cassa';

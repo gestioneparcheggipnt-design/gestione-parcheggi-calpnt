@@ -98,7 +98,7 @@
     </div>
   </div>
 
-  <!-- Mode toggle (nascosta per operativo) -->
+  <!-- Mode toggle (tutti i ruoli, operativo compreso) -->
   <div class="modeBar" id="modeBar">
     <div class="modeToggle">
       <button id="btnContainer" onclick="setMode('container')">🚛 Container</button>
@@ -195,6 +195,13 @@
     </div>
   </div>
 
+  <!-- ── PAGINA: PRENOTA (solo operativo) ────────────────────────────────────── -->
+  <div class="page" id="pagePrenota">
+    <div class="pageHeader">Prenota</div>
+    <div class="pageSubtitle" id="prenotaSubtitle">Prenotazioni</div>
+    <div id="prenotaOpBody"><div class="emptyState">Caricamento…</div></div>
+  </div>
+
   <!-- ── PAGINA: ADMIN (solo amministratore / amministrativo) ───────────────── -->
   <div class="page" id="pageAdmin">
     <div class="pageHeader">Amministrazione</div>
@@ -222,6 +229,9 @@
     </button>
     <button class="navBtn hidden"  id="navRibalte"       onclick="showPage('Ribalte',this)">
       <span class="navIcon">🚚</span>Ribalte
+    </button>
+    <button class="navBtn hidden"  id="navPrenota"       onclick="showPage('Prenota',this)">
+      <span class="navIcon">📝</span>Prenota
     </button>
     <button class="navBtn hidden"  id="navAdmin"         onclick="showPage('Admin',this)">
       <span class="navIcon">⚙️</span>Admin
@@ -328,6 +338,7 @@ import { initCheckin, updateCheckinUI, doCheckinRapido,
 
 import { initPrenotazioni, renderPrenotazioni, completaSingola } from './prenotazioni-autista.js?v=1778777806';
 import { initRibalteOperativo, renderRibalte } from './ribalte-operativo.js?v=1778777806';
+import { initPrenotaOp, renderPrenotaOp } from './prenotazioni-operativo.js?v=1778777806';
 import { initSpostamenti, render as renderSpostamenti } from './spostamenti-autista.js?v=1778777806';
 
 // ── STATO ─────────────────────────────────────────────────────────────────────
@@ -425,24 +436,28 @@ function showApp() {
   const isPortineria = role === 'portineria';
   const isOperativo  = role === 'operativo';
 
-  // modeBar: nascosta per operativo
-  document.getElementById('modeBar').style.display = isOperativo ? 'none' : 'flex';
+  // modeBar: visibile per tutti (l'operativo sceglie container/cassa)
+  document.getElementById('modeBar').style.display = 'flex';
 
   // nav tabs
   document.getElementById('navCheckin').classList.toggle('hidden', isOperativo);
   document.getElementById('navAdmin').classList.toggle('hidden', !isAdmin);
   document.getElementById('navRibalte').classList.toggle('hidden', !isOperativo);
+  document.getElementById('navPrenota').classList.toggle('hidden', !isOperativo);
   document.getElementById('navSpostamenti').classList.toggle('hidden', !isAutista);
 
   // portineria: mostra ribalte box in check-in
   document.getElementById('ribalteBox').style.display = isPortineria ? 'block' : 'none';
 
   if (isOperativo) {
-    // Operativo: solo la pagina ribalte
+    // Operativo: pagine Ribalte + Prenota, con toggle modalità container/cassa
     document.getElementById('navPosti').classList.add('hidden');
     document.getElementById('navPrenotazioni').classList.add('hidden');
+    loadMode();
+    initPrenotaOp({ getUser: () => currentUser, getMode: () => currentMode, getSpots: () => spots });
     initRibalteOperativo({
       getUser: () => currentUser,
+      getMode: () => currentMode,
       db: window.db, collection, query, orderBy, onSnapshot, doc, updateDoc: _updateDoc, addDoc: _addDoc, serverTimestamp: _serverTimestamp
     });
     startListeners();
@@ -497,6 +512,10 @@ function setMode(mode) {
   if (currentUser?.role === 'autista') {
     initPrenotazioni({ getUser: () => currentUser, getMode: () => currentMode });
   }
+  if (currentUser?.role === 'operativo') {
+    renderRibalte();
+    renderPrenotaOp();
+  }
 }
 
 function applyModeUI() {
@@ -513,7 +532,8 @@ function applyModeUI() {
     document.getElementById('navPosti').classList.remove('hidden');
   }
 
-  const showPren = currentMode === 'cassa' || isAutista;
+  // L'operativo non usa la lista missioni autista (ha i tab Ribalte / Prenota)
+  const showPren = role !== 'operativo' && (currentMode === 'cassa' || isAutista);
   document.getElementById('navPrenotazioni').classList.toggle('hidden', !showPren);
   if (showPren && currentUser) {
     initPrenotazioni({ getUser: () => currentUser, getMode: () => currentMode });
@@ -600,6 +620,7 @@ function showPage(id, btn) {
     initPrenotazioni({ getUser: () => currentUser, getMode: () => currentMode });
   }
   if (id === 'Ribalte') renderRibalte();
+  if (id === 'Prenota') renderPrenotaOp();
   if (id === 'Spostamenti') renderSpostamenti();
 }
 
@@ -657,6 +678,7 @@ window.completaSingola      = completaSingola;
 window.renderPrenotazioni   = renderPrenotazioni;
 window.setFilterPill        = setFilterPill;
 window.renderRibalte        = renderRibalte;
+window.renderPrenotaOp      = renderPrenotaOp;
 window.renderSpostamenti    = renderSpostamenti;
 </script>
 

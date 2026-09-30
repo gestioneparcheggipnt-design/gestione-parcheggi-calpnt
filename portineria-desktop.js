@@ -165,8 +165,9 @@ const MAPPE_PERCORSO = {
 };
 
 // ── VALIDAZIONE FORMATO ─────────────────────────────────────────────────────
-const _PORT_RE_CONTAINER = /^[A-Z]{4}\d{7}$/;
-const _PORT_RE_CASSA     = /^\d{3}$/;
+// Definizioni centrali in shared-utils-desktop.js (window.RE_CONTAINER / RE_CASSA)
+const _PORT_RE_CONTAINER = window.RE_CONTAINER;
+const _PORT_RE_CASSA     = window.RE_CASSA;
 
 // ── STATO MODULO ─────────────────────────────────────────────────────────────
 let _portSpotSuggerito = null;  // id posto suggerito corrente
@@ -186,7 +187,7 @@ function _portRilevaTipo(id) {
 
 // ── CERCA POSTO ──────────────────────────────────────────────────────────────
 async function portineriaCerca() {
-  const veicolo = (document.getElementById('port-veicolo').value || '').trim().toUpperCase();
+  const veicolo = window.normalizzaId(document.getElementById('port-veicolo').value || '');
   const stato   = document.getElementById('port-stato').value;
   const resEl   = document.getElementById('port-result');
 
@@ -201,7 +202,7 @@ async function portineriaCerca() {
 
   const tipo = _portRilevaTipo(veicolo);
   if (!tipo) {
-    resEl.innerHTML = '<div class="port-err">⚠ Formato non riconosciuto.<br>Container: 4 lettere + 7 cifre (es. MSCU1234567)<br>Cassa: 3 cifre (es. 042)</div>';
+    resEl.innerHTML = '<div class="port-err">⚠ Formato non riconosciuto.<br>Container: 4 lettere + 7 cifre (es. MSCU1234567)<br>oppure 2 lettere + 3 cifre + 2 lettere / 1–3 cifre (es. AB123CD, AB1234)<br>Cassa: 3 cifre (es. 042)</div>';
     return;
   }
 
@@ -469,6 +470,13 @@ async function _portRibalteOccupate(){
     const snap = await getDocs(query(collection(window.db, 'ribalte'), where('occupied','==',true)));
     snap.forEach(d => occ.add(d.id));
   } catch(e){ /* rete/permessi: insieme parziale */ }
+  // Ribalte riservate come destinazione di missioni/richieste aperte
+  try {
+    const ps = await getDocs(query(collection(window.db, 'prenotazioni'), where('stato','in',['creata','in_attesa'])));
+    ps.forEach(d => { const dst = String(d.data().destinazione || '').trim().toUpperCase(); if (dst && dst !== '—') occ.add(dst); });
+  } catch(e){ /* insieme parziale */ }
+  // Ribalte con una navetta attiva
+  Object.values(window.navette || {}).forEach(n => { if (n.attiva && n.posizione) occ.add(String(n.posizione).trim().toUpperCase()); });
   return occ;
 }
 
@@ -502,10 +510,10 @@ function portRibToggle(on){
 
 // Selezione edificio → carica e mostra le sole ribalte libere.
 async function portRibEdificio(edificio){
-  const veicolo = (document.getElementById('port-veicolo').value || '').trim().toUpperCase();
+  const veicolo = window.normalizzaId(document.getElementById('port-veicolo').value || '');
   if (_portRilevaTipo(veicolo) !== 'container'){
     document.getElementById('port-result').innerHTML =
-      '<div class="port-err">⚠ L\'invio diretto a ribalta è solo per i container (4 lettere + 7 cifre).</div>';
+      '<div class="port-err">⚠ L\'invio diretto a ribalta è solo per i container.</div>';
     return;
   }
   _portRibEdificio = edificio;
@@ -544,7 +552,7 @@ function portRibSeleziona(id){
 
 // Conferma: ricontrolla libera → scrive occupied:true → storico → stampa.
 async function portRibConferma(){
-  const veicolo = (document.getElementById('port-veicolo').value || '').trim().toUpperCase();
+  const veicolo = window.normalizzaId(document.getElementById('port-veicolo').value || '');
   const id      = _portRibSelezionata;
   const stato   = document.getElementById('port-stato').value;
   if (!id) return;
@@ -655,7 +663,7 @@ window.porteriaStampa    = porteriaStampa;
 // Se ok: libera il luogo e registra l'uscita a storico (il plate viene azzerato,
 // quindi il veicolo non è più selezionabile per alcuna missione).
 async function portineriaUscita(){
-  const veicolo = (document.getElementById('port-out-veicolo').value || '').trim().toUpperCase();
+  const veicolo = window.normalizzaId(document.getElementById('port-out-veicolo').value || '');
   const resEl   = document.getElementById('port-out-result');
   const btn     = document.getElementById('port-out-btn');
   resEl.innerHTML = '';
@@ -666,7 +674,7 @@ async function portineriaUscita(){
   }
   const tipo = _portRilevaTipo(veicolo);
   if (!tipo){
-    resEl.innerHTML = '<div class="port-err">⚠ Formato non riconosciuto.<br>Container: 4 lettere + 7 cifre &nbsp;·&nbsp; Cassa: 3 cifre</div>';
+    resEl.innerHTML = '<div class="port-err">⚠ Formato non riconosciuto.<br>Container: 4 lettere + 7 cifre o 2 lettere + 3 cifre + 2 lettere/1–3 cifre &nbsp;·&nbsp; Cassa: 3 cifre</div>';
     return;
   }
 

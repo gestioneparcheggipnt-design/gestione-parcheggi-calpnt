@@ -8,6 +8,19 @@ window.unsubSpots = null;    // listener Firestore parcheggi
 window.unsubHistory = null;  // listener Firestore storico
 window.historyCache = [];    // cache locale storico
 
+// ── IDENTIFICATIVI VEICOLO (punto unico di definizione, desktop) ─────────────
+// Container: 4 lettere + 7 cifre (MSCU1234567) oppure
+//            2 lettere + 3 cifre + (2 lettere | 1–3 cifre) (AB123CD · AB1234)
+// Cassa:     3 cifre (042)
+window.RE_CONTAINER = /^(?:[A-Z]{4}\d{7}|[A-Z]{2}\d{3}(?:[A-Z]{2}|\d{1,3}))$/;
+window.RE_CASSA     = /^\d{3}$/;
+window.FORMATO_CONTAINER_TXT = '4 lettere + 7 cifre oppure 2 lettere + 3 cifre + 2 lettere/1–3 cifre';
+// Normalizza un identificativo digitato: maiuscolo, senza spazi/trattini/punti/slash
+window.normalizzaId = function(raw) {
+  return String(raw ?? '').toUpperCase().replace(/[\s\-./]+/g, '');
+};
+window.isContainerId = id => window.RE_CONTAINER.test(String(id ?? '').trim().toUpperCase());
+
 
 // ââ PAN / ZOOM ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 window.scale=1; window.panX=0; window.panY=0; window.isPanning=false;

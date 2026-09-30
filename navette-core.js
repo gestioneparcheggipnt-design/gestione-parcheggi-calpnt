@@ -206,6 +206,73 @@ async function creaMissionePieno({ navettaId, origine, destinazione, user }) {
   return { prenId: prenRef.id, navettaId };
 }
 
+// ── Operazione 2b: spostamento navetta ribalta→ribalta (operativo) ──────────────
+// La navetta mantiene il suo stato (pieno/vuoto): la missione ha faseNavetta
+// uguale allo stato attuale e spostamento:true. Per un vuoto si conserva vuotoDa
+// (vuotoDaPrec) così non perde anzianità nella coda di abbinamento.
+async function creaMissioneSpostamento({ navettaId, origine, destinazione, user }) {
+  const org  = String(origine || '').trim().toUpperCase();
+  const dest = String(destinazione || '').trim().toUpperCase();
+  if (!navettaId) throw new Error('navetta mancante');
+  if (!dest) throw new Error('destinazione mancante');
+  if (dest === org) throw new Error('destinazione uguale all\'origine');
+  const navRef  = doc(_db(), 'navette', navettaId);
+  const prenRef = doc(collection(_db(), 'prenotazioni'));
+  await runTransaction(_db(), async (tx) => {
+    const navSnap = await tx.get(navRef);
+    if (!navSnap.exists()) throw new Error('navetta assente');
+    const nd = navSnap.data();
+    if (nd.stato !== 'vuoto' && nd.stato !== 'pieno') throw new Error('navetta non disponibile (in missione)');
+    tx.set(prenRef, {
+      tipoMissione: 'navetta',
+      faseNavetta:  nd.stato,
+      spostamento:  true,
+      stato:        'creata',
+      tipoMezzo:    'container',
+      origine:      org || nd.posizione || null,
+      destinazione: dest,
+      ribaltaArrivo: null,
+      navettaId,
+      plate:        null,
+      spotId:       null,
+      urgente:      false,
+      vuotoDaPrec:  nd.vuotoDa || null,
+      dataOra:      serverTimestamp(),
+      utenteUid:    user?.uid || null,
+      utenteEmail:  user?.email || null,
+      utenteNome:   user?.name || user?.email || null,
+      utenteReparto: user?.reparto || null,
+    });
+    tx.update(navRef, { stato: 'in_missione', missioneId: prenRef.id });
+  });
+  return { prenId: prenRef.id, navettaId };
+}
+
+// Annulla uno spostamento navetta non ancora completato: la navetta torna
+// nello stato precedente alla ribalta di origine.
+async function annullaSpostamento({ prenId, user }) {
+  const prenRef = doc(_db(), 'prenotazioni', prenId);
+  await runTransaction(_db(), async (tx) => {
+    const ps = await tx.get(prenRef);
+    if (!ps.exists()) throw new Error('missione assente');
+    const p = ps.data();
+    if (!p.spostamento || p.stato !== 'creata') throw new Error('spostamento non annullabile');
+    let navRef = null, navSnap = null;
+    if (p.navettaId) { navRef = doc(_db(), 'navette', p.navettaId); navSnap = await tx.get(navRef); }
+    tx.update(prenRef, {
+      stato: 'annullata', annullataAt: serverTimestamp(),
+      annullataDaUid: user?.uid || null, annullataDaNome: user?.name || user?.email || null,
+    });
+    if (navRef && navSnap && navSnap.exists() && navSnap.data().missioneId === prenId) {
+      tx.update(navRef, {
+        stato: p.faseNavetta === 'pieno' ? 'pieno' : 'vuoto',
+        missioneId: null,
+        vuotoDa: p.faseNavetta === 'pieno' ? null : (p.vuotoDaPrec || serverTimestamp()),
+      });
+    }
+  });
+}
+
 // ── Operazione 3: dichiarazione svuotata (operativo) ────────────────────────────
 // Unica transizione senza missione: pieno→vuoto. Subito dopo tenta l'abbinamento
 // con la coda (logica B). Se una richiesta è disponibile, genera la missione vuoto.
@@ -249,11 +316,15 @@ async function completaMissioneNavetta({ prenId, ribaltaArrivo }) {
   });
   if (p.navettaId) {
     const nuovoStato = p.faseNavetta === 'pieno' ? 'pieno' : 'vuoto';
+    // Spostamento di un vuoto: conserva l'anzianità originale (vuotoDaPrec)
+    const vuotoDa = nuovoStato === 'vuoto'
+      ? ((p.spostamento && p.vuotoDaPrec) ? p.vuotoDaPrec : serverTimestamp())
+      : null;
     await updateDoc(doc(_db(), 'navette', p.navettaId), {
       stato:      nuovoStato,
       posizione:  arr,
       missioneId: null,
-      vuotoDa:    nuovoStato === 'vuoto' ? serverTimestamp() : null,
+      vuotoDa,
     });
   }
   return { faseNavetta: p.faseNavetta, navettaId: p.navettaId || null };
@@ -317,7 +388,7 @@ const NavetteCore = {
   startNavetteListener, stopNavetteListener, getNavette,
   navetteVuoteDisponibili, edificioDi, repartoDi,
   scegliVuotoPerTarget,
-  creaRichiestaVuoto, creaMissionePieno, dichiaraVuoto, completaMissioneNavetta,
+  creaRichiestaVuoto, creaMissionePieno, creaMissioneSpostamento, annullaSpostamento, dichiaraVuoto, completaMissioneNavetta,
   creaNavetta, aggiornaNavetta, setAttiva, setStatoManuale, statisticheNavette,
 };
 
@@ -327,7 +398,7 @@ export {
   startNavetteListener, stopNavetteListener, getNavette,
   navetteVuoteDisponibili, edificioDi, repartoDi,
   scegliVuotoPerTarget,
-  creaRichiestaVuoto, creaMissionePieno, dichiaraVuoto, completaMissioneNavetta,
+  creaRichiestaVuoto, creaMissionePieno, creaMissioneSpostamento, annullaSpostamento, dichiaraVuoto, completaMissioneNavetta,
   creaNavetta, aggiornaNavetta, setAttiva, setStatoManuale, statisticheNavette,
 };
 export default NavetteCore;

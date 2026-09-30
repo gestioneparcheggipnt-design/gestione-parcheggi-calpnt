@@ -55,14 +55,24 @@ export function _esc(str) {
 }
 
 // ── Validazione targa ─────────────────────────────────────────────────────────
-const RE_CONTAINER = /^[A-Z]{4}\d{7}$/;
-const RE_CASSA     = /^\d{3}$/;
+// Container: 4 lettere + 7 cifre (MSCU1234567) oppure
+//            2 lettere + 3 cifre + (2 lettere | 1–3 cifre) (AB123CD · AB1234)
+export const RE_CONTAINER = /^(?:[A-Z]{4}\d{7}|[A-Z]{2}\d{3}(?:[A-Z]{2}|\d{1,3}))$/;
+export const RE_CASSA     = /^\d{3}$/;
+
+// Normalizza un identificativo digitato: maiuscolo, senza spazi/trattini/punti/slash
+export function normalizzaId(raw) {
+  return String(raw ?? '').toUpperCase().replace(/[\s\-./]+/g, '');
+}
+export function isContainerId(id) {
+  return RE_CONTAINER.test(String(id ?? '').trim().toUpperCase());
+}
 
 export function validatePlate(raw, mode) {
-  const plate = (raw || '').trim().toUpperCase();
+  const plate = normalizzaId(raw);
   if (!plate) return { ok: false, msg: 'Inserisci un ID veicolo.' };
   if (mode === 'container' && !RE_CONTAINER.test(plate))
-    return { ok: false, msg: 'Formato container non valido (es. ABCD1234567).' };
+    return { ok: false, msg: 'Formato container non valido (es. ABCD1234567 o AB123CD).' };
   if (mode === 'cassa' && !RE_CASSA.test(plate))
     return { ok: false, msg: 'Formato cassa non valido (3 cifre, es. 042).' };
   return { ok: true, plate };

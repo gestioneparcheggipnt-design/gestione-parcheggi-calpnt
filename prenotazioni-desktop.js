@@ -27,8 +27,10 @@ function _getRibalteLibere() {
   const occupate = new Set(Object.values(_ribalteData).filter(r => r.occupied).map(r => r.id));
   // Escludi ribalte già usate come destinazione in prenotazioni ancora aperte
   _prenotazioni.forEach(p => {
-    if (p.stato === 'creata' && p.destinazione) occupate.add(p.destinazione.trim().toUpperCase());
+    if ((p.stato === 'creata' || p.stato === 'in_attesa') && p.destinazione) occupate.add(String(p.destinazione).trim().toUpperCase());
   });
+  // Ribalte dove si trova una navetta attiva
+  Object.values(window.navette || {}).forEach(n => { if (n.attiva && n.posizione) occupate.add(String(n.posizione).trim().toUpperCase()); });
   return {
     PNT1: _getDestinazioniUtente().filter(d => d.startsWith('PNT1') && !occupate.has(d)),
     PNT2: _getDestinazioniUtente().filter(d => d.startsWith('PNT2') && !occupate.has(d))
@@ -51,8 +53,10 @@ function _getRibalteLibereAll() {
   const occupate = new Set(Object.values(_ribalteData).filter(r => r.occupied).map(r => r.id));
   // Ribalte impegnate in prenotazioni aperte
   _prenotazioni.forEach(p => {
-    if (p.stato === 'creata' && p.destinazione) occupate.add(p.destinazione.trim().toUpperCase());
+    if ((p.stato === 'creata' || p.stato === 'in_attesa') && p.destinazione) occupate.add(String(p.destinazione).trim().toUpperCase());
   });
+  // Ribalte dove si trova una navetta attiva
+  Object.values(window.navette || {}).forEach(n => { if (n.attiva && n.posizione) occupate.add(String(n.posizione).trim().toUpperCase()); });
   // Usa window.REPARTI direttamente (disponibile nel bundle) — non window._REPARTI
   const all = typeof window.REPARTI !== 'undefined'
     ? Object.values(window.REPARTI).flat()
@@ -250,7 +254,7 @@ function _renderNavettePanelDesk() {
     <div style="display:flex;align-items:center;gap:8px;padding:6px 8px;border-bottom:1px solid var(--border,#3a4050);font-size:13px">
       <span style="font-weight:700;min-width:52px">${esc(p.navettaId || '—')}</span>
       <span style="color:var(--muted,#9ca3af)">${esc(p.origine || '—')} → ${esc(p.destinazione || '—')}</span>
-      <span style="margin-left:auto;font-size:11px;padding:2px 8px;border-radius:20px;background:var(--surface2,#2e333d)">${p.faseNavetta === 'pieno' ? 'PIENO' : 'VUOTO'}${p.urgente ? ' · 🚨' : ''} · ${tag}</span>
+      <span style="margin-left:auto;font-size:11px;padding:2px 8px;border-radius:20px;background:var(--surface2,#2e333d)">${p.spostamento ? '🔀 SPOST. · ' : ''}${p.faseNavetta === 'pieno' ? 'PIENO' : 'VUOTO'}${p.urgente ? ' · 🚨' : ''} · ${tag}</span>
       ${cancellabile ? `<button onclick="deskAnnullaNavetta('${p.id}')" title="Annulla richiesta" style="border:none;background:none;color:var(--red,#ef4444);cursor:pointer;font-size:14px">✕</button>` : ''}
     </div>`;
 
@@ -321,8 +325,93 @@ function _aggiornaVistaPrenotazioni() {
   }
 }
 
+// ── Vista CASSE: missioni casse (richieste cassa vuota, spostamenti, liberazioni)
+function _toDateDesk(v) { const d = v?.toDate ? v.toDate() : (v ? new Date(v) : null); return d && !isNaN(d) ? d : null; }
+function _isMissioneCassa(p) {
+  if (p.tipoMissione === 'cassa_vuota') return true;
+  if (p.tipoMissione === 'spostamento' || p.tipoMissione === 'ribalta')
+    return (window.RE_CASSA || /^\d{3}$/).test(String(p.plate || '').trim());
+  return false;
+}
+function _renderMissioniCasse() {
+  const el = document.getElementById('casse-missioni-container');
+  if (!el) return;
+  const u = window.currentUser || {};
+  const giorno = Date.now() - 24 * 3600 * 1000;
+  const lista = _prenotazioni.filter(_isMissioneCassa).filter(p => {
+    if (p.stato === 'creata') return true;
+    const d = _toDateDesk(p.completataAt || p.annullataAt || p.dataOra);
+    return d && d.getTime() >= giorno;
+  });
+  const ts = p => _toDateDesk(p.dataOra)?.getTime() || 0;
+  lista.sort((a, b) => (a.stato === 'creata' ? 0 : 1) - (b.stato === 'creata' ? 0 : 1)
+    || (a.urgente ? 0 : 1) - (b.urgente ? 0 : 1) || ts(a) - ts(b));
+  if (!lista.length) { el.innerHTML = '<div class="casse-empty">Nessuna missione casse aperta o nelle ultime 24 ore.</div>'; return; }
+  const tipoLbl = p => p.tipoMissione === 'cassa_vuota' ? '📦 Richiesta cassa vuota'
+    : p.tipoMissione === 'spostamento' ? '🔀 Spostamento' : '🚛 Liberazione ribalta';
+  el.innerHTML = lista.map(p => {
+    const aperta = p.stato === 'creata';
+    const autore = p.utenteUid || p.operatoreUid;
+    const puoAnnullare = aperta && (u.role === 'amministratore' || (u.role === 'amministrativo' && autore && autore === u.uid));
+    let percorso;
+    if (p.tipoMissione === 'cassa_vuota') {
+      percorso = p.stato === 'completata'
+        ? `${_esc(p.plate || '—')} · ${_esc(p.spotId || '—')} → ${_esc(p.postoFine || p.destinazione || '—')}${p.postoFine && p.postoFine !== p.destinazione ? ` <span style="color:#f97316">(richiesta ${_esc(p.destinazione)})</span>` : ''}${p.soddisfattaDa ? ' <span style="color:var(--muted);font-size:.85rem">(da liberazione)</span>' : ''}`
+        : `? → ${_esc(p.destinazione || '—')}`;
+    } else if (p.tipoMissione === 'spostamento') {
+      percorso = `${_esc(p.plate || '—')} · ${_esc(p.origine || p.spotId || '—')} → ${_esc(p.postoFine || p.destinazione || '—')}`;
+    } else {
+      percorso = `${_esc(p.plate || '—')} · ${_esc(p.spotId || '—')} → ${_esc(p.postoFine || 'parcheggio')} · ${p.fullAllaLibera ? '🟡 piena' : '🟢 vuota'}`;
+    }
+    const d = _toDateDesk(p.dataOra);
+    const dStr = d ? d.toLocaleString('it-IT', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' }) : '—';
+    const stato = aperta ? '<span class="stato-badge stato-creata">Aperta</span>'
+      : '<span class="stato-badge stato-' + p.stato + '">' + _statoLabel(p.stato) + '</span>';
+    return `
+      <div class="${p.urgente && aperta ? 'cassa-row urgente' : 'cassa-row'}" style="${aperta ? '' : 'opacity:.65'}">
+        <div style="min-width:12rem;font-weight:700">${tipoLbl(p)}</div>
+        <div style="flex:1;min-width:0;font-size:1rem">${percorso}</div>
+        <div style="font-size:.85rem;color:var(--muted);white-space:nowrap">${dStr} · ${_esc(p.utenteNome || p.operatoreNome || p.utenteEmail || '—')}</div>
+        <div class="cassa-badges">${p.urgente && aperta ? '<span class="badge-urgente">🚨 Urgente</span>' : ''}${stato}
+          ${puoAnnullare ? `<button onclick="deskAnnullaMissione('${p.id}')" style="padding:4px 10px;border-radius:6px;border:1px solid var(--red,#ef4444);background:transparent;color:var(--red,#ef4444);font-size:12px;font-weight:700;cursor:pointer">✕ Annulla</button>` : ''}
+        </div>
+      </div>`;
+  }).join('');
+}
+
+// Ripristina la ribalta di origine quando una liberazione/spostamento viene annullato
+async function _ripristinaRibaltaOrigine(p) {
+  if (!p || (p.tipoMissione !== 'ribalta' && p.tipoMissione !== 'spostamento')) return;
+  const rib = String(p.spotId || p.origine || '').trim().toUpperCase();
+  const r = _ribalteData[rib];
+  if (!r) return;
+  const patch = {};
+  if (r.inLiberazione === p.id) { patch.inLiberazione = null; patch.liberazioneDa = null; }
+  if (r.inSpostamento === p.id) { patch.inSpostamento = null; patch.spostamentoVerso = null; }
+  if (Object.keys(patch).length) await setDoc(doc(window.db, 'ribalte', rib), patch, { merge: true });
+}
+
+window.deskAnnullaMissione = async function(id) {
+  const p = _prenotazioni.find(x => x.id === id);
+  if (!p || p.stato !== 'creata') return;
+  if (!confirm('Annullare questa missione?')) return;
+  try {
+    const u = window.currentUser || {};
+    await updateDoc(doc(window.db, 'prenotazioni', id), {
+      stato: 'annullata', annullataAt: serverTimestamp(),
+      annullataDaUid: u.uid || null, annullataDaNome: u.name || u.email || null,
+    });
+    await _ripristinaRibaltaOrigine(p);
+    await window.logHistory({ spot: p.spotId || p.destinazione || null, action: 'Prenotazione annullata', tipo: 'cassa',
+      plate: p.plate || null, tipoMissione: p.tipoMissione, destinazione: p.destinazione || null,
+      richiedente: p.utenteNome || p.operatoreNome || p.utenteEmail || null });
+    window.showToast('Missione annullata', 'success');
+  } catch (e) { window.showToast('Errore: ' + (e.message || e), 'error'); }
+};
+
 // ── Vista CASSE: lista posti occupati da casse ────────────────────────────
 function renderCasse() {
+  _renderMissioniCasse();
   const container = document.getElementById('casse-list-container');
   if (!container) return;
 
@@ -487,7 +576,7 @@ function initPrenotazioni() {
 // non inutilizzabili e senza una prenotazione già aperta. Gli stessi controlli
 // che cercaMezzo() applica dopo, così l'elenco non propone mai un vicolo cieco.
 function _containerPrenotabili(prefisso) {
-  const RE = window.RE_CONTAINER || /^[A-Z]{4}\d{7}$/;
+  const RE = window.RE_CONTAINER;
   const q = String(prefisso || '').trim().toUpperCase();
   const occupateInPren = new Set(
     _prenotazioni.filter(p => p.stato === 'creata' && p.plate).map(p => String(p.plate).toUpperCase())
@@ -515,7 +604,7 @@ window.prenSuggerisci = function() {
   const box = document.getElementById('pren-sugg');
   const inp = document.getElementById('pren-targa');
   if (!box || !inp) return;
-  const q = inp.value.trim().toUpperCase();
+  const q = window.normalizzaId(inp.value);
   // Sotto le 2 lettere l'elenco sarebbe l'intero piazzale: si aspetta.
   if (q.length < 2) { _chiudiSugg(); return; }
   const lista = _containerPrenotabili(q);
@@ -588,7 +677,7 @@ document.addEventListener('click', ev => {
 });
 
 async function cercaMezzo() {
-  const targa = document.getElementById('pren-targa').value.trim().toUpperCase();
+  const targa = window.normalizzaId(document.getElementById('pren-targa').value);
   const feedback = document.getElementById('pren-mezzo-feedback');
   const infoBox = document.getElementById('pren-mezzo-trovato');
   const btnSalva = document.getElementById('pren-btn-salva');
@@ -605,7 +694,7 @@ async function cercaMezzo() {
   if (tipo !== 'container') {
     feedback.textContent = tipo === 'cassa'
       ? '⚠️ Questo è un numero di cassa. Le prenotazioni riguardano solo container.'
-      : '⚠️ Formato non valido. Container: 4 lettere + 7 cifre (es. ABCD1234567)';
+      : '⚠️ Formato non valido. Container: ' + window.FORMATO_CONTAINER_TXT + ' (es. ABCD1234567, AB123CD)';
     feedback.className = 'pren-feedback err';
     return;
   }
@@ -730,6 +819,7 @@ async function cambiaStatoPrenotazione(id, nuovoStato) {
     if (nuovoStato === 'completata') aggiornamento.completedAt = serverTimestamp();
     await updateDoc(doc(window.db, 'prenotazioni', id), aggiornamento);
     const _p = (_prenotazioni || []).find(p => p.id === id);
+    if (nuovoStato === 'annullata' && _p && _p.stato === 'creata') await _ripristinaRibaltaOrigine(_p);
     await window.logHistory({
       spot: _p?.spotId || null,
       action: nuovoStato === 'annullata' ? 'Prenotazione annullata' : ('Prenotazione ' + nuovoStato),
@@ -752,6 +842,7 @@ async function eliminaPrenotazione(id) {
       plate: _p?.plate || null,
       richiedente: _p?.operatoreNome || _p?.utenteNome || _p?.operatoreEmail || _p?.utenteEmail || null
     });
+    if (_p && _p.stato === 'creata') await _ripristinaRibaltaOrigine(_p);
     await deleteDoc(doc(window.db, 'prenotazioni', id));
   } catch (err) {
     console.error('Errore eliminazione:', err);
@@ -769,7 +860,7 @@ function renderPrenotazioni() {
 
   // Vista container: missioni ribalta (sempre) + prenotazioni ordinarie su container.
   // Le missioni ribalta compaiono SOLO qui, mai nella vista casse.
-  const _reContainer = window.RE_CONTAINER || /^[A-Z]{4}\d{7}$/;
+  const _reContainer = window.RE_CONTAINER;
   const _reCassa = window.RE_CASSA || /^\d{3}$/;
   let lista = _prenotazioni.filter(p => {
     // Missioni ribalta: solo se il mezzo NON è una cassa (le casse vivono nella vista casse)
@@ -818,7 +909,8 @@ function renderPrenotazioni() {
     const isOwn = window.currentUser && p.operatoreUid === window.currentUser.uid;
     const isAmministratore = window.currentUser && window.currentUser.role === 'amministratore';
     const canDelete = isAmministratore || (window.currentUser && window.currentUser.role === 'amministrativo' && isOwn);
-    const isRibalta = p.tipoMissione === 'ribalta';
+    // Missioni generate dall'operativo (liberazione / spostamento): le completa solo l'autista
+    const isRibalta = p.tipoMissione === 'ribalta' || p.tipoMissione === 'spostamento';
     if (p.stato === 'creata' && isAmministratore && !isRibalta) {
       const destConf = p.destinazione && p.destinazione !== '—' ? p.destinazione : null;
       const picker   = _ribaltaPickerHTMLDesk('desk_' + p.id);
@@ -874,12 +966,12 @@ function renderPrenotazioni() {
           : _esc(effettiva))
       : '<span style="color:var(--muted)">—</span>') + '</td>';
     const operatoreDisplay = _esc(p.operatoreNome || p.operatoreEmail || p.utenteEmail || '—');
-    return '<tr' + rowClass + '><td><strong>' + _esc(p.plate || '—') + '</strong></td><td>' + _esc(p.spotId || '—') + '</td>' + tdRich + tdEff + '<td>' + dataStr + '</td><td>' + badgeStato + '</td><td style="text-align:center">' + badgeUrgente + '</td><td class="pren-td-azioni"><div class="pren-actions">' + azioni + '</div></td><td style="font-size:.9rem">' + operatoreDisplay + '</td></tr>';
+    return '<tr' + rowClass + '><td><strong>' + _esc(p.plate || '—') + '</strong></td><td>' + (p.tipoMissione === 'spostamento' ? '<span title="Spostamento ribalta → ribalta">🔀 </span>' : '') + _esc(p.spotId || '—') + '</td>' + tdRich + tdEff + '<td>' + dataStr + '</td><td>' + badgeStato + '</td><td style="text-align:center">' + badgeUrgente + '</td><td class="pren-td-azioni"><div class="pren-actions">' + azioni + '</div></td><td style="font-size:.9rem">' + operatoreDisplay + '</td></tr>';
   }).join('');
 }
 
 function _statoLabel(stato) {
-  return { creata: 'Creata', completata: 'Completata' }[stato] || stato;
+  return { creata: 'Creata', completata: 'Completata', annullata: 'Annullata', in_attesa: 'In attesa' }[stato] || stato;
 }
 
 function _esc(str) {

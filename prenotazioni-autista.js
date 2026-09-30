@@ -1,4 +1,4 @@
-import { addDoc, collection, doc, onSnapshot, orderBy, query, serverTimestamp, setDoc, updateDoc } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
+import { addDoc, collection, doc, onSnapshot, orderBy, query, runTransaction, serverTimestamp, setDoc, updateDoc } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
 // ── prenotazioni-autista.js ───────────────────────────────────────────────────
 
 // Gestione prenotazioni casse/container + missioni ribalta per autista (mobile)
@@ -11,6 +11,10 @@ function getDestinazioniPerReparto(reparto) {
 }
 
 import { showToast, _esc } from './shared-utils.js';
+import * as _SU from './shared-utils.js';
+// RE_CONTAINER letto dal namespace: se il browser servisse per qualche minuto una
+// copia in cache di shared-utils.js senza il nuovo export, il modulo non si rompe.
+const RE_CONTAINER = _SU.RE_CONTAINER || /^(?:[A-Z]{4}\d{7}|[A-Z]{2}\d{3}(?:[A-Z]{2}|\d{1,3}))$/;
 
 // ── Validazioni locali (le versioni in shared-utils.js richiedono 2 argomenti) ─
 function _tutteRibalte() {
@@ -37,7 +41,6 @@ function validateDestination(dest) {
 }
 
 const RE_CASSA = /^\d{3}$/;
-const RE_CONTAINER = /^[A-Z]{4}\d{7}$/;
 
 // Tipo veicolo dedotto dalla targa (fallback: container)
 function _tipoDaPlate(plate) {
@@ -84,8 +87,12 @@ function _ribalteLiberePerReparto(reparto, escludiPrenId = null) {
   );
   // Ribalte impegnate in prenotazioni aperte (esclusa quella corrente)
   _prenotazioni
-    .filter(p => p.stato === 'creata' && p.destinazione && p.id !== escludiPrenId)
-    .forEach(p => occupate.add(p.destinazione.trim().toUpperCase()));
+    .filter(p => (p.stato === 'creata' || p.stato === 'in_attesa') && p.destinazione && p.id !== escludiPrenId)
+    .forEach(p => occupate.add(String(p.destinazione).trim().toUpperCase()));
+  // Ribalte dove si trova fisicamente una navetta attiva
+  Object.values(window.navette || {})
+    .filter(n => n.attiva && n.posizione)
+    .forEach(n => occupate.add(String(n.posizione).trim().toUpperCase()));
 
   // Lista completa delle destinazioni (da _REPARTI, non da _ribalte)
   let tutte;
@@ -271,7 +278,7 @@ function _tsPren(p) {
 
 // Pieno/vuoto del veicolo da movimentare
 function _isPienoPren(p) {
-  if (p.tipoMissione === 'ribalta') return !!p.fullAllaLibera;
+  if (p.tipoMissione === 'ribalta' || p.tipoMissione === 'spostamento') return !!p.fullAllaLibera;
   if (p.tipoMissione === 'navetta') return p.faseNavetta === 'pieno';
   return true; // prenotazione container ordinaria: si prenotano solo container pieni
 }
@@ -363,6 +370,9 @@ _ribalte = {};
 
 snap.docs.forEach(d => { _ribalte[d.id] = { id: d.id, ...d.data() }; });
 
+// Le missioni cassa vuota dipendono dallo stato delle ribalte (sblocco in tempo reale)
+renderPrenotazioni();
+
 },
 
 err => console.error('Errore ribalte:', err)
@@ -399,11 +409,15 @@ if (!el) return;
 if (mode === 'cassa') {
 
 const missioniCasse = _prenotazioni
-  .filter(p => p.tipoMissione === 'ribalta' && p.stato === 'creata' && _tipoDaPlate(p.plate) === 'cassa');
+  .filter(p => (p.tipoMissione === 'ribalta' || p.tipoMissione === 'spostamento') && p.stato === 'creata' && _tipoDaPlate(p.plate) === 'cassa');
 
 const casseOccupate = _casseOccupateOrdinate();
 
+// Richieste cassa vuota dell'operativo: movimento di un VUOTO verso la ribalta
+const richiesteCassa = _prenotazioni.filter(p => p.tipoMissione === 'cassa_vuota' && p.stato === 'creata');
+
 const items = [
+  ...richiesteCassa.map(p => ({ key: 'p:' + p.id, pren: p, pieno: false, urg: !!p.urgente, ts: _tsPren(p), marcato: !!p.bloccoAt })),
   ...missioniCasse.map(p => ({ key: 'p:' + p.id, pren: p, pieno: _isPienoPren(p), urg: !!p.urgente, ts: _tsPren(p), marcato: !!p.bloccoAt })),
   ...casseOccupate.map(s => ({ key: 's:' + s.id, spot: s, pieno: true, urg: _cassaUrgente(s), ts: _tsVal(s.since), marcato: !!(s.bloccoPlate && s.bloccoPlate === s.plate) })),
 ];
@@ -418,13 +432,22 @@ const seq = _calcolaSequenza(items, 'cassa');
 let html = `<div class="prenGroupTitle">DA MOVIMENTARE (${seq.ordinati.length})</div>`;
 seq.ordinati.forEach((it, idx) => {
   const ab = seq.abilitati.has(it.key);
-  html += it.pren ? _missioneCard(it.pren, ab) : _cassaCard(it.spot, idx, ab, it.urg);
+  html += it.pren
+    ? (it.pren.tipoMissione === 'spostamento' ? _spostamentoCard(it.pren, ab)
+      : it.pren.tipoMissione === 'cassa_vuota' ? _cvCard(it.pren, ab)
+      : _missioneCard(it.pren, ab))
+    : _cassaCard(it.spot, idx, ab, it.urg);
 });
 el.innerHTML = html;
 
 if (_openCompletaId) {
   const form = document.getElementById('completaForm_' + _openCompletaId);
   if (form) form.style.display = 'block';
+}
+// Ripristina il focus sul campo ricerca cassa dopo il re-render
+if (_cvFocus) {
+  const q = document.getElementById('cvQ_' + _cvFocus);
+  if (q) { q.focus(); const n = q.value.length; try { q.setSelectionRange(n, n); } catch (e) {} }
 }
 
 return;
@@ -442,7 +465,11 @@ const missioni = _prenotazioni.filter(p =>
   (!_ribConsentite || _ribConsentite.has(String(p.spotId || '').trim().toUpperCase()))
 );
 
-const ordinarie = _prenotazioni.filter(p => p.tipoMissione !== 'ribalta' && p.tipoMissione !== 'navetta' && (!p.tipoMezzo || p.tipoMezzo === 'container'));
+// Spostamenti ribalta→ribalta di container (richiesti dall'operativo)
+const spostamenti = _prenotazioni.filter(p =>
+  p.tipoMissione === 'spostamento' && p.stato === 'creata' && _tipoDaPlate(p.plate) === 'container');
+
+const ordinarie = _prenotazioni.filter(p => !['ribalta', 'navetta', 'spostamento', 'cassa_vuota'].includes(p.tipoMissione) && (!p.tipoMezzo || p.tipoMezzo === 'container'));
 
 // Missioni navettaggio interno visibili all'autista: solo quelle già abbinate
 // (stato 'creata'); le richieste 'in_attesa' non hanno ancora un mezzo/origine.
@@ -450,7 +477,7 @@ const navetteMissioni = _prenotazioni.filter(p => p.tipoMissione === 'navetta' &
 
 const pendenti = ordinarie.filter(p => p.stato === 'creata');
 
-const attiviRaw = missioni.concat(pendenti).concat(navetteMissioni);
+const attiviRaw = missioni.concat(pendenti).concat(navetteMissioni).concat(spostamenti);
 
 // Completate: solo quelle delle ultime 2 ore (basato su completataAt)
 const due_ore_fa = Date.now() - 2 * 60 * 60 * 1000;
@@ -491,6 +518,8 @@ if (attivi.length) {
     const ab = bloccoIds.has('p:' + p.id);
     html += (p.tipoMissione === 'ribalta')
       ? _missioneCard(p, ab)
+      : (p.tipoMissione === 'spostamento')
+        ? _spostamentoCard(p, ab)
       : (p.tipoMissione === 'navetta')
         ? _navettaCard(p, ab)
         : _prenCard(p, ab, idx);
@@ -618,6 +647,257 @@ ${btnHTML}
 
 </div>`;
 
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// RICHIESTA CASSA VUOTA (tipoMissione 'cassa_vuota') — completamento autista
+// L'operativo indica la ribalta; l'autista sceglie QUALE cassa vuota portare
+// (parcheggio o altra ribalta) e conferma/modifica la ribalta di arrivo.
+// ══════════════════════════════════════════════════════════════════════════════
+const _cvState = {};          // { [prenId]: { q, sel:{tipo,id,plate}|null, dest, altre:bool } }
+let _cvFocus = null;          // prenId del campo ricerca con focus (ripristino dopo re-render)
+const _cvInCorso = new Set();
+
+function _repartoDi(ribId) {
+  const k = String(ribId || '').trim().toUpperCase();
+  for (const [rep, ids] of Object.entries(window._REPARTI || {})) {
+    if ((ids || []).some(x => String(x).trim().toUpperCase() === k)) return rep;
+  }
+  return null;
+}
+
+// Casse vuote disponibili, ordinate: ribalte del reparto di destinazione →
+// altre ribalte → parcheggi; a parità, la più vecchia prima.
+function _casseVuoteDisponibili(destRichiesta) {
+  const inMissione = new Set(_prenotazioni
+    .filter(p => (p.stato === 'creata' || p.stato === 'in_attesa') && p.plate)
+    .map(p => String(p.plate).trim().toUpperCase()));
+  const repDest = _repartoDi(destRichiesta);
+  const out = [];
+  Object.values(_spots).forEach(s => {
+    const pl = String(s.plate || '').trim().toUpperCase();
+    if (!s.occupied || s.full || s.unusable || !RE_CASSA.test(pl) || inMissione.has(pl)) return;
+    out.push({ tipo: 'parcheggio', id: s.id, plate: pl, since: s.since, gruppo: 2 });
+  });
+  Object.values(_ribalte).forEach(r => {
+    const pl = String(r.plate || '').trim().toUpperCase();
+    if (!r.occupied || r.full || !RE_CASSA.test(pl) || inMissione.has(pl)) return;
+    if (r.inUscita || r.inLiberazione || r.inSpostamento) return;
+    out.push({ tipo: 'ribalta', id: r.id, plate: pl, since: r.since,
+      gruppo: (repDest && _repartoDi(r.id) === repDest) ? 0 : 1 });
+  });
+  return out.sort((a, b) => a.gruppo - b.gruppo || _tsVal(a.since) - _tsVal(b.since));
+}
+
+function _cvCard(p, abilitato) {
+  const st = _cvState[p.id] || (_cvState[p.id] = { q: '', sel: null, dest: String(p.destinazione || '').toUpperCase(), altre: false });
+  const d = _parseDate(p.dataOra);
+  const dataStr = d ? d.toLocaleString('it-IT', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' }) : '—';
+  const rDest = _ribalte[String(p.destinazione || '').toUpperCase()];
+  const destInLib = rDest && rDest.occupied;
+  const open = _openCompletaId === p.id;
+  let body = '';
+  if (!abilitato) {
+    body = `<button disabled class="btnBlocco">🔒 In attesa</button>
+<div style="font-size:11px;color:var(--muted);margin-top:4px;font-style:italic">Disponibile dopo il completamento delle prime 3</div>`;
+  } else if (!open) {
+    body = `<button class="btnCompletaOrange" style="margin-top:10px" onclick="cvApri('${p.id}')">✅ Completa missione</button>`;
+  } else {
+    body = `<div class="completaForm" style="display:block">${_cvFormHTML(p, st)}</div>`;
+  }
+  return `
+<div class="missioneCard"${p.urgente ? ' style="border:2px solid var(--red,#ef4444)"' : ''}>
+  <div class="missioneTitle">📦 Porta cassa vuota → ribalta ${_esc(p.destinazione || '—')}</div>
+  <div class="missioneBody">${p.urgente ? '<span class="urgBadge">🚨 URGENTE</span> ' : ''}🟢 Vuota · ${dataStr}</div>
+  <div style="font-size:12px;color:var(--muted);margin-top:4px">Richiesta da ${_esc(p.utenteNome || p.utenteEmail || '—')}${_repartoDi(p.destinazione) ? ' · ' + _esc(_repartoDi(p.destinazione)) : ''}</div>
+  ${destInLib ? `<div style="font-size:12px;font-weight:700;color:orange;margin-top:4px">🚛 Ribalta ${_esc(p.destinazione)} ancora occupata (in liberazione)</div>` : ''}
+  ${body}
+</div>`;
+}
+
+function _cvListaHTML(p, st) {
+  const q = String(st.q || '').trim().toUpperCase();
+  const tutte = _casseVuoteDisponibili(p.destinazione);
+  const l = q ? tutte.filter(c => c.plate.includes(q) || c.id.includes(q)) : tutte;
+  if (!l.length) return '<div style="font-size:12px;color:var(--muted);padding:6px">Nessuna cassa vuota disponibile' + (q ? ' per la ricerca' : '') + '.</div>';
+  const grpLbl = ['Ribalte del reparto', 'Altre ribalte', 'Parcheggi'];
+  let h = '', g = -1;
+  l.slice(0, 60).forEach(c => {
+    if (c.gruppo !== g) { g = c.gruppo; h += `<div style="${_S.sectionLabel}">${grpLbl[g]}</div>`; }
+    const sel = st.sel && st.sel.id === c.id;
+    h += `<div onclick="cvScegliCassa('${p.id}','${c.tipo}','${_esc(c.id)}','${_esc(c.plate)}')"
+      style="display:flex;justify-content:space-between;align-items:center;padding:9px 10px;margin:3px 0;border-radius:8px;cursor:pointer;
+             border:${sel ? '2px solid var(--accent)' : '1.5px solid var(--border)'};background:${sel ? 'var(--accent)' : 'var(--surface2)'};color:${sel ? '#1C1F26' : 'var(--text)'}">
+      <strong>${_esc(c.plate)}</strong>
+      <span style="font-size:12px">${c.tipo === 'ribalta' ? '🚚' : '🅿️'} ${_esc(c.id)} · ⏱ ${c.since ? _fmtAnzianita(new Date(_tsVal(c.since))) : '—'}</span>
+    </div>`;
+  });
+  return h;
+}
+
+function _cvFormHTML(p, st) {
+  let h = `<div style="${_S.sectionLabel}">1 · Cassa vuota da portare</div>
+    <input id="cvQ_${p.id}" class="inputField" spellcheck="false" placeholder="🔍 Cerca cassa o posizione"
+      value="${_esc(st.q || '')}" oninput="cvCerca('${p.id}', this.value)" onfocus="cvFocus('${p.id}')" onblur="cvBlur('${p.id}')"
+      style="text-transform:uppercase">
+    <div id="cvLista_${p.id}" style="max-height:260px;overflow-y:auto;margin-top:4px">${_cvListaHTML(p, st)}</div>`;
+
+  // 2 · Ribalta di arrivo: precompilata, modificabile
+  const richiesta = String(p.destinazione || '').toUpperCase();
+  const rR = _ribalte[richiesta];
+  const richiestaOccupata = !!(rR && rR.occupied);
+  h += `<div style="${_S.sectionLabel};margin-top:12px">2 · Ribalta di arrivo</div>`;
+  const selR = st.dest === richiesta;
+  h += richiestaOccupata
+    ? `<button disabled style="${_S.ribaltaBtn};opacity:.55;cursor:not-allowed;border-color:orange;color:orange">🔒 ${_esc(richiesta)} — ribalta ancora occupata</button>`
+    : `<button style="${selR ? _S.ribaltaBtnSel : _S.ribaltaBtn}" onclick="cvScegliDest('${p.id}','${richiesta}')">📍 ${_esc(richiesta)} (richiesta)</button>`;
+  if (st.dest && st.dest !== richiesta) h += `<button style="${_S.ribaltaBtnSel}">${_esc(st.dest)}</button>`;
+  h += `<div><button style="${st.altre ? _S.navBtnSel : _S.navBtn}" onclick="cvToggleAltre('${p.id}')">🔀 Altra ribalta</button></div>`;
+  if (st.altre) {
+    const rep = _repartoDi(richiesta);
+    const libere = _ribalteLiberePerReparto(null, p.id);
+    const grp = {};
+    libere.forEach(r => { const k = _repartoDi(r.id) || 'Altro'; (grp[k] = grp[k] || []).push(r.id); });
+    const ordine = Object.keys(grp).sort((a, b) => (a === rep ? -1 : b === rep ? 1 : a.localeCompare(b)));
+    h += ordine.map(k => `<div style="${_S.sectionLabel}">${_esc(k)}</div><div style="display:flex;flex-wrap:wrap">` +
+      grp[k].map(id => `<button style="${st.dest === id ? _S.ribaltaBtnSel : _S.ribaltaBtn}" onclick="cvScegliDest('${p.id}','${id}')">${id}</button>`).join('') + '</div>').join('')
+      || '<div style="font-size:12px;color:var(--muted)">Nessuna ribalta libera</div>';
+  }
+
+  const pronto = st.sel && st.dest && !(st.dest === richiesta && richiestaOccupata);
+  h += `<button id="cvOk_${p.id}" class="btnCompleta" style="margin-top:12px;${pronto ? '' : 'opacity:.5;cursor:not-allowed'}" ${pronto ? '' : 'disabled'}
+          onclick="cvConferma('${p.id}')">✓ Conferma ${st.sel ? _esc(st.sel.plate) : '—'} → ${_esc(st.dest || '—')}</button>
+        <button style="margin-top:8px;padding:6px 12px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--muted);font-family:inherit;font-size:12px;cursor:pointer" onclick="cvChiudi('${p.id}')">Annulla</button>`;
+  return h;
+}
+
+window.cvApri = function(id) {
+  if (_openCompletaId && _openCompletaId !== id) { const f = document.getElementById('completaForm_' + _openCompletaId); if (f) f.style.display = 'none'; }
+  _openCompletaId = id;
+  const p = _prenotazioni.find(x => x.id === id);
+  if (p && _cvState[id]) {
+    // Se la ribalta richiesta è occupata, non la preselezioniamo
+    const r = _ribalte[String(p.destinazione || '').toUpperCase()];
+    if (r && r.occupied && _cvState[id].dest === String(p.destinazione).toUpperCase()) _cvState[id].dest = null;
+  }
+  renderPrenotazioni();
+};
+window.cvChiudi = function(id) { if (_openCompletaId === id) _openCompletaId = null; renderPrenotazioni(); };
+window.cvCerca = function(id, v) {
+  const st = _cvState[id]; if (!st) return;
+  st.q = v;
+  const p = _prenotazioni.find(x => x.id === id);
+  const el = document.getElementById('cvLista_' + id);
+  if (p && el) el.innerHTML = _cvListaHTML(p, st);
+};
+window.cvFocus = function(id) { _cvFocus = id; };
+window.cvBlur  = function(id) { setTimeout(() => { if (_cvFocus === id && document.activeElement?.id !== 'cvQ_' + id) _cvFocus = null; }, 0); };
+window.cvScegliCassa = function(id, tipo, luogo, plate) { const st = _cvState[id]; if (!st) return; st.sel = { tipo, id: luogo, plate }; renderPrenotazioni(); };
+window.cvScegliDest  = function(id, dest) { const st = _cvState[id]; if (!st) return; st.dest = dest; renderPrenotazioni(); };
+window.cvToggleAltre = function(id) { const st = _cvState[id]; if (!st) return; st.altre = !st.altre; renderPrenotazioni(); };
+
+window.cvConferma = async function(id) {
+  const p = _prenotazioni.find(x => x.id === id);
+  const st = _cvState[id];
+  if (!p || !st || !st.sel || !st.dest) return;
+  if (_cvInCorso.has(id)) return;
+  const dest = String(st.dest).toUpperCase();
+  const richiesta = String(p.destinazione || '').toUpperCase();
+  // La ribalta scelta deve essere libera e non riservata da altre missioni
+  if (dest !== richiesta && !_ribalteLiberePerReparto(null, id).some(r => r.id === dest)) {
+    showToast(`La ribalta ${dest} non è più disponibile`, 'error'); st.dest = null; renderPrenotazioni(); return;
+  }
+  _cvInCorso.add(id);
+  const btn = document.getElementById('cvOk_' + id); if (btn) { btn.disabled = true; btn.textContent = '⏳…'; }
+  const user = _getUser ? _getUser() : null;
+  const { tipo, id: luogo, plate } = st.sel;
+  try {
+    const prenRef = doc(window.db, 'prenotazioni', id);
+    const oriRef  = doc(window.db, tipo === 'parcheggio' ? 'spots' : 'ribalte', luogo);
+    const destRef = doc(window.db, 'ribalte', dest);
+    await runTransaction(window.db, async (tx) => {
+      const ps = await tx.get(prenRef);
+      const os = await tx.get(oriRef);
+      const ds = await tx.get(destRef);
+      if (!ps.exists() || ps.data().stato !== 'creata') throw new Error('Richiesta non più aperta');
+      const o = os.exists() ? os.data() : null;
+      if (!o || !o.occupied || String(o.plate || '').toUpperCase() !== plate || o.full)
+        throw new Error(`La cassa ${plate} non è più disponibile in ${luogo}`);
+      if (ds.exists() && ds.data().occupied) throw new Error(`La ribalta ${dest} è ancora occupata`);
+      if (tipo === 'parcheggio') {
+        tx.set(oriRef, { occupied: false, plate: null, since: null, user: null, full: false,
+          bloccoPlate: null, urgente: false, urgentePlate: null }, { merge: true });
+      } else {
+        tx.set(oriRef, { occupied: false, plate: null, since: null, user: null, full: false,
+          inUscita: false, ribaltaRichiesta: null, inLiberazione: null, liberazioneDa: null,
+          inSpostamento: null, spostamentoVerso: null }, { merge: true });
+      }
+      tx.set(destRef, { occupied: true, plate, since: serverTimestamp(), user: user?.email || null, full: false,
+        inUscita: false, ribaltaRichiesta: richiesta, inLiberazione: null, liberazioneDa: null,
+        inSpostamento: null, spostamentoVerso: null }, { merge: true });
+      tx.update(prenRef, { stato: 'completata', completataAt: serverTimestamp(), plate, spotId: luogo,
+        origineTipo: tipo, postoFine: dest, ribaltaRichiesta: richiesta,
+        completataDaUid: user?.uid || null, completataDaNome: user?.name || user?.email || null });
+    });
+    await window.logHistory({ spot: dest, action: 'Missione completata', tipo: 'cassa', tipoMissione: 'cassa_vuota',
+      plate, origine: luogo, destinazione: dest, ribaltaRichiesta: richiesta,
+      richiedente: p.utenteNome || p.utenteEmail || null });
+    delete _cvState[id];
+    if (_openCompletaId === id) _openCompletaId = null;
+    showToast(`✅ Cassa ${plate}: ${luogo} → ${dest}`, 'success');
+  } catch (e) {
+    showToast('Errore: ' + (e.message || e), 'error');
+    if (btn) { btn.disabled = false; btn.textContent = 'Riprova'; }
+  } finally {
+    _cvInCorso.delete(id);
+  }
+};
+
+// Chiude come soddisfatta una richiesta cassa vuota aperta per `dest`
+// (quando un'altra missione vi porta direttamente una cassa vuota).
+async function _soddisfaRichiestaCassa(dest, plate, origine, missioneId) {
+  const k = String(dest || '').trim().toUpperCase();
+  const r = _prenotazioni
+    .filter(p => p.tipoMissione === 'cassa_vuota' && p.stato === 'creata' && String(p.destinazione || '').toUpperCase() === k)
+    .sort((a, b) => _tsPren(a) - _tsPren(b))[0];
+  if (!r) return null;
+  await updateDoc(doc(window.db, 'prenotazioni', r.id), {
+    stato: 'completata', completataAt: serverTimestamp(), plate: plate || null, spotId: origine || null,
+    origineTipo: 'ribalta', postoFine: k, ribaltaRichiesta: k, soddisfattaDa: missioneId || null,
+  });
+  await window.logHistory({ spot: k, action: 'Missione completata', tipo: 'cassa', tipoMissione: 'cassa_vuota',
+    plate: plate || null, origine: origine || null, destinazione: k, ribaltaRichiesta: k,
+    richiedente: r.utenteNome || r.utenteEmail || null, soddisfattaDa: missioneId || null });
+  return r.id;
+}
+
+// ── CARD SPOSTAMENTO RIBALTA → RIBALTA ───────────────────────────────────────
+// Richiesto dall'operativo: destinazione precompilata ma modificabile.
+function _spostamentoCard(p, abilitato = true) {
+  const d = _parseDate(p.dataOra);
+  const dataStr = d ? d.toLocaleString('it-IT', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' }) : '—';
+  const statoVeicolo = p.fullAllaLibera ? '🟡 Pieno' : '🟢 Vuoto';
+  const btnHTML = abilitato
+    ? `<div id="nfRow_${p.id}" style="display:flex;gap:8px;align-items:stretch;margin-top:10px">
+  <button class="btnCompleta" style="flex:2;margin:0" onclick="aprirCompletaMissione('${p.id}')">✅ Completa spostamento</button>
+  ${_btnNonTrovato(`nonTrovatoPren('${p.id}')`)}
+</div>
+<div id="nfConf_${p.id}" style="display:none"></div>
+<div class="completaForm" id="completaForm_${p.id}" style="display:none">
+  <div data-step="picker" id="cfStep_${p.id}">
+    ${_buildContainerPicker(p)}
+  </div>
+  <div data-step="undo" id="cfUndo_${p.id}" style="display:none"></div>
+</div>`
+    : `<button disabled class="btnBlocco">🔒 In attesa</button>
+<div style="font-size:11px;color:var(--muted);margin-top:4px;font-style:italic">Disponibile dopo il completamento delle prime 3</div>`;
+  return `
+<div class="missioneCard">
+  <div class="missioneTitle">🔀 Sposta da ribalta ${_esc(p.origine || p.spotId || '—')} → ${_esc(p.destinazione || '—')}</div>
+  <div class="missioneBody"><strong>${_esc(p.plate || '—')}</strong> · ${statoVeicolo} · ${dataStr}</div>
+  <div style="font-size:12px;color:var(--muted);margin-top:4px">Richiesto da ${_esc(p.utenteNome || p.utenteEmail || '—')}</div>
+  ${btnHTML}
+</div>`;
 }
 
 // ── CARD PRENOTAZIONE ORDINARIA ───────────────────────────────────────────────
@@ -748,7 +1028,7 @@ function _navettaCard(p, abilitato = true) {
   const completata = p.stato !== 'creata';
   const nav = _esc(p.navettaId || 'NAV');
   const statoVeicolo = p.faseNavetta === 'pieno' ? '🟡 Pieno' : '🟢 Vuoto';
-  const badge = p.faseNavetta === 'pieno' ? '🚚 NAVETTA · PIENO' : '🚚 NAVETTA · VUOTO';
+  const badge = (p.spostamento ? '🔀 ' : '🚚 ') + 'NAVETTA · ' + (p.faseNavetta === 'pieno' ? 'PIENO' : 'VUOTO') + (p.spostamento ? ' · SPOSTAMENTO' : '');
 
   let btnHTML;
   if (completata) {
@@ -899,6 +1179,7 @@ window.nonTrovatoPrenExec = async function(id) {
       ops.push(setDoc(doc(window.db, 'ribalte', luogo), {
         occupied: false, plate: null, since: null, user: null, full: false,
         inUscita: false, ribaltaRichiesta: null,
+        inLiberazione: null, liberazioneDa: null, inSpostamento: null, spostamentoVerso: null,
       }, { merge: true }));
     }
     ops.push(_nfRegistra({
@@ -976,15 +1257,59 @@ function _buildPostiPicker(p) {
     html += '</div>';
   }
 
+  // Cassa VUOTA: può andare direttamente in una ribalta (non solo in parcheggio)
+  if (tipo === 'cassa' && stato === 'vuoto') html += _portaInRibaltaHTML(p);
+
   html += `<button style="margin-top:8px;padding:6px 12px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--muted);font-family:inherit;font-size:12px;cursor:pointer" onclick="chiudiCompletaForm('${p.id}')">Annulla</button>`;
   return html;
 }
+
+// ── CASSA VUOTA LIBERATA → DIRETTAMENTE IN RIBALTA ──────────────────────────
+// In cima le ribalte con una richiesta cassa vuota aperta (verrà chiusa in
+// automatico), poi le ribalte libere del reparto di partenza, poi "altra ribalta".
+const _portaRibAperto = {};
+function _portaInRibaltaHTML(p) {
+  const aperto = !!_portaRibAperto[p.id];
+  let h = `<div style="margin-top:10px"><button style="${aperto ? _S.navBtnSel : _S.navBtn}" onclick="togglePortaInRibalta('${p.id}')">➡️ Porta in ribalta</button></div>`;
+  if (!aperto) return h;
+  const origine = String(p.spotId || '').trim().toUpperCase();
+  const rep = _repartoDi(origine);
+  // Richieste cassa vuota aperte con ribalta già libera
+  const richieste = _prenotazioni
+    .filter(r => r.tipoMissione === 'cassa_vuota' && r.stato === 'creata')
+    .filter(r => { const d = String(r.destinazione || '').toUpperCase(); return d && d !== origine && !(_ribalte[d] && _ribalte[d].occupied); })
+    .sort((a, b) => (a.urgente ? 0 : 1) - (b.urgente ? 0 : 1) || _tsPren(a) - _tsPren(b));
+  if (richieste.length) {
+    h += `<div style="${_S.sectionLabel}">📦 Richieste cassa vuota</div><div style="display:flex;flex-direction:column;gap:4px">`;
+    richieste.forEach(r => {
+      const d = String(r.destinazione).toUpperCase();
+      h += `<button style="${_S.ribaltaBtn};text-align:left;border-color:orange" onclick="confermaPicker('${p.id}','${d}')">
+        ${_esc(d)} ${r.urgente ? '🚨' : ''}<span style="font-weight:500;font-size:11px;color:var(--muted)"> · richiesta da ${_esc(r.utenteNome || r.utenteEmail || '—')}${_repartoDi(d) ? ' · ' + _esc(_repartoDi(d)) : ''}</span></button>`;
+    });
+    h += '</div>';
+  }
+  const libere = rep ? _ribalteLiberePerReparto(rep).filter(r => r.id !== origine) : [];
+  h += `<div style="${_S.sectionLabel}">Ribalte libere ${_esc(rep || '')}</div>`;
+  h += libere.length
+    ? `<div style="display:flex;flex-wrap:wrap">${libere.map(r => `<button style="${_S.ribaltaBtn}" onclick="confermaPicker('${p.id}','${r.id}')">${r.id}</button>`).join('')}</div>`
+    : '<div style="font-size:12px;color:var(--muted);margin:4px 0">Nessuna ribalta libera nel reparto</div>';
+  h += `<div><button style="${_S.navBtn}" onclick="_espandiAltreRibalte('${p.id}','')">🔀 Altra ribalta</button></div>`;
+  h += `<div id="altreRibalte_${p.id}" style="display:none"></div>`;
+  return h;
+}
+window.togglePortaInRibalta = function(id) {
+  _portaRibAperto[id] = !_portaRibAperto[id];
+  const p = _prenotazioni.find(x => x.id === id);
+  const el = document.getElementById('cfStep_' + id);
+  if (p && el) el.innerHTML = _buildPostiPicker(p);
+};
 
 // ── BUILD PICKER CONTAINER ────────────────────────────────────────────────────
 
 function _buildContainerPicker(p) {
   const destSuggerita = (p.destinazione || '').trim().toUpperCase();
-  const reparto = p.utenteReparto || null;
+  // Spostamento: destinazione precompilata, alternativa su qualsiasi reparto
+  const reparto = p.tipoMissione === 'spostamento' ? null : (p.utenteReparto || null);
   const ribalteLibere = _ribalteLiberePerReparto(reparto, p.id);
   const isSuggeritaLibera = destSuggerita && ribalteLibere.some(r => r.id === destSuggerita);
 
@@ -1347,7 +1672,8 @@ const dest = postoFine.trim().toUpperCase();
 // Stato del veicolo in transito:
 // - missione ribalta → dichiarazione dell'operativo in `fullAllaLibera`
 // - prenotazione ordinaria → flag `full` del posto d'origine, letto prima di liberarlo
-const statoPieno = (pren.tipoMissione === 'ribalta')
+const isSpost = pren.tipoMissione === 'spostamento';
+const statoPieno = (pren.tipoMissione === 'ribalta' || isSpost)
   ? !!pren.fullAllaLibera
   : !!(_spots[origine] && _spots[origine].full);
 
@@ -1363,7 +1689,8 @@ occupied: false, plate: null, since: null, user: null, full: false
 
 ops.push(setDoc(doc(window.db, 'ribalte', origine), {
 
-occupied: false, plate: null, since: null, user: null, full: false, inUscita: false, ribaltaRichiesta: null
+occupied: false, plate: null, since: null, user: null, full: false, inUscita: false, ribaltaRichiesta: null,
+inLiberazione: null, liberazioneDa: null, inSpostamento: null, spostamentoVerso: null
 
 }, { merge: true }));
 
@@ -1393,13 +1720,16 @@ occupied: true,
 
 plate: pren.plate || null,
 
-since: serverTimestamp(),
+// Spostamento: il mezzo mantiene l'anzianità della ribalta di origine
+since: (isSpost && pren.sinceOrigine) ? pren.sinceOrigine : serverTimestamp(),
 
 user: pren.utenteEmail || null,
 
 full: statoPieno,
 
 inUscita: false,
+
+inLiberazione: null, liberazioneDa: null, inSpostamento: null, spostamentoVerso: null,
 
 ribaltaRichiesta,
 
@@ -1411,7 +1741,7 @@ ops.push(window.logHistory({
 
 spot: dest,
 
-action: 'Missione completata',
+action: isSpost ? 'Ribalta spostata' : 'Missione completata',
 
 tipo: _tipoDaPlate(pren.plate),
 
@@ -1431,9 +1761,17 @@ richiedente: pren.operatoreNome || pren.utenteNome || pren.operatoreEmail || pre
 
 await Promise.all(ops);
 
+// Cassa VUOTA portata direttamente in una ribalta con richiesta aperta:
+// la richiesta cassa vuota viene chiusa come soddisfatta da questa missione.
+let _soddisfatta = null;
+if (pren && isValidRibalta(postoFine) && _tipoDaPlate(pren.plate) === 'cassa' && !pren.fullAllaLibera) {
+  try { _soddisfatta = await _soddisfaRichiestaCassa(postoFine, pren.plate, pren.spotId, id); }
+  catch (e) { console.error('Errore chiusura richiesta cassa vuota:', e); }
+}
+
 _openCompletaId = null;
 
-showToast(`Completato: ${pren?.spotId || '?'} → ${postoFine}`, 'success');
+showToast(`Completato: ${pren?.spotId || '?'} → ${postoFine}${_soddisfatta ? ' · richiesta cassa vuota evasa' : ''}`, 'success');
 
 } catch (e) {
 
