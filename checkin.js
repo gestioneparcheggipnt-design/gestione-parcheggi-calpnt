@@ -97,7 +97,7 @@ export async function doCheckinRapido() {
       occupied: true, plate, since: serverTimestamp(),
       user: user.email, damaged: false, full: false
     });
-    await window.logHistory({ spot: freeSpot.id, action: 'Assegnato', plate, mode });
+    await window.logHistory({ spot: freeSpot.id, action: 'Assegnato', plate, mode, full: false });
     showResult(res, `✅ ${plate} → Posto ${freeSpot.id}`, 'ok');
     input.value = '';
     showToast(`Posto ${freeSpot.id} assegnato a ${plate}`, 'success');
@@ -257,7 +257,7 @@ export async function assignFromDrawer(id) {
   const full = document.getElementById('drawerFull')?.checked || false;
   try {
     await setDoc(doc(window.db, 'spots', id), { occupied: true, plate, since: serverTimestamp(), user: user.email, damaged: false, full });
-    await window.logHistory({ spot: id, action: 'Assegnato', plate, mode });
+    await window.logHistory({ spot: id, action: 'Assegnato', plate, mode, full });
 
     // Se è una cassa piena, crea automaticamente una missione di prelievo
     if (mode === 'cassa' && full) {

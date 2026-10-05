@@ -340,6 +340,7 @@ async function porteriaConferma() {
       action:      'checkin',
       plate:       veicolo,
       origine:     'portineria',
+      full:        _portStato === 'pieno',
     });
 
     // Aggiorna stato locale subito (il listener aggiornerà dopo)

@@ -362,30 +362,76 @@ window._goToSpot=goToSpot;
 function renderSearch(){ doSearch(); }
 
 // Celle "Rib. richiesta" / "Rib. effettiva": se diverse, l'effettiva è evidenziata.
-function _ribCelle(richiesta, effettiva){
+function _ribCelle(richiesta, effettiva, effLabel){
   const R = String(richiesta||'').trim().toUpperCase(), E = String(effettiva||'').trim().toUpperCase();
+  const L = effLabel || E;
   const dash = '<span style="color:var(--muted);font-size:12px">&mdash;</span>';
-  const eff = E ? (R && R!==E ? `<span style="color:#f97316;font-weight:700" title="Ribalta cambiata dall'autista">⚠ ${_optEsc(E)}</span>` : _optEsc(E)) : dash;
+  const eff = E ? (R && R!==E ? `<span style="color:#f97316;font-weight:700" title="Ribalta cambiata dall'autista">⚠ ${_optEsc(L)}</span>` : _optEsc(L)) : dash;
   return `<td class="mono">${R ? _optEsc(R) : dash}</td><td class="mono">${eff}</td>`;
 }
 
-// Storico: ribalta richiesta / effettiva di una riga history.
-//  - 'Missione completata': richiesta = ribaltaRichiesta (se registrata), effettiva = destinazione
-//  - 'Prenotazione creata': richiesta = destinazione (effettiva non ancora nota)
+// ── STORICO: colonne derivate da una riga history ────────────────────────────
+const _isRibStorico = id => !!id && (window.REPARTI
+  ? Object.values(window.REPARTI).flat().includes(String(id).trim().toUpperCase())
+  : /^PNT/i.test(String(id)));
+const _isPortineriaStorico = h => String(h.origine||'').trim().toLowerCase()==='portineria';
+
+// Tipo mezzo: dalla targa; se non riconoscibile (es. navetta) dal campo `tipo`
+function _tipoStorico(h){
+  const p=String(h.plate||'').trim();
+  if(/^\d{3}$/.test(p)) return 'cassa';
+  if(p && window.RE_CONTAINER.test(p)) return 'container';
+  return (h.tipo==='cassa'||h.tipo==='container') ? h.tipo : '';
+}
+
+// Da: posto/ribalta di partenza. Ingressi e uscite → Portineria.
+//  - missioni/spostamenti: campo `origine` (ribalta o posto di partenza)
+//  - azioni sul posto (assegna, libera, pieno/vuoto, danni): il posto stesso
+//  - richieste cassa vuota / navetta senza origine: partenza non ancora nota
+function _daStorico(h){
+  if(_isPortineriaStorico(h)) return 'Portineria';
+  if(h.origine) return String(h.origine).trim().toUpperCase();
+  if(h.tipoMissione==='cassa_vuota' || h.tipoMissione==='navetta') return '';
+  return String(h.spot||'').trim().toUpperCase();
+}
+
+// Ribalta richiesta / effettiva.
+//  - effettiva = dove il mezzo è arrivato (ribalta, oppure posto parcheggio)
 function _ribStorico(h){
-  const isRib = id => !!id && (window.REPARTI ? Object.values(window.REPARTI).flat().includes(String(id).trim().toUpperCase()) : /^PNT/i.test(id));
-  if (h.action === 'Missione completata') {
-    // Missioni ribalta→parcheggio: la destinazione è un posto, non una ribalta → vuoto
-    const eff = h.destinazione || '';
-    return { richiesta: h.ribaltaRichiesta || '', effettiva: isRib(eff) ? eff : '' };
+  const up = v => String(v||'').trim().toUpperCase();
+  switch(h.action){
+    case 'Missione completata':
+    case 'Ribalta spostata':
+      return { richiesta: up(h.ribaltaRichiesta), effettiva: up(h.destinazione || h.spot) };
+    case 'Prenotazione creata':
+    case 'Ribalta richiesta':
+    case 'Prenotazione annullata':
+      return { richiesta: up(h.destinazione), effettiva: '' };
+    case 'checkin':
+    case 'Ingresso ribalta':
+      return { richiesta: '', effettiva: up(h.spot) };
   }
-  if (h.action === 'Prenotazione creata') return { richiesta: h.destinazione || '', effettiva: '' };
   return { richiesta: '', effettiva: '' };
+}
+
+// Stato del mezzo ad azione terminata: 'pieno' | 'vuoto' | '' (non applicabile / non registrato)
+function _statoFinStorico(h){
+  if(h.action==='Segnato Pieno') return 'pieno';
+  if(h.action==='Segnato Vuoto') return 'vuoto';
+  if(['Liberato','Uscita veicolo','Prenotazione annullata','Prenotazione eliminata'].includes(h.action)) return '';
+  if(typeof h.full==='boolean') return h.full ? 'pieno' : 'vuoto';
+  return '';
+}
+
+// Utente: solo il nome (mai l'email; per righe vecchie si usa la parte prima della @)
+function _utenteStorico(h){
+  const u=String(h.userName||h.user||'').trim();
+  return u.includes('@') ? u.split('@')[0] : u;
 }
 
 function resetFiltriStorico(){
   ['sfDa','sfA','sfPosto','sfTarga','sfUtente'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
-  ['sfAzione','sfTipo','sfRichiesta','sfEffettiva'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  ['sfAzione','sfTipo','sfRichiesta','sfEffettiva','sfStatoFin'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
   renderStorico();
 }
 window.resetFiltriStorico = resetFiltriStorico;
@@ -396,88 +442,74 @@ function renderStorico(){
     if(action==="Liberato")  return '<span class="tagLib">Liberato</span>';
     if(action==="Segnato Pieno") return '<span style="color:#f59e0b;font-size:11px;font-weight:600;background:#f59e0b13;padding:2px 8px;border-radius:20px">🔴 Pieno</span>';
     if(action==="Segnato Vuoto") return '<span style="color:#22c55e;font-size:11px;font-weight:600;background:#22c55e13;padding:2px 8px;border-radius:20px">🟢 Vuoto</span>';
-    return `<span style="color:var(--muted);font-size:11px">${action}</span>`;
+    return `<span style="color:var(--muted);font-size:11px">${_optEsc(action||'')}</span>`;
   };
+  const dash = '<span style="color:var(--muted);font-size:12px">&mdash;</span>';
 
   // popola i menù a tendina dei filtri con tutte le voci presenti
   {
     const H = window.historyCache || [];
-    const posti  = [...new Set(H.map(h=>h.spot).filter(Boolean))].sort();
-    const targhe = [...new Set(H.map(h=>h.plate).filter(Boolean))].sort();
-    const utenti = [...new Set(H.map(h=>h.userName||h.user).filter(Boolean))].sort();
-    const azioni = [...new Set(H.map(h=>h.action).filter(Boolean))].sort();
-    const richieste = [...new Set(H.map(h=>_ribStorico(h).richiesta).filter(Boolean))].sort();
-    const effettive = [...new Set(H.map(h=>_ribStorico(h).effettiva).filter(Boolean))].sort();
-    _popolaSelectFiltro('sfRichiesta', richieste);
-    _popolaSelectFiltro('sfEffettiva', effettive);
-    _popolaSelectFiltro('sfPosto', posti);
-    _popolaSelectFiltro('sfTarga', targhe);
-    _popolaSelectFiltro('sfUtente', utenti);
-    _popolaSelectFiltro('sfAzione', azioni);
+    const uniq = fn => [...new Set(H.map(fn).filter(Boolean))].sort();
+    _popolaSelectFiltro('sfRichiesta', uniq(h=>_ribStorico(h).richiesta));
+    _popolaSelectFiltro('sfEffettiva', uniq(h=>_ribStorico(h).effettiva));
+    _popolaSelectFiltro('sfPosto',     uniq(_daStorico));
+    _popolaSelectFiltro('sfTarga',     uniq(h=>h.plate));
+    _popolaSelectFiltro('sfUtente',    uniq(_utenteStorico));
+    _popolaSelectFiltro('sfAzione',    uniq(h=>h.action));
   }
 
   // leggi filtri (i valori sentinella non vanno normalizzati)
-  const _norm = (v, fn) => (v===F_CON_DATI ? v : fn(v));
-  const sfDa     = document.getElementById('sfDa')?.value || '';
-  const sfA      = document.getElementById('sfA')?.value || '';
-  const sfPosto  = _norm(document.getElementById('sfPosto')?.value || '', v=>v.trim().toUpperCase());
-  const sfAzione = document.getElementById('sfAzione')?.value || '';
-  const sfTarga  = _norm(document.getElementById('sfTarga')?.value || '', v=>v.trim().toUpperCase());
-  const sfTipo   = document.getElementById('sfTipo')?.value || '';
-  const sfUtente = _norm(document.getElementById('sfUtente')?.value || '', v=>v.trim().toLowerCase());
-  const sfRich   = document.getElementById('sfRichiesta')?.value || '';
-  const sfEff    = document.getElementById('sfEffettiva')?.value || '';
+  const _val = id => document.getElementById(id)?.value || '';
+  const sfDa     = _val('sfDa');
+  const sfA      = _val('sfA');
+  const sfPosto  = _val('sfPosto');
+  const sfAzione = _val('sfAzione');
+  const sfTarga  = _val('sfTarga');
+  const sfTipo   = _val('sfTipo');
+  const sfUtente = _val('sfUtente');
+  const sfRich   = _val('sfRichiesta');
+  const sfEff    = _val('sfEffettiva');
+  const sfStato  = _val('sfStatoFin');
 
   const daDt = sfDa ? new Date(sfDa + 'T00:00:00') : null;
   const aDt  = sfA  ? new Date(sfA  + 'T23:59:59') : null;
+  // filtro a tendina: '' = tutti, sentinella = solo righe valorizzate, altrimenti uguaglianza
+  const _match = (f, v) => !f || (f===F_CON_DATI ? !!v : v===f);
 
   let rows = (window.historyCache || []).filter(h => {
     const ts = h.ts?.toDate ? h.ts.toDate() : (h.ts instanceof Date ? h.ts : new Date(h.ts));
     if(daDt && ts < daDt) return false;
     if(aDt  && ts > aDt)  return false;
-    if(sfPosto===F_CON_DATI){ if(!h.spot) return false; }
-    else if(sfPosto  && !(h.spot||'').toUpperCase().includes(sfPosto))   return false;
-    if(sfAzione===F_CON_DATI){ if(!h.action) return false; }
-    else if(sfAzione && h.action !== sfAzione)                            return false;
-    if(sfTarga===F_CON_DATI){ if(!h.plate) return false; }
-    else if(sfTarga  && !(h.plate||'').toUpperCase().includes(sfTarga))  return false;
-    if(sfTipo===F_CON_DATI){
-      if(_tipoRank(h.plate)===0) return false;
-    } else if(sfTipo) {
-      const p = String(h.plate||'').trim();
-      if(sfTipo==='cassa'     && !/^\d{3}$/.test(p))           return false;
-      if(sfTipo==='container' && !window.RE_CONTAINER.test(p))  return false;
-    }
-    if(sfUtente===F_CON_DATI){
-      if(!(h.userName||h.user)) return false;
-    } else if(sfUtente) {
-      const u = (h.userName||h.user||'').toLowerCase();
-      if(!u.includes(sfUtente)) return false;
-    }
+    if(!_match(sfPosto,  _daStorico(h)))      return false;
+    if(!_match(sfAzione, h.action||''))       return false;
+    if(!_match(sfTarga,  h.plate||''))        return false;
+    if(!_match(sfTipo,   _tipoStorico(h)))    return false;
+    if(!_match(sfUtente, _utenteStorico(h)))  return false;
+    if(!_match(sfStato,  _statoFinStorico(h)))return false;
     if(sfRich || sfEff){
       const rb = _ribStorico(h);
-      if(sfRich===F_CON_DATI){ if(!rb.richiesta) return false; }
-      else if(sfRich && rb.richiesta!==sfRich) return false;
-      if(sfEff===F_CON_DATI){ if(!rb.effettiva) return false; }
-      else if(sfEff && rb.effettiva!==sfEff) return false;
+      if(!_match(sfRich, rb.richiesta)) return false;
+      if(!_match(sfEff,  rb.effettiva)) return false;
     }
     return true;
   });
 
   // ordinamento
   const _ts = h => { const d = h.ts?.toDate ? h.ts.toDate() : (h.ts instanceof Date ? h.ts : new Date(h.ts)); return d.getTime() || 0; };
+  const _tipoRk = h => ({cassa:1, container:2})[_tipoStorico(h)] || 0;
   rows.sort((a,b)=>{
     let va,vb;
     switch(storicoSortCol){
-      case 'ts':     va=_ts(a); vb=_ts(b); break;
-      case 'spot':   va=(a.spot||''); vb=(b.spot||''); break;
-      case 'action': va=(a.action||''); vb=(b.action||''); break;
-      case 'plate':  va=(a.plate||''); vb=(b.plate||''); break;
-      case 'tipo':   va=_tipoRank(a.plate); vb=_tipoRank(b.plate); break;
-      case 'utente': va=(a.userName||a.user||'').toLowerCase(); vb=(b.userName||b.user||'').toLowerCase(); break;
+      case 'ts':        va=_ts(a); vb=_ts(b); break;
+      case 'plate':     va=(a.plate||''); vb=(b.plate||''); break;
+      case 'tipo':      va=_tipoRk(a); vb=_tipoRk(b); break;
+      case 'da':        va=_daStorico(a); vb=_daStorico(b); break;
       case 'richiesta': va=_ribStorico(a).richiesta; vb=_ribStorico(b).richiesta; break;
       case 'effettiva': va=_ribStorico(a).effettiva; vb=_ribStorico(b).effettiva; break;
-      default:       va=0; vb=0;
+      case 'action':    va=(a.action||''); vb=(b.action||''); break;
+      case 'stato':     va=_statoFinStorico(a); vb=_statoFinStorico(b); break;
+      case 'utente':    va=_utenteStorico(a).toLowerCase(); vb=_utenteStorico(b).toLowerCase(); break;
+      default:          va=0; vb=0;
     }
     if(va<vb) return storicoSortDir==='asc'?-1:1;
     if(va>vb) return storicoSortDir==='asc'?1:-1;
@@ -486,22 +518,37 @@ function renderStorico(){
   _updateSortArrows('#storicoTable', storicoSortCol, storicoSortDir);
 
   document.getElementById("storicoBody").innerHTML = rows.map(h=>{
-    const tipoMezzo = h.plate
-      ? (/^\d{3}$/.test(String(h.plate).trim()) ? '<span style="color:#f59e0b;font-size:11px;font-weight:600">📦 Cassa</span>'
-        : (window.RE_CONTAINER.test(String(h.plate).trim()) ? '<span style="color:#60a5fa;font-size:11px;font-weight:600">🚢 Container</span>' : '<span style="color:var(--muted);font-size:11px">&mdash;</span>'))
-      : '<span style="color:var(--muted);font-size:11px">&mdash;</span>';
-    const nomeUtente = h.userName || h.user || '&mdash;';
+    const t = _tipoStorico(h);
+    const tipoMezzo = t==='cassa'     ? '<span style="color:#f59e0b;font-size:11px;font-weight:600">📦 Cassa</span>'
+                    : t==='container' ? '<span style="color:#60a5fa;font-size:11px;font-weight:600">🚢 Container</span>'
+                    : dash;
+    const da = _daStorico(h);
+    // uscita: il luogo liberato resta consultabile al passaggio del mouse
+    const daTitle = (h.action==='Uscita veicolo' && h.spot) ? ` title="Uscita da ${_optEsc(h.spot)}"` : '';
+    const daCell = da==='Portineria'
+      ? `<td${daTitle}><span style="font-size:11px;font-weight:600">🚪 Portineria</span></td>`
+      : `<td class="mono">${da ? _optEsc(da) : dash}</td>`;
+    const rb = _ribStorico(h);
+    // posto parcheggio come arrivo: marcato 🅿 per distinguerlo da una ribalta
+    const effTxt = rb.effettiva && !_isRibStorico(rb.effettiva) ? '🅿 ' + rb.effettiva : rb.effettiva;
+    const ribCells = _ribCelle(rb.richiesta, rb.effettiva, effTxt);
+    const st = _statoFinStorico(h);
+    const stato = st==='pieno' ? '<span style="color:#f97316;font-size:11px;font-weight:600">🔴 Pieno</span>'
+                : st==='vuoto' ? '<span style="color:#22c55e;font-size:11px;font-weight:600">🟢 Vuoto</span>'
+                : dash;
+    const nome = _utenteStorico(h);
     return `
     <tr>
       <td class="mono" style="font-size:11px">${fmtDate(h.ts)}</td>
-      <td class="mono">${h.spot}</td>
-      <td>${actionBadge(h.action)}</td>
-      ${(()=>{ const rb=_ribStorico(h); return _ribCelle(rb.richiesta, rb.effettiva); })()}
-      <td class="mono">${h.plate||"&mdash;"}</td>
+      <td class="mono">${h.plate ? _optEsc(h.plate) : dash}</td>
       <td>${tipoMezzo}</td>
-      <td style="color:var(--muted);font-size:11px">${nomeUtente}</td>
+      ${daCell}
+      ${ribCells}
+      <td>${actionBadge(h.action)}</td>
+      <td>${stato}</td>
+      <td style="color:var(--muted);font-size:11px">${nome ? _optEsc(nome) : '&mdash;'}</td>
     </tr>`;
-  }).join("") || '<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:16px">Nessun risultato</td></tr>';
+  }).join("") || '<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:16px">Nessun risultato</td></tr>';
 }
 
 function renderStatistiche(){

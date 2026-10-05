@@ -1046,7 +1046,7 @@ window.confermaDeskCompleta = async function(id) {
     });
     await window.logHistory({
       spot: dest, action: 'Missione completata', tipo: /^\d{3}$/.test(String(plate||'').trim()) ? 'cassa' : 'container', plate,
-      origine: pren?.spotId || null, destinazione: dest, ribaltaRichiesta,
+      origine: pren?.spotId || null, destinazione: dest, ribaltaRichiesta, full: spotFull,
       richiedente: pren?.operatoreNome || pren?.utenteNome || pren?.operatoreEmail || pren?.utenteEmail || null
     });
   } catch(err) {

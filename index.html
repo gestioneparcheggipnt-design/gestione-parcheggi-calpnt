@@ -185,12 +185,13 @@ if(!_forceDesktop && window.innerWidth<=768 && !location.href.includes('mobile.h
       <thead>
         <tr>
           <th class="sortable" onclick="sortStorico('ts')">Data/Ora<span class="sortIndicator"></span></th>
-          <th class="sortable" onclick="sortStorico('spot')">Posto<span class="sortIndicator"></span></th>
-          <th class="sortable" onclick="sortStorico('action')">Azione<span class="sortIndicator"></span></th>
-          <th class="sortable" onclick="sortStorico('richiesta')">Rib. richiesta<span class="sortIndicator"></span></th>
-          <th class="sortable" onclick="sortStorico('effettiva')">Rib. effettiva<span class="sortIndicator"></span></th>
           <th class="sortable" onclick="sortStorico('plate')">Targa<span class="sortIndicator"></span></th>
           <th class="sortable" onclick="sortStorico('tipo')">Tipo<span class="sortIndicator"></span></th>
+          <th class="sortable" onclick="sortStorico('da')">Da<span class="sortIndicator"></span></th>
+          <th class="sortable" onclick="sortStorico('richiesta')">Rib. richiesta<span class="sortIndicator"></span></th>
+          <th class="sortable" onclick="sortStorico('effettiva')">Rib. effettiva<span class="sortIndicator"></span></th>
+          <th class="sortable" onclick="sortStorico('action')">Azione<span class="sortIndicator"></span></th>
+          <th class="sortable" onclick="sortStorico('stato')">Stato finale<span class="sortIndicator"></span></th>
           <th class="sortable" onclick="sortStorico('utente')">Utente<span class="sortIndicator"></span></th>
         </tr>
         <tr class="filterRow">
@@ -198,16 +199,22 @@ if(!_forceDesktop && window.innerWidth<=768 && !location.href.includes('mobile.h
             <input type="date" id="sfDa" oninput="renderStorico()" style="width:110px;font-size:11px">
             <input type="date" id="sfA" oninput="renderStorico()" style="width:110px;font-size:11px;margin-top:3px">
           </td>
-          <td><select id="sfPosto" onchange="renderStorico()"><option value="">Tutti</option></select></td>
-          <td><select id="sfAzione" onchange="renderStorico()"><option value="">Tutti</option></select></td>
-          <td><select id="sfRichiesta" onchange="renderStorico()"><option value="">Tutti</option></select></td>
-          <td><select id="sfEffettiva" onchange="renderStorico()"><option value="">Tutti</option></select></td>
           <td><select id="sfTarga" onchange="renderStorico()"><option value="">Tutti</option></select></td>
           <td><select id="sfTipo" onchange="renderStorico()">
             <option value="">Tutti</option>
             <option value="__CON_DATI__">(solo con dati)</option>
             <option value="cassa">Cassa</option>
             <option value="container">Container</option>
+          </select></td>
+          <td><select id="sfPosto" onchange="renderStorico()"><option value="">Tutti</option></select></td>
+          <td><select id="sfRichiesta" onchange="renderStorico()"><option value="">Tutti</option></select></td>
+          <td><select id="sfEffettiva" onchange="renderStorico()"><option value="">Tutti</option></select></td>
+          <td><select id="sfAzione" onchange="renderStorico()"><option value="">Tutti</option></select></td>
+          <td><select id="sfStatoFin" onchange="renderStorico()">
+            <option value="">Tutti</option>
+            <option value="__CON_DATI__">(solo con dati)</option>
+            <option value="pieno">Pieno</option>
+            <option value="vuoto">Vuoto</option>
           </select></td>
           <td><select id="sfUtente" onchange="renderStorico()"><option value="">Tutti</option></select></td>
         </tr>

@@ -840,7 +840,7 @@ window.cvConferma = async function(id) {
         completataDaUid: user?.uid || null, completataDaNome: user?.name || user?.email || null });
     });
     await window.logHistory({ spot: dest, action: 'Missione completata', tipo: 'cassa', tipoMissione: 'cassa_vuota',
-      plate, origine: luogo, destinazione: dest, ribaltaRichiesta: richiesta,
+      full: false, plate, origine: luogo, destinazione: dest, ribaltaRichiesta: richiesta,
       richiedente: p.utenteNome || p.utenteEmail || null });
     delete _cvState[id];
     if (_openCompletaId === id) _openCompletaId = null;
@@ -866,7 +866,7 @@ async function _soddisfaRichiestaCassa(dest, plate, origine, missioneId) {
     origineTipo: 'ribalta', postoFine: k, ribaltaRichiesta: k, soddisfattaDa: missioneId || null,
   });
   await window.logHistory({ spot: k, action: 'Missione completata', tipo: 'cassa', tipoMissione: 'cassa_vuota',
-    plate: plate || null, origine: origine || null, destinazione: k, ribaltaRichiesta: k,
+    full: false, plate: plate || null, origine: origine || null, destinazione: k, ribaltaRichiesta: k,
     richiedente: r.utenteNome || r.utenteEmail || null, soddisfattaDa: missioneId || null });
   return r.id;
 }
@@ -1623,6 +1623,7 @@ window.confermaNavetta = async function(id) {
     try {
       await window.logHistory({
         spot: arr, action: 'Missione completata', tipo: 'container',
+        full: pren?.faseNavetta ? pren.faseNavetta === 'pieno' : null,
         plate: pren?.navettaId || null, origine: pren?.origine || null,
         destinazione: arr, ribaltaRichiesta: pren?.destinazione || null,
         navettaId: pren?.navettaId || null,
@@ -1742,6 +1743,8 @@ ops.push(window.logHistory({
 spot: dest,
 
 action: isSpost ? 'Ribalta spostata' : 'Missione completata',
+
+full: statoPieno,
 
 tipo: _tipoDaPlate(pren.plate),
 
@@ -1990,7 +1993,7 @@ async function selezionaRibalta_cassa_exec(spotId, plate, ribaltaId, user) {
     ops.push(window.logHistory({
       spot: ribaltaId, action: 'Missione completata', tipo: 'cassa',
       plate: plate || null, origine: spotId, destinazione: ribaltaId,
-      ribaltaRichiesta: null,
+      ribaltaRichiesta: null, full: eraPieno,
     }));
     await Promise.all(ops);
     showToast(`✅ ${plate} → ${ribaltaId}`, 'success');
@@ -2049,7 +2052,7 @@ ribaltaRichiesta: isValidRibalta(pren.destinazione) ? String(pren.destinazione).
 
 ops.push(window.logHistory({
 
-spot: ribaltaId, action: 'Missione completata', tipo: 'cassa',
+spot: ribaltaId, action: 'Missione completata', tipo: 'cassa', full: eraPieno,
 
 plate: pren.plate || null, origine: spotId, destinazione: ribaltaId,
 

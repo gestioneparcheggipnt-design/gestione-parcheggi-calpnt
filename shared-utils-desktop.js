@@ -59,7 +59,8 @@ window.clampP  = clampP;
 // Qualsiasi campo extra passato (mode, origine, destinazione, richiedente…) viene incluso.
 window.logHistory = function(entry = {}) {
   const u = window.currentUser || {};
-  const nome = u.name || u.email || '—';
+  // solo il nome utente: mai l'email (fallback: parte prima della @)
+  const nome = u.name || (u.email ? String(u.email).split('@')[0] : '—');
   const { spot = null, action = null, plate = null, ...rest } = entry;
   return addDoc(collection(window.db, 'history'), {
     ...rest,

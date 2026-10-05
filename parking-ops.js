@@ -25,7 +25,7 @@ async function inlineAssign(id){
       occupied: true, plate, since: serverTimestamp(), user: window.currentUser.email, damaged, full
     });
     await window.logHistory({
-      spot:id, action:"Assegnato", plate, damaged, mode: window.currentMode
+      spot:id, action:"Assegnato", plate, damaged, full, mode: window.currentMode
     });
     window.selectSpot(id);
     window.showToast(`Posto ${id} assegnato a ${plate}${damaged?" ⚠️ danneggiato":""}${full?" 🟡 pieno":""}`, "success");
