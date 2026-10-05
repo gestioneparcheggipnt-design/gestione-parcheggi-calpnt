@@ -67,6 +67,7 @@ function startListeners(){
   if (window.NavetteCore) {
     window.NavetteCore.startNavetteListener(() => {
       if (window.currentUser?.role !== 'portineria') {
+        try { renderSearch(); } catch(e){}
         if (window._aggiornaVistaPrenotazioni) try { window._aggiornaVistaPrenotazioni(); } catch(e){}
         if (window.renderNavettePanel) try { window.renderNavettePanel(); } catch(e){}
         if (window.renderImpostazioni && document.getElementById('pageImpostazioni')?.classList.contains('active'))

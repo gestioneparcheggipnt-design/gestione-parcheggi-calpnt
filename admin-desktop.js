@@ -127,6 +127,18 @@ function _tipoRank(plate){
   return 0;
 }
 
+// Navette (navettaggi interni) per ribalta: le navette NON scrivono su `ribalte`,
+// la loro posizione vive solo in navette.posizione → la mappiamo qui.
+function _navettePerRibalta(){
+  const m = {};
+  Object.values(window.navette||{}).forEach(n=>{
+    const pos = String(n.posizione||'').trim().toUpperCase();
+    if(pos) m[pos] = n;
+  });
+  return m;
+}
+function _isNavettaRow(r){ return !!(r && r.navetta); }
+
 // chiave giorno (DD/MM/YYYY) da Date / Timestamp Firestore / stringa
 function _giornoKey(v){
   if(!v) return '';
@@ -165,7 +177,8 @@ function doSearch(){
     // Posto: parcheggi + ribalte (fonte di verità REPARTI, non solo quelle su Firestore)
     const ribalteIds = window.REPARTI ? Object.values(window.REPARTI).flat() : [];
     const posti  = [...new Set(spotsArr.map(s=>s.id).concat(ribalteIds))].sort();
-    const targhe = [...new Set(tutti.map(x=>x.plate).filter(Boolean))].sort();
+    const _navNomi = Object.values(window.navette||{}).filter(n=>n.posizione).map(n=>n.nome);
+    const targhe = [...new Set(tutti.map(x=>x.plate).filter(Boolean).concat(_navNomi))].sort();
     const utenti = [...new Set(tutti.map(x=>x.userName||x.user).filter(Boolean))].sort();
     const _kt = k => { const [d,m,y]=k.split('/'); return new Date(+y,+m-1,+d).getTime(); };
     const giorni = [...new Set(tutti.map(x=>_giornoKey(x.since)).filter(Boolean))].sort((a,b)=>_kt(b)-_kt(a));
@@ -269,13 +282,21 @@ function doSearch(){
   if(showRibalte && window.REPARTI){
     // Lista completa da REPARTI (fonte di verità); merge dati Firestore per quelle occupate
     const tutteLeRibalte = Object.values(window.REPARTI).flat();
+    const _navMap = _navettePerRibalta();
     let ribalteArr = tutteLeRibalte.map(id => {
       const fs = (window.ribalte||{})[id];
+      const nav = _navMap[String(id).trim().toUpperCase()];
+      // ribalta senza mezzo "normale" ma con una navetta parcheggiata → occupata dalla navetta
+      if(nav && !(fs && fs.occupied)){
+        return { id, occupied:true, plate:nav.nome, since:nav.vuotoDa||null, user:null,
+                 full: nav.stato==='pieno', navetta:nav };
+      }
       return fs ? fs : { id, occupied:false, plate:null, since:null, user:null, full:false };
     });
     // filtro posto
     if(fPosto) ribalteArr = ribalteArr.filter(r=>r.id===fPosto);
     // filtro targa
+    if(q && type==="posto") ribalteArr = ribalteArr.filter(r=>String(r.id).toUpperCase().includes(q));
     if(q && type==="targa") ribalteArr = ribalteArr.filter(r=>r.plate&&r.plate.toUpperCase().includes(q));
     if(fTarga===F_CON_DATI) ribalteArr = ribalteArr.filter(r=>!!r.plate);
     else if(fTarga) ribalteArr = ribalteArr.filter(r=>r.plate&&r.plate.toUpperCase().includes(fTarga));
@@ -283,15 +304,15 @@ function doSearch(){
     if(fStato==="libero")             ribalteArr = ribalteArr.filter(r=>!r.occupied);
     if(fStato==="occupato")           ribalteArr = ribalteArr.filter(r=>r.occupied);
     if(fStato==="occupato-cassa")     ribalteArr = ribalteArr.filter(r=>r.occupied && r.plate && /^\d{3}$/.test(r.plate.trim()));
-    if(fStato==="occupato-container") ribalteArr = ribalteArr.filter(r=>r.occupied && r.plate && window.RE_CONTAINER.test(r.plate.trim()));
+    if(fStato==="occupato-container") ribalteArr = ribalteArr.filter(r=>r.occupied && (_isNavettaRow(r) || (r.plate && window.RE_CONTAINER.test(r.plate.trim()))));
     // filtro pieno: solo ribalte occupate (le libere non hanno un mezzo)
     if(fPieno===F_CON_DATI) ribalteArr = ribalteArr.filter(r=>r.occupied);
     if(fPieno==="pieno") ribalteArr = ribalteArr.filter(r=>r.occupied && r.full);
     if(fPieno==="vuoto") ribalteArr = ribalteArr.filter(r=>r.occupied && !r.full);
     // filtro tipo mezzo
-    if(fTipo===F_CON_DATI)  ribalteArr = ribalteArr.filter(r=>_tipoRank(r.plate)>0);
-    if(fTipo==="cassa")     ribalteArr = ribalteArr.filter(r=>r.plate && /^\d{3}$/.test(r.plate.trim()));
-    if(fTipo==="container") ribalteArr = ribalteArr.filter(r=>r.plate && window.RE_CONTAINER.test(r.plate.trim()));
+    if(fTipo===F_CON_DATI)  ribalteArr = ribalteArr.filter(r=>_isNavettaRow(r) || _tipoRank(r.plate)>0);
+    if(fTipo==="cassa")     ribalteArr = ribalteArr.filter(r=>!_isNavettaRow(r) && r.plate && /^\d{3}$/.test(r.plate.trim()));
+    if(fTipo==="container") ribalteArr = ribalteArr.filter(r=>_isNavettaRow(r) || (r.plate && window.RE_CONTAINER.test(r.plate.trim())));
     // filtro utente
     if(fUtente===F_CON_DATI) ribalteArr = ribalteArr.filter(r=>!!(r.userName||r.user));
     else if(fUtente) ribalteArr = ribalteArr.filter(r=>(r.userName||r.user||"")===fUtente);
@@ -304,7 +325,9 @@ function doSearch(){
     // sort
     ribalteArr.sort((a,b)=>a.id.localeCompare(b.id));
     rowsRibalte = ribalteArr.map(r=>{
-      const tipoMezzo = r.plate
+      const tipoMezzo = _isNavettaRow(r)
+        ? '<span style="color:#60a5fa;font-size:11px;font-weight:600">🚚 Navetta</span>'
+        : r.plate
         ? (/^\d{3}$/.test(r.plate.trim()) ? '<span style="color:#f59e0b;font-size:11px;font-weight:600">📦 Cassa</span>'
           : (window.RE_CONTAINER.test(r.plate.trim()) ? '<span style="color:#60a5fa;font-size:11px;font-weight:600">🚢 Container</span>' : '<span style="color:var(--muted);font-size:11px">&mdash;</span>'))
         : '<span style="color:var(--muted);font-size:11px">&mdash;</span>';
@@ -317,7 +340,7 @@ function doSearch(){
         <td>${tipoMezzo}</td>
         <td>${r.since?fmtDate(r.since):"&mdash;"}</td>
         <td style="text-align:center"><span style="color:var(--muted);font-size:12px">&mdash;</span></td>
-        <td style="text-align:center">${r.occupied ? (r.full ? '<span class="tagPieno">🔴 Piena/o</span>' : '<span class="tagVuoto">🟢 Vuota/o</span>') : '<span style="color:var(--muted);font-size:12px">&mdash;</span>'}</td>
+        <td style="text-align:center">${(_isNavettaRow(r) && r.navetta.stato==='in_missione') ? '<span style="color:#60a5fa;font-size:12px;font-weight:600">🚚 In missione</span>' : r.occupied ? (r.full ? '<span class="tagPieno">🔴 Piena/o</span>' : '<span class="tagVuoto">🟢 Vuota/o</span>') : '<span style="color:var(--muted);font-size:12px">&mdash;</span>'}</td>
         ${_statoVeicoloCella(_statoVeicolo(r,true,_prenotate))}
         <td style="color:var(--muted);font-size:11px">${nomeUtente}</td>
       </tr>`;});
