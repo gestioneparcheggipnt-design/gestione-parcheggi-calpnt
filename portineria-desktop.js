@@ -1,4 +1,4 @@
-import { addDoc, collection, doc, getDoc, getDocs, limit, query, setDoc, where } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
+import { addDoc, collection, doc, getDoc, getDocs, limit, query, setDoc, where, writeBatch } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
 // ── PORTINERIA-DESKTOP.JS ─────────────────────────────────────────────────────────
 
 // Suggerimento posto in base a tipo veicolo + stato (pieno/vuoto)
@@ -205,6 +205,19 @@ let _portTipo          = null;  // 'container' | 'cassa'
 let _portRibModo        = false; // flag "invia a ribalta" attivo
 let _portRibEdificio    = null;  // 'PNT1' | 'PNT2'
 let _portRibSelezionata = null;  // id ribalta selezionata
+// Due casse insieme (solo destinazione parcheggio)
+let _portDoppio         = false; // flag "due casse insieme" attivo
+let _portSpotSuggerito2 = null;  // posto suggerito per la seconda cassa
+let _portVeicolo2       = null;
+let _portStato2         = null;
+
+// Istruzioni percorso per zona (lettera iniziale del posto)
+const _PORT_ISTRUZIONI = {
+    'B': ['Esci dall\'area portineria verso destra', 'Percorri il viale principale in direzione nord', 'Il Parcheggio BLU è sulla destra all\'ingresso dell\'area'],
+    'A': ['Esci dall\'area portineria verso destra', 'Percorri il viale principale in direzione nord', 'Il Parcheggio VERDE è a sinistra prima dell\'edificio principale'],
+    'C': ['Esci dall\'area portineria verso sinistra', 'Percorri il perimetro esterno in senso antiorario', 'La Zona C è sul lato ovest dell\'impianto'],
+    'D': ['Esci dall\'area portineria verso sinistra', 'Percorri il perimetro esterno fino al fondo', 'La Zona D è sul lato sud-ovest dell\'impianto'],
+  };
 
 // ── HELPER: rileva tipo da id ────────────────────────────────────────────────
 function _portRilevaTipo(id) {
@@ -247,9 +260,12 @@ async function portineriaCerca() {
   const stato   = document.getElementById('port-stato').value;
   const resEl   = document.getElementById('port-result');
 
-  _portSpotSuggerito = null;
+  _portSpotSuggerito  = null;
+  _portSpotSuggerito2 = null;
   document.getElementById('port-btn-conferma').disabled = true;
   document.getElementById('port-btn-stampa').disabled   = true;
+
+  if (_portDoppio) return _portCercaDoppio();
 
   if (!veicolo) {
     resEl.innerHTML = '<div class="port-err">⚠ Inserisci l\'identificativo del veicolo.</div>';
@@ -299,13 +315,8 @@ async function portineriaCerca() {
   const zona     = posto[0];
   const slideIdx = SPOT_SLIDE[posto];
 
-  // Istruzioni percorso per zona
-  const istruzioni = {
-    'B': ['Esci dall\'area portineria verso destra', 'Percorri il viale principale in direzione nord', 'Il Parcheggio BLU è sulla destra all\'ingresso dell\'area'],
-    'A': ['Esci dall\'area portineria verso destra', 'Percorri il viale principale in direzione nord', 'Il Parcheggio VERDE è a sinistra prima dell\'edificio principale'],
-    'C': ['Esci dall\'area portineria verso sinistra', 'Percorri il perimetro esterno in senso antiorario', 'La Zona C è sul lato ovest dell\'impianto'],
-    'D': ['Esci dall\'area portineria verso sinistra', 'Percorri il perimetro esterno fino al fondo', 'La Zona D è sul lato sud-ovest dell\'impianto'],
-  };
+  const istruzioni = _PORT_ISTRUZIONI;
+
   const steps = istruzioni[zona] || ['Seguire indicazioni sulla mappa stampata'];
 
   resEl.innerHTML = `
@@ -338,6 +349,10 @@ function porteriaReset() {
   document.getElementById('port-result').innerHTML = '';
   document.getElementById('port-btn-conferma').disabled = true;
   document.getElementById('port-btn-stampa').disabled   = true;
+  // Reset modalità due casse
+  const _dflag = document.getElementById('port-doppio-flag');
+  if (_dflag) _dflag.checked = false;
+  portDoppioToggle(false);
   // Reset modalità ribalta
   const _flag = document.getElementById('port-rib-flag');
   if (_flag) _flag.checked = false;
@@ -347,6 +362,7 @@ function porteriaReset() {
 // ── CONFERMA ASSEGNAZIONE ────────────────────────────────────────────────────
 async function porteriaConferma() {
   if (!_portSpotSuggerito || !_portVeicolo) return;
+  if (_portSpotSuggerito2) return _portConfermaDoppio();
 
   const id     = _portSpotSuggerito;
   const veicolo = _portVeicolo;
@@ -428,32 +444,44 @@ async function porteriaConferma() {
 // ── STAMPA MAPPA PERCORSO ────────────────────────────────────────────────────
 function porteriaStampa() {
   if (!_portSpotSuggerito) return;
-
-  const posto    = _portSpotSuggerito;
-  const slideIdx = SPOT_SLIDE[posto];
-  const imgSrc   = MAPPE_PERCORSO[slideIdx];
-  if (!imgSrc) {
-    window.showToast('Mappa percorso non configurata per il posto ' + posto + '.', 'error');
-    return;
+  const posti = _portSpotSuggerito2 ? [_portSpotSuggerito, _portSpotSuggerito2] : [_portSpotSuggerito];
+  // Posti sulla stessa mappa → stessa pagina (etichette impilate nel riquadro);
+  // mappe diverse → una pagina per mappa, nella stessa stampa.
+  const pagine = [];
+  for (const posto of posti) {
+    const slide = SPOT_SLIDE[posto];
+    const img   = MAPPE_PERCORSO[slide];
+    if (!img) {
+      window.showToast('Mappa percorso non configurata per il posto ' + posto + '.', 'error');
+      return;
+    }
+    const pg = pagine.find(p => p.slide === slide);
+    if (pg) pg.labels.push(posto); else pagine.push({ slide, img, labels: [posto] });
   }
+  _portApriStampa('Mappa Percorso – Posto ' + posti.join(' · '),
+                  pagine.map(p => ({ img: p.img, labels: p.labels })), RECT_LABEL);
+}
 
-  // Crea finestra di stampa con canvas: disegna immagine + etichetta posto
+// Finestra di stampa A4 landscape: una pagina per elemento di `pagine`
+// ({img, labels:[...]}). Le etichette sono scritte nel riquadro `rect`
+// (px su immagine 1500x1125): 1 etichetta = grande e centrata, 2+ = impilate.
+function _portApriStampa(titolo, pagine, rect) {
   const printWin = window.open('', '_blank', 'width=1200,height=900');
   if (!printWin) {
     window.showToast('Popup bloccato. Abilita i popup per questo sito.', 'error');
     return;
   }
-
   printWin.document.write(`<!DOCTYPE html>
 <html>
 <head>
   <meta charset="utf-8">
-  <title>Mappa Percorso – Posto ${posto}</title>
+  <title>${titolo}</title>
   <style>
     @page { size: A4 landscape; margin: 0; }
     * { margin:0; padding:0; box-sizing:border-box; }
-    body { width:297mm; height:210mm; overflow:hidden; background:#fff; }
-    canvas { display:block; width:297mm; height:210mm; }
+    body { width:297mm; background:#fff; }
+    canvas { display:block; width:297mm; height:210mm; break-after:page; page-break-after:always; }
+    canvas:last-of-type { break-after:auto; page-break-after:auto; }
     .no-print { position:fixed; top:10px; right:10px; z-index:999;
                 background:#A4D200; color:#1a1a1a; border:none; padding:10px 20px;
                 font-size:16px; font-weight:700; border-radius:6px; cursor:pointer; }
@@ -462,54 +490,251 @@ function porteriaStampa() {
 </head>
 <body>
   <button class="no-print" onclick="window.print()">🖨 Stampa</button>
-  <canvas id="printCanvas"></canvas>
   <script>
-    const canvas = document.getElementById('printCanvas');
-    // A4 landscape a 150dpi: 297mm * 5.906px/mm ≈ 1754px, 210mm ≈ 1240px
-    // La nostra immagine è 1500x1125 (ratio 4:3) → la adattiamo all'A4 landscape
-    canvas.width  = 1754;
-    canvas.height = 1240;
-    const ctx = canvas.getContext('2d');
-
-    const img = new Image();
-    img.onload = function() {
-      // Disegna mappa adattata all'intera area canvas
-      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-
-      // Calcola coordinate rettangolo scalate
-      const scaleX = canvas.width  / 1500;
-      const scaleY = canvas.height / 1125;
-      const rx = Math.round(${RECT_LABEL.x} * scaleX);
-      const ry = Math.round(${RECT_LABEL.y} * scaleY);
-      const rw = Math.round(${RECT_LABEL.w} * scaleX);
-      const rh = Math.round(${RECT_LABEL.h} * scaleY);
-
-      // Rettangolo: sfondo bianco/chiaro con bordo nero
-      ctx.fillStyle = '#f8f8f8';
-      ctx.fillRect(rx, ry, rw, rh);
-      ctx.strokeStyle = '#000000';
-      ctx.lineWidth = Math.round(rw * 0.02);
-      ctx.strokeRect(rx, ry, rw, rh);
-
-      // Testo nero centrato, font auto-fit per stare su una riga
-      const label = '${posto}';
-      ctx.fillStyle    = '#000000';
-      ctx.textAlign    = 'center';
-      ctx.textBaseline = 'middle';
-      // Calcola font size massimo che fa stare il testo su una riga
-      let fontSize = Math.round(rh * 0.55);
-      ctx.font = 'bold ' + fontSize + 'px "Barlow Condensed", Arial, sans-serif';
-      while (ctx.measureText(label).width > rw * 0.85 && fontSize > 10) {
-        fontSize -= 2;
-        ctx.font = 'bold ' + fontSize + 'px "Barlow Condensed", Arial, sans-serif';
-      }
-      ctx.fillText(label, rx + rw/2, ry + rh/2);
-    };
-    img.src = '${imgSrc}';
+    const PAGINE = ${JSON.stringify(pagine)};
+    const R      = ${JSON.stringify(rect)};
+    const FONT   = 'px "Barlow Condensed", Arial, sans-serif';
+    PAGINE.forEach(function(pg) {
+      // A4 landscape a 150dpi ≈ 1754x1240; immagini 1500x1125 adattate all'area
+      const canvas = document.createElement('canvas');
+      canvas.width = 1754; canvas.height = 1240;
+      document.body.appendChild(canvas);
+      const ctx = canvas.getContext('2d');
+      const img = new Image();
+      img.onload = function() {
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        const sx = canvas.width / 1500, sy = canvas.height / 1125;
+        const rx = Math.round(R.x * sx), ry = Math.round(R.y * sy);
+        const rw = Math.round(R.w * sx), rh = Math.round(R.h * sy);
+        // Riquadro: sfondo chiaro, bordo nero
+        ctx.fillStyle = '#f8f8f8'; ctx.fillRect(rx, ry, rw, rh);
+        ctx.strokeStyle = '#000000'; ctx.lineWidth = Math.round(rw * 0.02); ctx.strokeRect(rx, ry, rw, rh);
+        // Etichette: font auto-fit, una per riga
+        const n = pg.labels.length, lineH = rh / n;
+        let fs = Math.round(n === 1 ? rh * 0.55 : lineH * 0.72);
+        ctx.font = 'bold ' + fs + FONT;
+        while (pg.labels.some(l => ctx.measureText(l).width > rw * 0.85) && fs > 10) {
+          fs -= 2; ctx.font = 'bold ' + fs + FONT;
+        }
+        ctx.fillStyle = '#000000'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        pg.labels.forEach((l, i) => ctx.fillText(l, rx + rw / 2, ry + lineH * (i + 0.5)));
+      };
+      img.src = pg.img;
+    });
   <\/script>
 </body>
 </html>`);
   printWin.document.close();
+}
+
+// ── DUE CASSE INSIEME (solo destinazione parcheggio) ─────────────────────────
+// L'operatore attiva il flag e compila la seconda riga. Le due casse vengono
+// assegnate nella stessa zona (B / C / D) se possibile, confermate insieme
+// (writeBatch: o entrambe o nessuna) e stampate su un unico foglio.
+
+function _portAzzeraSuggerimento() {
+  _portSpotSuggerito  = null;
+  _portSpotSuggerito2 = null;
+  const r = document.getElementById('port-result'); if (r) r.innerHTML = '';
+  const bc = document.getElementById('port-btn-conferma');
+  if (bc) { bc.disabled = true; bc.textContent = '✔ Conferma Assegnazione'; }
+  const bs = document.getElementById('port-btn-stampa'); if (bs) bs.disabled = true;
+}
+
+// Attiva/disattiva "due casse insieme". Esclusivo con "invia a ribalta".
+function portDoppioToggle(on) {
+  _portDoppio = !!on;
+  const row2 = document.getElementById('port-row2');
+  if (row2) row2.style.display = on ? 'flex' : 'none';
+  const rf = document.getElementById('port-rib-flag');
+  if (rf) {
+    rf.disabled = !!on;
+    const lb = rf.closest('label'); if (lb) lb.style.opacity = on ? '.45' : '';
+  }
+  if (!on) {
+    const v2 = document.getElementById('port-veicolo2'); if (v2) v2.value = '';
+    const s2 = document.getElementById('port-stato2');   if (s2) s2.value = 'pieno';
+  }
+  _portAzzeraSuggerimento();
+}
+
+// Posti cassa liberi per uno stato, in ordine alfanumerico (B01… / C01…D15)
+function _portLiberiCassa(stato) {
+  return Object.entries(SPOT_CRITERI)
+    .filter(([, c]) => c.tipo === 'cassa' && c.stato === stato)
+    .map(([id]) => id)
+    .sort()
+    .filter(id => window.spots[id] && !window.spots[id].occupied);
+}
+
+// Sceglie i due posti. Zona = lettera del posto.
+//  - stesso stato: prima zona con ≥2 posti liberi; altrimenti zone diverse (avviso)
+//  - stato diverso: le regole mettono pieno e vuoto in zone diverse (avviso)
+function _portAssegnaCoppia(s1, s2) {
+  const l1 = _portLiberiCassa(s1);
+  if (s1 === s2) {
+    if (l1.length < 2) {
+      return { ok:false, msg:`⚠ Servono 2 posti liberi per cassa <strong>${s1}</strong>: disponibili ${l1.length}.` };
+    }
+    for (const z of [...new Set(l1.map(id => id[0]))]) {
+      const inZona = l1.filter(id => id[0] === z);
+      if (inZona.length >= 2) return { ok:true, p1:inZona[0], p2:inZona[1], avviso:null };
+    }
+    return { ok:true, p1:l1[0], p2:l1[1],
+             avviso:'Nessuna zona ha 2 posti liberi: le casse sono assegnate in zone diverse.' };
+  }
+  const l2 = _portLiberiCassa(s2);
+  if (!l1.length || !l2.length) {
+    return { ok:false, msg:`⚠ Nessun posto libero per cassa <strong>${!l1.length ? s1 : s2}</strong>.` };
+  }
+  return { ok:true, p1:l1[0], p2:l2[0],
+           avviso:'Le due casse hanno stato diverso (pieno / vuoto): vanno in zone diverse.' };
+}
+
+async function _portCercaDoppio() {
+  const resEl = document.getElementById('port-result');
+  const v1 = window.normalizzaId(document.getElementById('port-veicolo').value  || '');
+  const v2 = window.normalizzaId(document.getElementById('port-veicolo2').value || '');
+  const s1 = document.getElementById('port-stato').value;
+  const s2 = document.getElementById('port-stato2').value;
+
+  if (!v1 || !v2) {
+    resEl.innerHTML = '<div class="port-err">⚠ Inserisci l\'identificativo di entrambe le casse.</div>';
+    return;
+  }
+  if (_portRilevaTipo(v1) !== 'cassa' || _portRilevaTipo(v2) !== 'cassa') {
+    resEl.innerHTML = '<div class="port-err">⚠ L\'ingresso di due mezzi insieme vale solo per <strong>due casse</strong> (3 cifre, es. 042).<br>Per i container usa il form singolo, una volta per mezzo.</div>';
+    return;
+  }
+  if (v1 === v2) {
+    resEl.innerHTML = '<div class="port-err">⚠ Le due casse hanno lo stesso identificativo.</div>';
+    return;
+  }
+
+  resEl.innerHTML = '<div class="port-err" style="opacity:.6">🔍 Verifica in corso…</div>';
+  try {
+    for (const v of [v1, v2]) {
+      const _dup = await _portVerificaPresenza(v);
+      if (_dup) {
+        resEl.innerHTML = `<div class="port-err">⚠ ${_dup}<br>Impossibile assegnare i posti.</div>`;
+        return;
+      }
+    }
+  } catch (_portE) {
+    console.error('Verifica duplicato portineria:', _portE);
+    resEl.innerHTML = `<div class="port-err">${_PORT_MSG_VERIFICA_KO}</div>`;
+    return;
+  }
+
+  const a = _portAssegnaCoppia(s1, s2);
+  if (!a.ok) { resEl.innerHTML = `<div class="port-err">${a.msg}</div>`; return; }
+
+  _portSpotSuggerito  = a.p1; _portVeicolo  = v1; _portStato  = s1; _portTipo = 'cassa';
+  _portSpotSuggerito2 = a.p2; _portVeicolo2 = v2; _portStato2 = s2;
+
+  const cap = t => t.charAt(0).toUpperCase() + t.slice(1);
+  const zone = [...new Set([a.p1[0], a.p2[0]])];
+  const percorso = zone.map(z => {
+    const steps = _PORT_ISTRUZIONI[z] || ['Seguire indicazioni sulla mappa stampata'];
+    const head  = zone.length > 1 ? `<div style="margin-top:6px"><strong>Zona ${z}</strong></div>` : '';
+    return head + '<ol>' + steps.map(st => '<li>' + st + '</li>').join('') + '</ol>';
+  }).join('');
+
+  resEl.innerHTML = `
+    <div class="port-ok">
+      <div class="port-ok-badge">Posti suggeriti · 2 casse</div>
+      <div class="port-ok-spot">${a.p1} · ${a.p2}</div>
+      <div class="port-ok-info">
+        Cassa <strong>${v1}</strong> (${cap(s1)}) → <strong>${a.p1}</strong> &nbsp;·&nbsp;
+        Cassa <strong>${v2}</strong> (${cap(s2)}) → <strong>${a.p2}</strong>
+      </div>
+      ${a.avviso ? `<div class="port-err" style="margin-bottom:12px">⚠ ${a.avviso}</div>` : ''}
+      <div class="port-ok-istruzioni">
+        <strong>Percorso:</strong>
+        ${percorso}
+      </div>
+    </div>`;
+
+  document.getElementById('port-btn-conferma').disabled = false;
+  document.getElementById('port-btn-stampa').disabled   = false;
+}
+
+async function _portConfermaDoppio() {
+  const p1 = _portSpotSuggerito,  p2 = _portSpotSuggerito2;
+  const v1 = _portVeicolo,        v2 = _portVeicolo2;
+  const s1 = _portStato,          s2 = _portStato2;
+  const btn   = document.getElementById('port-btn-conferma');
+  const resEl = document.getElementById('port-result');
+
+  // Posti ancora liberi? (race condition)
+  if ([p1, p2].some(id => window.spots[id] && window.spots[id].occupied)) {
+    _portAzzeraSuggerimento();
+    resEl.innerHTML = '<div class="port-err">⚠ Uno dei posti è stato occupato nel frattempo. Clicca "Cerca Posto" per nuovi suggerimenti.</div>';
+    return;
+  }
+
+  btn.disabled = true;
+  btn.textContent = 'Assegnazione in corso...';
+
+  // Ricontrollo presenza di entrambe le casse
+  try {
+    for (const v of [v1, v2]) {
+      const _dup = await _portVerificaPresenza(v);
+      if (_dup) {
+        _portAzzeraSuggerimento();
+        resEl.innerHTML = `<div class="port-err">⚠ ${_dup}<br>Assegnazione annullata.</div>`;
+        return;
+      }
+    }
+  } catch (_portE) {
+    console.error('Verifica duplicato portineria:', _portE);
+    resEl.innerHTML = `<div class="port-err">${_PORT_MSG_VERIFICA_KO}</div>`;
+    btn.disabled = false;
+    btn.textContent = '✔ Conferma Assegnazione';
+    return;
+  }
+
+  try {
+    const now    = new Date();
+    const email  = window.currentUser.email;
+    const gruppo = 'ING-' + now.getTime();   // collega le due righe di storico
+    const batch  = writeBatch(window.db);
+    batch.set(doc(window.db, 'spots', p1), { occupied:true, plate:v1, since:now, user:email, full: s1 === 'pieno' });
+    batch.set(doc(window.db, 'spots', p2), { occupied:true, plate:v2, since:now, user:email, full: s2 === 'pieno' });
+    await batch.commit();
+
+    await Promise.all([
+      window.logHistory({ spot:p1, action:'checkin', plate:v1, origine:'portineria', full: s1 === 'pieno',
+                          tipo:'cassa', gruppoIngresso:gruppo, abbinatoA:v2 }),
+      window.logHistory({ spot:p2, action:'checkin', plate:v2, origine:'portineria', full: s2 === 'pieno',
+                          tipo:'cassa', gruppoIngresso:gruppo, abbinatoA:v1 }),
+    ]);
+
+    // Aggiorna stato locale subito (il listener aggiornerà dopo)
+    [[p1, v1], [p2, v2]].forEach(([id, v]) => {
+      if (window.spots[id]) {
+        window.spots[id].occupied = true;
+        window.spots[id].plate    = v;
+        window.spots[id].since    = now;
+      }
+    });
+
+    window.showToast('Posti ' + p1 + ' e ' + p2 + ' assegnati a ' + v1 + ' e ' + v2);
+    // Pulisce gli input, mantiene risultato e stampa attivi
+    document.getElementById('port-veicolo').value  = '';
+    document.getElementById('port-stato').value    = 'pieno';
+    document.getElementById('port-veicolo2').value = '';
+    document.getElementById('port-stato2').value   = 'pieno';
+    btn.textContent = '✔ Assegnato';
+    btn.disabled = true;
+    document.getElementById('port-btn-stampa').disabled = false;
+
+  } catch (e) {
+    console.error('Errore assegnazione coppia portineria:', e);
+    window.showToast('Errore durante l\'assegnazione. Nessun posto è stato occupato. Riprova.', 'error');
+    btn.disabled = false;
+    btn.textContent = '✔ Conferma Assegnazione';
+  }
 }
 
 // ── ESPOSIZIONE GLOBALI ───────────────────────────────────────────────────────
@@ -546,6 +771,11 @@ async function _portRibalteOccupate(){
 // Attiva/disattiva la modalità "invia a ribalta".
 function portRibToggle(on){
   _portRibModo = !!on;
+  const _df = document.getElementById('port-doppio-flag');
+  if (_df) {
+    _df.disabled = !!on;
+    const _lb = _df.closest('label'); if (_lb) _lb.style.opacity = on ? '.45' : '';
+  }
   _portRibEdificio    = null;
   _portRibSelezionata = null;
   const panel    = document.getElementById('port-rib-panel');
@@ -705,6 +935,10 @@ async function portRibConferma(){
 function portRibStampa(id){
   const slide  = _ribaltaSlide(id);
   const imgSrc = slide ? MAPPE_PERCORSO[slide] : null;
+  if (imgSrc){
+    _portApriStampa('Mappa Percorso – Ribalta ' + id, [{ img: imgSrc, labels: [id] }], RECT_LABEL_RIBALTA);
+    return;
+  }
   const printWin = window.open('', '_blank', 'width=1200,height=900');
   if (!printWin){ window.showToast('Popup bloccato. Abilita i popup per questo sito.', 'error'); return; }
 
@@ -723,33 +957,13 @@ body{width:297mm;height:210mm;display:flex;flex-direction:column;align-items:cen
     return;
   }
 
-  const RL = RECT_LABEL_RIBALTA;
-  printWin.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Mappa Percorso – Ribalta ${id}</title>
-<style>@page{size:A4 landscape;margin:0}*{margin:0;padding:0;box-sizing:border-box}
-body{width:297mm;height:210mm;overflow:hidden;background:#fff}canvas{display:block;width:297mm;height:210mm}
-.no-print{position:fixed;top:10px;right:10px;z-index:999;background:#A4D200;color:#1a1a1a;border:none;padding:10px 20px;font-size:16px;font-weight:700;border-radius:6px;cursor:pointer}
-@media print{.no-print{display:none}}</style></head>
-<body><button class="no-print" onclick="window.print()">🖨 Stampa</button><canvas id="printCanvas"></canvas>
-<script>
-const canvas=document.getElementById('printCanvas');canvas.width=1754;canvas.height=1240;
-const ctx=canvas.getContext('2d');const img=new Image();
-img.onload=function(){ctx.drawImage(img,0,0,canvas.width,canvas.height);
-const sx=canvas.width/1500,sy=canvas.height/1125;
-const rx=Math.round(${RL.x}*sx),ry=Math.round(${RL.y}*sy),rw=Math.round(${RL.w}*sx),rh=Math.round(${RL.h}*sy);
-ctx.fillStyle='#f8f8f8';ctx.fillRect(rx,ry,rw,rh);ctx.strokeStyle='#000';ctx.lineWidth=Math.round(rw*0.02);ctx.strokeRect(rx,ry,rw,rh);
-const label='${id}';ctx.fillStyle='#000';ctx.textAlign='center';ctx.textBaseline='middle';
-let fs=Math.round(rh*0.55);ctx.font='bold '+fs+'px "Barlow Condensed",Arial,sans-serif';
-while(ctx.measureText(label).width>rw*0.85&&fs>10){fs-=2;ctx.font='bold '+fs+'px "Barlow Condensed",Arial,sans-serif';}
-ctx.fillText(label,rx+rw/2,ry+rh/2);};
-img.src='${imgSrc}';
-<\/script></body></html>`);
-  printWin.document.close();
 }
 
 window.portineriaCerca   = portineriaCerca;
 window.porteriaReset     = porteriaReset;
 window.porteriaConferma  = porteriaConferma;
 window.porteriaStampa    = porteriaStampa;
+window.portDoppioToggle  = portDoppioToggle;
 // ── VEICOLO IN USCITA ─────────────────────────────────────────────────────────
 // Dichiara l'uscita di un veicolo (cassa/container). Verifica: (1) nessuna
 // missione attiva; (2) il veicolo è in un parcheggio o in una ribalta occupata.

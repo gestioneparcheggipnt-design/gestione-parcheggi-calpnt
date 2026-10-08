@@ -452,6 +452,32 @@ if(!_forceDesktop && window.innerWidth<=768 && !location.href.includes('mobile.h
           <input type="checkbox" id="port-rib-flag" onchange="portRibToggle(this.checked)" />
           <span>📦 Invia direttamente a ribalta (container in ingresso)</span>
         </label>
+        <label class="port-rib-flag" style="margin-top:8px">
+          <input type="checkbox" id="port-doppio-flag" onchange="portDoppioToggle(this.checked)" />
+          <span>🚛 Due casse insieme (destinazione parcheggio, stessa zona)</span>
+        </label>
+      </div>
+      <div class="port-form-row" id="port-row2" style="display:none;margin-top:12px">
+        <div class="formGroup" style="flex:2">
+          <label>Seconda cassa</label>
+          <input type="text" id="port-veicolo2" placeholder="Cassa: 043"
+                 style="text-transform:uppercase" oninput="this.value=this.value.toUpperCase()" />
+        </div>
+        <div class="formGroup" style="flex:1">
+          <label>Stato seconda cassa</label>
+          <select id="port-stato2">
+            <option value="pieno">Pieno</option>
+            <option value="vuoto">Vuoto</option>
+          </select>
+        </div>
+        <!-- segnaposto invisibile: allinea le colonne con la riga sopra -->
+        <div class="formGroup" style="flex:none;visibility:hidden" aria-hidden="true">
+          <label>.</label>
+          <div class="port-btn-actions">
+            <button class="btnPrimary" style="margin-top:0" tabindex="-1">🔍 Cerca Posto</button>
+            <button class="btnSecondary" style="margin-top:0" tabindex="-1">↺ Reset</button>
+          </div>
+        </div>
       </div>
     </div>
 
