@@ -213,6 +213,34 @@ function _portRilevaTipo(id) {
   return null;
 }
 
+// ── HELPER: veicolo già presente nel sito? ───────────────────────────────────
+// Unico controllo duplicati per TUTTI gli ingressi da portineria (cerca posto,
+// conferma posto, invio diretto a ribalta). Ritorna null se il veicolo è libero
+// di entrare, altrimenti una stringa HTML che descrive dove si trova.
+// Se la verifica non è possibile (rete/permessi) lancia un errore: il chiamante
+// deve BLOCCARE l'ingresso, non proseguire.
+async function _portVerificaPresenza(veicolo){
+  const v = window.normalizzaId(veicolo);
+  // 1. Parcheggio (stato locale, confronto normalizzato)
+  const inSpot = Object.entries(window.spots || {})
+    .find(([, s]) => s && s.occupied && window.normalizzaId(s.plate) === v);
+  if (inSpot) return `<strong>${v}</strong> è già parcheggiato nel posto <strong>${inSpot[0]}</strong>.`;
+  // 2. Ribalta (tutti i doc con quella targa, non solo il primo)
+  const ribSnap = await getDocs(query(collection(window.db, 'ribalte'), where('plate', '==', v)));
+  const ribOcc  = ribSnap.docs.find(d => d.data().occupied);
+  if (ribOcc) return `<strong>${v}</strong> è già alla ribalta <strong>${ribOcc.id}</strong>.`;
+  // 3. Missione aperta (creata o in attesa)
+  const prenSnap = await getDocs(query(collection(window.db, 'prenotazioni'), where('plate', '==', v)));
+  const prenAp   = prenSnap.docs.find(d => ['creata', 'in_attesa'].includes(d.data().stato));
+  if (prenAp) {
+    const pd = prenAp.data();
+    const dest = pd.destinazione ? ` → <strong>${pd.destinazione}</strong>` : '';
+    return `<strong>${v}</strong> ha una missione aperta${dest}.`;
+  }
+  return null;
+}
+const _PORT_MSG_VERIFICA_KO = '⚠ Impossibile verificare se il veicolo è già presente (errore di rete). Riprova.';
+
 // ── CERCA POSTO ──────────────────────────────────────────────────────────────
 async function portineriaCerca() {
   const veicolo = window.normalizzaId(document.getElementById('port-veicolo').value || '');
@@ -237,34 +265,17 @@ async function portineriaCerca() {
   // ── VERIFICA DUPLICATO ──────────────────────────────────────────
   resEl.innerHTML = '<div class="port-err" style="opacity:.6">🔍 Verifica in corso…</div>';
 
-  // 1. Già in un parcheggio (spots locali)
-  const _portDupSpots = Object.entries(window.spots).filter(([, s]) => s.occupied && s.plate === veicolo);
-  if (_portDupSpots.length > 0) {
-    const _portDupPosto = _portDupSpots[0][0];
-    resEl.innerHTML = `<div class="port-err">⚠ <strong>${veicolo}</strong> è già parcheggiato nel posto <strong>${_portDupPosto}</strong>.<br>Impossibile assegnare un nuovo posto.</div>`;
+  try {
+    const _dup = await _portVerificaPresenza(veicolo);
+    if (_dup) {
+      resEl.innerHTML = `<div class="port-err">⚠ ${_dup}<br>Impossibile assegnare un posto parcheggio.</div>`;
+      return;
+    }
+  } catch (_portE) {
+    console.error('Verifica duplicato portineria:', _portE);
+    resEl.innerHTML = `<div class="port-err">${_PORT_MSG_VERIFICA_KO}</div>`;
     return;
   }
-
-  // 2. Già in una ribalta
-  try {
-    const _portRibSnap = await getDocs(query(collection(window.db, 'ribalte'), where('plate', '==', veicolo), limit(1)));
-    if (!_portRibSnap.empty && _portRibSnap.docs[0].data().occupied) {
-      const _portRibId = _portRibSnap.docs[0].id;
-      resEl.innerHTML = `<div class="port-err">⚠ <strong>${veicolo}</strong> è attualmente alla ribalta <strong>${_portRibId}</strong>.<br>Impossibile assegnare un posto parcheggio.</div>`;
-      return;
-    }
-  } catch (_portE) { /* ignora errori di rete, prosegui */ }
-
-  // 3. Ha una missione/prenotazione aperta
-  try {
-    const _portPrenSnap = await getDocs(query(collection(window.db, 'prenotazioni'), where('plate', '==', veicolo), where('stato', '==', 'creata'), limit(1)));
-    if (!_portPrenSnap.empty) {
-      const _portPd = _portPrenSnap.docs[0].data();
-      const _portDest = _portPd.destinazione ? ` → ${_portPd.destinazione}` : '';
-      resEl.innerHTML = `<div class="port-err">⚠ <strong>${veicolo}</strong> ha una missione aperta${_portDest}.<br>Impossibile assegnare un posto parcheggio.</div>`;
-      return;
-    }
-  } catch (_portE) { /* ignora errori di rete, prosegui */ }
   // ─────────────────────────────────────────────────────────────────────────
 
   // Cerca primo posto libero compatibile
@@ -353,6 +364,25 @@ async function porteriaConferma() {
 
   btn.disabled = true;
   btn.textContent = 'Assegnazione in corso...';
+
+  // Ricontrollo presenza: il veicolo può essere stato inserito da altri dopo "Cerca"
+  try {
+    const _dup = await _portVerificaPresenza(veicolo);
+    if (_dup) {
+      document.getElementById('port-result').innerHTML =
+        `<div class="port-err">⚠ ${_dup}<br>Assegnazione annullata.</div>`;
+      _portSpotSuggerito = null;
+      document.getElementById('port-btn-stampa').disabled = true;
+      btn.textContent = '✔ Conferma Assegnazione';
+      return;
+    }
+  } catch (_portE) {
+    console.error('Verifica duplicato portineria:', _portE);
+    document.getElementById('port-result').innerHTML = `<div class="port-err">${_PORT_MSG_VERIFICA_KO}</div>`;
+    btn.disabled = false;
+    btn.textContent = '✔ Conferma Assegnazione';
+    return;
+  }
 
   try {
     const now = new Date();
@@ -549,6 +579,19 @@ async function portRibEdificio(edificio){
       '<div class="port-err">⚠ L\'invio diretto a ribalta è solo per i container.</div>';
     return;
   }
+  try {
+    const _dup = await _portVerificaPresenza(veicolo);
+    if (_dup) {
+      document.getElementById('port-result').innerHTML =
+        `<div class="port-err">⚠ ${_dup}<br>Impossibile inviarlo a una ribalta.</div>`;
+      return;
+    }
+  } catch (_portE) {
+    console.error('Verifica duplicato portineria:', _portE);
+    document.getElementById('port-result').innerHTML = `<div class="port-err">${_PORT_MSG_VERIFICA_KO}</div>`;
+    return;
+  }
+  document.getElementById('port-result').innerHTML = '';
   _portRibEdificio = edificio;
   _portRibSelezionata = null;
   document.getElementById('port-rib-btn-conferma').disabled = true;
@@ -597,6 +640,22 @@ async function portRibConferma(){
   const btn = document.getElementById('port-rib-btn-conferma');
   btn.disabled = true;
   btn.textContent = 'Invio in corso…';
+
+  try {
+    const _dup = await _portVerificaPresenza(veicolo);
+    if (_dup) {
+      document.getElementById('port-result').innerHTML =
+        `<div class="port-err">⚠ ${_dup}<br>Invio a ribalta annullato.</div>`;
+      btn.textContent = '✓ Conferma e stampa';
+      return;
+    }
+  } catch (_portE) {
+    console.error('Verifica duplicato portineria:', _portE);
+    document.getElementById('port-result').innerHTML = `<div class="port-err">${_PORT_MSG_VERIFICA_KO}</div>`;
+    btn.disabled = false;
+    btn.textContent = '✓ Conferma e stampa';
+    return;
+  }
 
   try {
     const dref  = doc(window.db, 'ribalte', id);
