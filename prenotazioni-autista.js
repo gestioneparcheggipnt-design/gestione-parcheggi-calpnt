@@ -22,6 +22,8 @@ function _tutteRibalte() {
     ? Object.values(window._REPARTI).flat().map(r => String(r).trim().toUpperCase())
     : [];
 }
+// Ribalta attiva (config/parcheggi.ribalteDisattivate): le disattivate non si propongono
+const _ribAttiva = id => !window.ParcheggiCore?.ribaltaAttiva || window.ParcheggiCore.ribaltaAttiva(id);
 function isValidRibalta(id) {
   if (!id) return false;
   return _tutteRibalte().includes(String(id).trim().toUpperCase());
@@ -1794,7 +1796,7 @@ const destConsentite = repartoFiltro
   : null; // null = tutte
 
 const ribalteLibere = Object.values(_ribalte)
-  .filter(r => !r.occupied && (!destConsentite || destConsentite.includes(r.id)))
+  .filter(r => !r.occupied && _ribAttiva(r.id) && (!destConsentite || destConsentite.includes(r.id)))
   .sort((a, b) => a.id.localeCompare(b.id));
 
 if (title) title.textContent = `Seleziona ribalta per ${pren?.plate || ''}`;
@@ -1937,7 +1939,7 @@ function _popupCassaMostraRibalte(reparto) {
     if (title) title.textContent = `${reparto} — Scegli ribalta`;
   } else {
     ribalteLibere = Object.values(_ribalte)
-      .filter(r => !r.occupied)
+      .filter(r => !r.occupied && _ribAttiva(r.id))
       .sort((a, b) => a.id.localeCompare(b.id));
     if (title) title.textContent = `Seleziona ribalta per cassa ${_cassaPopupCtx.plate}`;
   }

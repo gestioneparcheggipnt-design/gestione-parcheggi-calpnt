@@ -19,6 +19,10 @@ window.REPARTI = {
   "E-COMMERCE":  [..._range('PNT2', 30, 31), ..._range('PNT2', 34, 48)],
   "TGW":         [..._range('PNT2', 49, 49)],
 };
+// REPARTI_TUTTI = elenco completo (config/magazzino); REPARTI = solo ribalte ATTIVE.
+// impostazioni-desktop.js li ricalcola quando cambiano config o ribalte disattivate.
+window.REPARTI_TUTTI = window.REPARTI;
+window.REPARTI = window.ParcheggiCore.filtraReparti(window.REPARTI_TUTTI);
 
 // Restituisce le destinazioni valide per un reparto.
 // Se reparto è null/undefined (es. amministratore) restituisce tutte.

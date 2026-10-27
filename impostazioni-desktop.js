@@ -2,7 +2,10 @@
 // Migra la config del magazzino (reparti → ribalte, zone → parcheggi) su Firestore
 // nel documento config/magazzino. Fallback sui dati statici di spots-data-desktop.js
 // (window.REPARTI) e sulla tabella unica parcheggi-data.js (zone) se non esiste.
-// Posti attivi/disattivati: config/parcheggi, gestito da ParcheggiCore.
+// Posti e ribalte attivi/disattivati: config/parcheggi, gestito da ParcheggiCore.
+// window.REPARTI_TUTTI = tutte le ribalte; window.REPARTI = solo le ATTIVE
+// (è quella che usano picker, validazioni, portineria, navette, ricerca).
+// L'amministrativo vede il tab solo con la sezione "Ribalte (attive / disattivate)".
 import { doc, getDoc, setDoc, onSnapshot }
   from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
 
@@ -58,7 +61,8 @@ function _applyToGlobals(cfg){
     LABELS[code]  = r.label || _titleCase(code);
     ORDER.push(code);
   });
-  window.REPARTI = REPARTI;
+  window.REPARTI_TUTTI = REPARTI;
+  window.REPARTI = window.ParcheggiCore.filtraReparti(REPARTI);
   window.REPARTI_LABELS = LABELS;
   window.REPARTI_ORDER = ORDER;
   window.ZONE_META = cfg.zone || {};
@@ -74,6 +78,12 @@ function _refreshDependents(){
     renderImpostazioni();
   _populateNewUserReparto();
 }
+
+// Cambio delle ribalte disattivate (evento da ParcheggiCore): ricalcola REPARTI
+window.addEventListener('calpnt:ribalte', ()=>{
+  window.REPARTI = window.ParcheggiCore.filtraReparti(window.REPARTI_TUTTI || {});
+  _refreshDependents();
+});
 
 // ── Caricamento / listener config ──────────────────────────────────────────────
 async function initImpostazioniConfig(){
@@ -317,6 +327,11 @@ function renderImpostazioni(){
   const esc = window._esc || (s=>s);
   const order = _cfg.ordine || Object.keys(_cfg.reparti || {});
 
+  if(window.currentUser?.role !== 'amministratore'){
+    wrap.querySelector('#imp-body').innerHTML = _ribalteSectionHTML();
+    return;
+  }
+
   // Reparti + ribalte
   let repHTML = order.map(code=>{
     const r = _cfg.reparti[code]; if(!r) return '';
@@ -405,6 +420,7 @@ function renderImpostazioni(){
       ${repHTML}
       ${naHTML}
     </div>
+    ${_ribalteSectionHTML()}
     ${_navetteSectionHTML()}
     <div class="imp-section">
       <div class="imp-section-title">Parcheggi e zone</div>
@@ -415,6 +431,94 @@ function renderImpostazioni(){
     </div>`;
 }
 window.renderImpostazioni = renderImpostazioni;
+
+// ── Ribalte attive / disattivate (amministratore e amministrativo) ─────────────
+const _edificioDi = rb => (String(rb).match(/^(PNT\d)/i) || [,'Altro'])[1].toUpperCase();
+
+function _statoRibalta(rb){
+  const k = String(rb).trim().toUpperCase();
+  const r = (window.ribalte||{})[k];
+  const nav = Object.values(window.navette||{}).find(n => String(n.posizione||'').toUpperCase() === k);
+  const aperte = (window.prenotazioniAperte||[]).some(p =>
+    [p.destinazione, p.origine, p.spotId, p.ribaltaArrivo].some(x => String(x||'').toUpperCase() === k));
+  if(r && r.occupied){
+    if(r.inLiberazione) return { txt:'in liberazione · '+(r.plate||''), bloccata:true };
+    if(r.inSpostamento) return { txt:'in spostamento · '+(r.plate||''), bloccata:true };
+    return { txt:'occupata · '+(r.plate||''), bloccata:true };
+  }
+  if(nav) return { txt:'navetta '+(nav.nome||''), bloccata:true };
+  if(aperte) return { txt:'missione aperta', bloccata:true };
+  return { txt:'libera', bloccata:false };
+}
+
+function _ribalteSectionHTML(){
+  const esc = window._esc || (s=>s);
+  const C = window.ParcheggiCore;
+  const tutti = window.REPARTI_TUTTI || {};
+  const order = (window.REPARTI_ORDER && window.REPARTI_ORDER.length) ? window.REPARTI_ORDER : Object.keys(tutti);
+  const labels = window.REPARTI_LABELS || {};
+  // edificio → [reparto]
+  const perEdificio = {};
+  order.forEach(code=>{
+    const ids = (tutti[code]||[]);
+    if(!ids.length) return;
+    const ed = _edificioDi(ids[0]);
+    (perEdificio[ed] = perEdificio[ed] || []).push(code);
+  });
+  const totDis = C.ribalteDisattivate().length;
+  const blocchi = Object.keys(perEdificio).sort().map(ed=>{
+    const cards = perEdificio[ed].map(code=>{
+      const ids = (tutti[code]||[]).slice().sort((a,b)=>a.localeCompare(b,undefined,{numeric:true}));
+      const attive = ids.filter(id => C.ribaltaAttiva(id)).length;
+      const chips = ids.map(id=>{
+        const on = C.ribaltaAttiva(id);
+        const st = on ? _statoRibalta(id) : { txt:'DISATTIVATA', bloccata:false };
+        const title = `${id} · ${st.txt} — clic per ${on?'disattivare':'attivare'}`;
+        const small = on && st.txt !== 'libera' ? ' <small>'+esc(st.txt.split(' · ')[0])+'</small>' : '';
+        return `<button class="imp-posto ${on?'on':'off'}${on&&st.bloccata?' busy':''}" title="${esc(title)}" onclick="window._impToggleRibalta('${esc(id)}')">${esc(id)}${small}</button>`;
+      }).join('');
+      return `
+      <div class="imp-card">
+        <div class="imp-card-head">
+          <div><span class="imp-rep-label">${esc(labels[code]||code)}</span>
+            <span class="imp-rep-code">${esc(code)}</span>
+            <span class="imp-count">${attive}/${ids.length} attive</span></div>
+        </div>
+        <div class="imp-chips">${chips}</div>
+      </div>`;
+    }).join('');
+    return `<div class="imp-subtitle">${esc(ed)}</div>${cards}`;
+  }).join('');
+  return `
+    <div class="imp-section">
+      <div class="imp-section-title">Ribalte (attive / disattivate)${totDis?' · <span style="color:var(--red,#ef4444)">'+totDis+' disattivate</span>':''}</div>
+      <div class="imp-note">Clic su una ribalta per <strong>attivarla / disattivarla</strong>: una ribalta disattivata resta nel suo reparto
+        ma sparisce da prenotazioni, missioni, navette, portineria e pagina Ribalte dell'operativo.
+        Si può disattivare solo una ribalta libera, senza navetta e senza missioni aperte.</div>
+      ${blocchi || '<div style="color:var(--muted);font-size:12px">Nessuna ribalta configurata.</div>'}
+    </div>`;
+}
+
+const _ribToggleInCorso = new Set();
+window._impToggleRibalta = async function(id){
+  const role = window.currentUser?.role;
+  if(role !== 'amministratore' && role !== 'amministrativo'){
+    window.showToast('Solo amministratore e amministrativo possono attivare o disattivare le ribalte.','error'); return;
+  }
+  if(_ribToggleInCorso.has(id)) return;
+  const C = window.ParcheggiCore;
+  const attiva = !C.ribaltaAttiva(id);
+  if(!attiva && !confirm(`Disattivare la ribalta ${id}?\nNon comparirà più in nessuna funzione finché non la riattivi.`)) return;
+  _ribToggleInCorso.add(id);
+  try{
+    await C.impostaRibaltaAttiva(id, attiva, window.currentUser);
+    window.showToast(`Ribalta ${id} ${attiva ? 'attivata' : 'disattivata'}`, 'success');
+  }catch(e){
+    window.showToast((e.message||e), 'error');
+  }finally{
+    _ribToggleInCorso.delete(id);
+  }
+};
 
 // Attiva / disattiva un posto (config/parcheggi). Blocchi e controlli in ParcheggiCore.
 const _impToggleInCorso = new Set();
@@ -459,6 +563,8 @@ window.stopImpostazioni = stopImpostazioni;
   #pageImpostazioni .imp-posto.on{background:#A4D20018;color:var(--text);border-color:#A4D20060}
   #pageImpostazioni .imp-posto.off{background:transparent;color:var(--muted,#94a3b8);text-decoration:line-through;opacity:.7}
   #pageImpostazioni .imp-posto small{font-size:10px;opacity:.75;margin-left:2px}
+  #pageImpostazioni .imp-posto.on.busy{background:#ef444414;border-color:#ef444455}
+  #pageImpostazioni .imp-subtitle{font-size:12px;font-weight:700;letter-spacing:.06em;color:var(--muted,#94a3b8);margin:14px 0 8px}
   #pageImpostazioni .imp-chip{display:inline-flex;align-items:center;gap:4px;background:var(--surface2,#1e2430);
     border:1px solid var(--border,#2a3140);border-radius:6px;padding:2px 6px;font-size:12px;font-family:var(--mono,monospace)}
   #pageImpostazioni .imp-chip-ro{opacity:.85}

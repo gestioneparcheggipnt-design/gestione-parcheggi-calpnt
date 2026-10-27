@@ -41,11 +41,16 @@ function startListeners(){
           full:     data.full||false,
           inUscita: data.inUscita||false,
           ribaltaRichiesta: data.ribaltaRichiesta||null,
+          inLiberazione: data.inLiberazione||null,
+          inSpostamento: data.inSpostamento||null,
         };
       }
     });
     if(window.currentUser?.role !== 'portineria'){
       renderSearch();
+      // stato delle ribalte nel pannello Impostazioni → Ribalte
+      if(window.renderImpostazioni && document.getElementById('pageImpostazioni')?.classList.contains('active'))
+        try { window.renderImpostazioni(); } catch(e){}
     }
   });
 

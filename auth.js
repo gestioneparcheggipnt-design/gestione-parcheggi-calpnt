@@ -126,9 +126,10 @@ function showApp(){
   document.getElementById("tabStats").classList.remove("hidden");
   if(window.currentUser.role==="amministratore"){
     document.getElementById("tabUtenti").classList.remove("hidden");
-    document.getElementById("tabImpostazioni").classList.remove("hidden");
     document.getElementById("tabPortineria").classList.remove("hidden");
   }
+  // Impostazioni: amministratore tutto; amministrativo solo la sezione Ribalte
+  document.getElementById("tabImpostazioni").classList.remove("hidden");
   document.getElementById("tabPrenotazioni").classList.remove("hidden");
   loadMode();
   initMap();

@@ -760,6 +760,16 @@ async function portRibConferma(){
     return;
   }
 
+  // Ribalta disattivata nel frattempo (Impostazioni → Ribalte)
+  if (window.ParcheggiCore?.ribaltaAttiva && !window.ParcheggiCore.ribaltaAttiva(id)) {
+    document.getElementById('port-result').innerHTML =
+      '<div class="port-err">⚠ La ribalta ' + id + ' è stata disattivata. Riseleziona l\'edificio.</div>';
+    btn.disabled = false;
+    btn.textContent = '✓ Conferma e stampa';
+    if (_portRibEdificio) portRibEdificio(_portRibEdificio);
+    return;
+  }
+
   try {
     const dref  = doc(window.db, 'ribalte', id);
     const dsnap = await getDoc(dref);

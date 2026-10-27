@@ -395,8 +395,8 @@ function _ribCelle(richiesta, effettiva, effLabel){
 }
 
 // ── STORICO: colonne derivate da una riga history ────────────────────────────
-const _isRibStorico = id => !!id && (window.REPARTI
-  ? Object.values(window.REPARTI).flat().includes(String(id).trim().toUpperCase())
+const _isRibStorico = id => !!id && ((window.REPARTI_TUTTI || window.REPARTI)
+  ? Object.values(window.REPARTI_TUTTI || window.REPARTI).flat().includes(String(id).trim().toUpperCase())
   : /^PNT/i.test(String(id)));
 const _isPortineriaStorico = h => String(h.origine||'').trim().toLowerCase()==='portineria';
 

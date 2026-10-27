@@ -8,7 +8,7 @@
 //
 // Responsabilità:
 //   1. Tabella unica (parcheggi-data.js) → derivati: SPOT_DEFS, ZONES, criteri
-//   2. Posti attivi / disattivati       → config/parcheggi { disattivati:[] }
+//   2. Posti e ribalte attivi           → config/parcheggi { disattivati:[], ribalteDisattivate:[] }
 //   3. Occupazione a sotto-posti        → spots/<posto>.occupanti
 //   4. Scritture SEMPRE in transazione  → assegna / libera / aggiorna / sposta
 //
@@ -30,7 +30,7 @@
 
 import { IMG_W, IMG_H, PARCHEGGI, PATCHES } from './parcheggi-data.js';
 import {
-  collection, doc, getDocs, onSnapshot, query, runTransaction,
+  collection, doc, getDoc, getDocs, onSnapshot, query, runTransaction,
   serverTimestamp, where
 } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
 
@@ -96,6 +96,26 @@ function disattivati(){ return [..._disattivati]; }
 // (es. import { SPOT_DEFS } nel mobile) vede sempre la versione aggiornata.
 const SPOT_DEFS = [];   // [id, zona, x, y, w, h] — solo posti attivi
 const ZONES = {};       // zona → [id] — solo posti attivi
+
+// ── Ribalte disattivate (config/parcheggi.ribalteDisattivate) ────────────────
+// L'ELENCO delle ribalte resta in config/magazzino (reparti → ribalte). Qui c'è
+// solo quali sono spente: una ribalta disattivata resta nel suo reparto ma per
+// il sistema non esiste. Desktop e mobile filtrano REPARTI con filtraReparti(),
+// così tutti i picker e le validazioni la escludono senza modifiche locali.
+let _ribDis = new Set();
+const _normRib = (id) => String(id || '').trim().toUpperCase();
+
+function ribaltaAttiva(id)    { const k = _normRib(id); return !!k && !_ribDis.has(k); }
+function ribalteDisattivate() { return [..._ribDis].sort((a, b) => a.localeCompare(b, undefined, { numeric: true })); }
+
+/** Copia di { reparto: [ribalte] } senza le ribalte disattivate. */
+function filtraReparti(reparti) {
+  const out = {};
+  Object.keys(reparti || {}).forEach(k => {
+    out[k] = (reparti[k] || []).filter(r => !_ribDis.has(_normRib(r)));
+  });
+  return out;
+}
 
 function _ricostruisciDerivati() {
   SPOT_DEFS.length = 0;
@@ -448,8 +468,16 @@ function _avvia() {
     _unsubCfg = onSnapshot(doc(_db(), 'config', 'parcheggi'), snap => {
       const lista = (snap.exists() && Array.isArray(snap.data().disattivati)) ? snap.data().disattivati : [];
       _disattivati = new Set(lista.map(x => String(x).trim().toUpperCase()));
+      const ribL = (snap.exists() && Array.isArray(snap.data().ribalteDisattivate)) ? snap.data().ribalteDisattivate : [];
+      const nuove = new Set(ribL.map(_normRib));
+      const ribCambiate = nuove.size !== _ribDis.size || [...nuove].some(x => !_ribDis.has(x));
+      _ribDis = nuove;
       _configCaricata = true;
       _ricostruisciDerivati();
+      // Prima gli elenchi ribalte (desktop/mobile ricalcolano REPARTI), poi i render
+      if (ribCambiate && typeof window !== 'undefined') {
+        try { window.dispatchEvent(new CustomEvent('calpnt:ribalte')); } catch (e) { console.error(e); }
+      }
       _notifica();
     }, err => console.error('[ParcheggiCore] config/parcheggi:', err));
   }
@@ -539,6 +567,60 @@ async function impostaAttivo(id, attivo, user) {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
+// 8. RIBALTE: ATTIVAZIONE / DISATTIVAZIONE (amministratore e amministrativo)
+// ══════════════════════════════════════════════════════════════════════════════
+const _APERTE = ['in_attesa', 'creata'];
+
+/** Motivo per cui una ribalta non può essere disattivata, oppure null. */
+async function motivoBloccoRibalta(id) {
+  const k = _normRib(id);
+  if (!k) return 'Ribalta non valida';
+  const rs = await getDoc(doc(_db(), 'ribalte', k));
+  const r = rs.exists() ? rs.data() : null;
+  if (r && r.occupied) {
+    if (r.inLiberazione) return `Ribalta in liberazione (${r.plate || 'mezzo'}): attendi il completamento dell'autista`;
+    if (r.inSpostamento) return `Ribalta in spostamento (${r.plate || 'mezzo'}): completa o annulla lo spostamento`;
+    return `Ribalta occupata da ${r.plate || 'un mezzo'}: liberala prima`;
+  }
+  const ns = await getDocs(query(collection(_db(), 'navette'), where('posizione', '==', k)));
+  if (ns.docs.length) return `Navetta ${ns.docs[0].data().nome || ns.docs[0].id} in posizione: spostala prima`;
+  for (const campo of ['destinazione', 'origine', 'spotId', 'ribaltaArrivo']) {
+    const s = await getDocs(query(collection(_db(), 'prenotazioni'), where(campo, '==', k)));
+    if (s.docs.some(x => _APERTE.includes(x.data().stato)))
+      return 'La ribalta è coinvolta in una missione aperta: completala o annullala prima';
+  }
+  return null;
+}
+
+async function impostaRibaltaAttiva(id, attiva, user) {
+  const k = _normRib(id);
+  if (!k) throw _err('Ribalta non valida', 'ribalta');
+  if (!attiva) {
+    const m = await motivoBloccoRibalta(k);
+    if (m) throw _err(m, 'bloccato');
+  }
+  const cfgRef = doc(_db(), 'config', 'parcheggi');
+  const ribRef = doc(_db(), 'ribalte', k);
+  await runTransaction(_db(), async tx => {
+    const ribSnap = await tx.get(ribRef);
+    const cfgSnap = await tx.get(cfgRef);
+    if (!attiva && ribSnap.exists() && ribSnap.data().occupied)
+      throw _err('Nel frattempo la ribalta è stata occupata: liberala prima', 'bloccato');
+    const lista = new Set(((cfgSnap.exists() && cfgSnap.data().ribalteDisattivate) || []).map(_normRib));
+    if (attiva) lista.delete(k); else lista.add(k);
+    // Solo questi tre campi: l'amministrativo non può toccare 'disattivati' (regole Firestore)
+    tx.set(cfgRef, {
+      ribalteDisattivate: [...lista].sort((a, b) => a.localeCompare(b, undefined, { numeric: true })),
+      aggiornatoDa: user?.email || user?.name || null,
+      aggiornatoIl: serverTimestamp(),
+    }, { merge: true });
+  });
+  if (window.logHistory) {
+    try { await window.logHistory({ spot: k, ribalta: k, action: attiva ? 'Ribalta attivata' : 'Ribalta disattivata' }); } catch (e) {}
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
 // ESPORTAZIONE
 // ══════════════════════════════════════════════════════════════════════════════
 const ParcheggiCore = {
@@ -547,6 +629,8 @@ const ParcheggiCore = {
   defPosto, esiste, accetta, zone, criterio, tipoDaTarga,
   // attivi
   isAttivo, idAttivi, idTutti, disattivati, impostaAttivo, motivoBloccoDisattivazione,
+  // ribalte attive
+  ribaltaAttiva, ribalteDisattivate, filtraReparti, impostaRibaltaAttiva, motivoBloccoRibalta,
   // viste
   vista, vistaVuota, disponibilePer, etichettaOcc, trovaMezzo, mezzi, mappa, riempi,
   // calcoli puri

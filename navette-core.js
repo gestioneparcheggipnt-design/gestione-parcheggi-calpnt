@@ -23,6 +23,12 @@ let _onChange = null;
 const _db = () => window.db;
 
 // ── Derivazioni edificio / reparto da un id ribalta ─────────────────────────────
+// Una ribalta disattivata (config/parcheggi) non può essere destinazione, arrivo o posizione
+function _verificaRibaltaAttiva(id) {
+  const C = (typeof window !== 'undefined') ? window.ParcheggiCore : null;
+  if (id && C && C.ribaltaAttiva && !C.ribaltaAttiva(id)) throw new Error(`ribalta ${id} disattivata`);
+}
+
 function edificioDi(ribaltaId) {
   const m = String(ribaltaId || '').trim().toUpperCase().match(/^(PNT[12])-/);
   return m ? m[1] : null;
@@ -145,6 +151,7 @@ async function _abbina(navettaId, prenId, origine) {
 async function creaRichiestaVuoto({ destinazione, urgente = false, user }) {
   const dest = String(destinazione || '').trim().toUpperCase();
   if (!dest) throw new Error('destinazione mancante');
+  _verificaRibaltaAttiva(dest);
   const ref = await addDoc(collection(_db(), 'prenotazioni'), {
     tipoMissione: 'navetta',
     faseNavetta:  'vuoto',
@@ -179,6 +186,7 @@ async function creaMissionePieno({ navettaId, origine, destinazione, user }) {
   const dest = String(destinazione || '').trim().toUpperCase();
   if (!navettaId) throw new Error('navetta mancante');
   if (!dest) throw new Error('destinazione mancante');
+  _verificaRibaltaAttiva(dest);
   const navRef  = doc(_db(), 'navette', navettaId);
   const prenRef = doc(collection(_db(), 'prenotazioni')); // id generato prima della tx
   await runTransaction(_db(), async (tx) => {
@@ -216,6 +224,7 @@ async function creaMissioneSpostamento({ navettaId, origine, destinazione, user 
   if (!navettaId) throw new Error('navetta mancante');
   if (!dest) throw new Error('destinazione mancante');
   if (dest === org) throw new Error('destinazione uguale all\'origine');
+  _verificaRibaltaAttiva(dest);
   const navRef  = doc(_db(), 'navette', navettaId);
   const prenRef = doc(collection(_db(), 'prenotazioni'));
   await runTransaction(_db(), async (tx) => {
@@ -304,6 +313,7 @@ async function completaMissioneNavetta({ prenId, ribaltaArrivo }) {
   const arr = String(ribaltaArrivo || '').trim().toUpperCase();
   if (!prenId) throw new Error('prenotazione mancante');
   if (!arr) throw new Error('ribalta di arrivo mancante');
+  _verificaRibaltaAttiva(arr);
   const prenRef = doc(_db(), 'prenotazioni', prenId);
   const snap = await getDoc(prenRef);
   if (!snap.exists()) throw new Error('prenotazione assente');
@@ -337,6 +347,7 @@ async function creaNavetta({ nome, posizione = null, stato = 'vuoto', attiva = t
   const ref = doc(_db(), 'navette', id);
   const esiste = await getDoc(ref);
   if (esiste.exists()) throw new Error('navetta già esistente');
+  if (posizione) _verificaRibaltaAttiva(String(posizione).trim().toUpperCase());
   await setDoc(ref, {
     nome: id,
     attiva: !!attiva,
@@ -351,6 +362,7 @@ async function creaNavetta({ nome, posizione = null, stato = 'vuoto', attiva = t
 async function aggiornaNavetta(nome, patch) {
   const id = String(nome || '').trim().toUpperCase();
   if (!id) throw new Error('nome navetta mancante');
+  if (patch && patch.posizione) _verificaRibaltaAttiva(String(patch.posizione).trim().toUpperCase());
   await updateDoc(doc(_db(), 'navette', id), patch || {});
 }
 

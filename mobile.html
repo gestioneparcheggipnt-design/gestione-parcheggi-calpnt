@@ -324,7 +324,7 @@ import { signInWithEmailAndPassword, signOut, onAuthStateChanged }
 import { doc, getDoc, collection, query, orderBy, limit, onSnapshot, where }
   from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
 
-import { SPOT_DEFS, REPARTI, getDestinazioniPerReparto } from './spots-data-mobile.js?v=1778777806';
+import { SPOT_DEFS, REPARTI, getDestinazioniPerReparto, aggiornaReparti } from './spots-data-mobile.js?v=1778777806';
 import { fmtDate, fmtDur, showToast } from './shared-utils.js?v=1778777806';
 
 import { initCheckin, updateCheckinUI, doCheckinRapido,
@@ -345,7 +345,35 @@ let currentMode  = 'container';
 let spots        = {};
 let historyCache = [];
 let _filterPill  = ''; // '' | 'libero' | 'occupato'
-let unsubSpots = null, unsubHistory = null;
+let unsubSpots = null, unsubHistory = null, unsubMagazzino = null;
+
+// ── RIBALTE: elenco live da config/magazzino, solo quelle ATTIVE ──────────────
+// window._REPARTI (= REPARTI) viene aggiornato sul posto; poi si ridisegna.
+function _rerenderRibalte() {
+  const r = currentUser?.role;
+  if (r === 'operativo') { try { renderRibalte(); } catch (e) {} try { renderPrenotaOp(); } catch (e) {} }
+  // autista: i picker delle ribalte rileggono l'elenco a ogni apertura
+  if (r === 'autista')   { try { renderSpostamenti(); } catch (e) {} }
+  try { updateCheckinUI(); } catch (e) {}
+}
+// Cambio delle ribalte disattivate (da ParcheggiCore, prima dei suoi render)
+window.addEventListener('calpnt:ribalte', () => { aggiornaReparti(); _rerenderRibalte(); });
+
+function _ascoltaMagazzino() {
+  if (unsubMagazzino) return;
+  unsubMagazzino = onSnapshot(doc(window.db, 'config', 'magazzino'), snap => {
+    if (!snap.exists()) return;
+    const cfg = snap.data() || {};
+    const tutti = {};
+    (cfg.ordine || Object.keys(cfg.reparti || {})).forEach(code => {
+      const r = (cfg.reparti || {})[code];
+      if (r) tutti[code] = (r.ribalte || []).slice();
+    });
+    const prima = JSON.stringify(REPARTI);
+    aggiornaReparti(tutti);
+    if (JSON.stringify(REPARTI) !== prima) _rerenderRibalte();
+  }, err => console.error('config/magazzino:', err));
+}
 
 // Posti ATTIVI come viste normalizzate (vedi ParcheggiCore.vista):
 // occupanti[], statoOcc, slotLiberi + campi del primo mezzo per compatibilità.
@@ -582,6 +610,7 @@ window._getFilterPill = () => _filterPill;
 
 // ── LISTENERS ─────────────────────────────────────────────────────────────────
 function startListeners() {
+  _ascoltaMagazzino();
   // Posti + config/parcheggi: un solo listener condiviso, in ParcheggiCore
   unsubSpots = window.ParcheggiCore.ascolta(() => {
     window.ParcheggiCore.riempi(spots, { date: true });
@@ -608,6 +637,7 @@ function startListeners() {
 function stopListeners() {
   if (unsubSpots)   { unsubSpots();   unsubSpots   = null; }
   if (unsubHistory) { unsubHistory(); unsubHistory = null; }
+  if (unsubMagazzino) { unsubMagazzino(); unsubMagazzino = null; }
 }
 
 // ── PAGES ─────────────────────────────────────────────────────────────────────
