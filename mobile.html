@@ -595,6 +595,8 @@ function startListeners() {
     if (currentUser?.role === 'autista') renderSpostamenti();
   });
 
+  // Lo storico lo leggono solo amministratore e amministrativo (regole Firestore)
+  if (currentUser?.role !== 'amministratore' && currentUser?.role !== 'amministrativo') return;
   const hq = query(collection(window.db, 'history'), orderBy('ts', 'desc'), limit(100));
   unsubHistory = onSnapshot(hq, snap => {
     historyCache = snap.docs.map(d => ({ ...d.data(), ts: d.data().ts?.toDate() }));

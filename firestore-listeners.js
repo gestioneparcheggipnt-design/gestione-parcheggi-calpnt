@@ -49,8 +49,11 @@ function startListeners(){
     }
   });
 
+  // La portineria non legge navette, veicoli non trovati e storico (regole Firestore)
+  const _isPort = window.currentUser?.role === 'portineria';
+
   // Listener navette (navettaggi interni): stato real-time dei mezzi dedicati
-  if (window.NavetteCore) {
+  if (window.NavetteCore && !_isPort) {
     window.NavetteCore.startNavetteListener(() => {
       if (window.currentUser?.role !== 'portineria') {
         try { renderSearch(); } catch(e){}
@@ -78,7 +81,7 @@ function startListeners(){
   // Listener veicoli non trovati (statistiche): solo orderBy, nessun indice composito
   window.nonTrovatiCache = window.nonTrovatiCache || [];
   const ntq = query(collection(window.db,"veicoliNonTrovati"), orderBy("ts","desc"), limit(200));
-  window.unsubNonTrovati = onSnapshot(ntq, (snapshot) => {
+  if (!_isPort) window.unsubNonTrovati = onSnapshot(ntq, (snapshot) => {
     window.nonTrovatiCache = snapshot.docs.map(d => ({ id:d.id, ...d.data() }));
     if(window.currentUser?.role !== 'portineria') renderStatistiche();
   }, err => console.error('Errore listener veicoli non trovati:', err));
@@ -97,7 +100,7 @@ function startListeners(){
 
   // Listener storico: ultimi 200 movimenti
   const hq = query(collection(window.db,"history"), orderBy("ts","desc"), limit(200));
-  window.unsubHistory = onSnapshot(hq, (snapshot) => {
+  if (!_isPort) window.unsubHistory = onSnapshot(hq, (snapshot) => {
     window.historyCache = snapshot.docs.map(d => ({ ...d.data(), ts: d.data().ts?.toDate() }));
     if(window.currentUser?.role !== 'portineria'){
       renderStorico();
