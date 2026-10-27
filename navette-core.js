@@ -378,6 +378,24 @@ async function setStatoManuale(nome, stato) {
   return aggiornaNavetta(nome, patch);
 }
 
+// Elimina una navetta: solo se non è in missione e non ha richieste/missioni aperte.
+// Le missioni completate restano (statistiche e storico).
+async function eliminaNavetta(nome) {
+  const id = String(nome || '').trim().toUpperCase();
+  if (!id) throw new Error('nome navetta mancante');
+  const ref = doc(_db(), 'navette', id);
+  const aperte = await getDocs(query(collection(_db(), 'prenotazioni'), where('navettaId', '==', id)));
+  if (aperte.docs.some(d => ['in_attesa', 'creata'].includes(d.data().stato)))
+    throw new Error(`la navetta ${id} ha una missione aperta: completala o annullala prima`);
+  await runTransaction(_db(), async (tx) => {
+    const snap = await tx.get(ref);
+    if (!snap.exists()) throw new Error('navetta inesistente');
+    const n = snap.data();
+    if (n.stato === 'in_missione' || n.missioneId) throw new Error(`la navetta ${id} è in missione`);
+    tx.delete(ref);
+  });
+}
+
 // ── Statistiche di utilizzo (derivate dalle prenotazioni completate) ────────────
 // Nessun contatore nel documento navetta: unica fonte di verità = prenotazioni.
 async function statisticheNavette() {
@@ -401,7 +419,7 @@ const NavetteCore = {
   navetteVuoteDisponibili, edificioDi, repartoDi,
   scegliVuotoPerTarget,
   creaRichiestaVuoto, creaMissionePieno, creaMissioneSpostamento, annullaSpostamento, dichiaraVuoto, completaMissioneNavetta,
-  creaNavetta, aggiornaNavetta, setAttiva, setStatoManuale, statisticheNavette,
+  creaNavetta, aggiornaNavetta, setAttiva, setStatoManuale, eliminaNavetta, statisticheNavette,
 };
 
 if (typeof window !== 'undefined') window.NavetteCore = NavetteCore;
@@ -411,6 +429,6 @@ export {
   navetteVuoteDisponibili, edificioDi, repartoDi,
   scegliVuotoPerTarget,
   creaRichiestaVuoto, creaMissionePieno, creaMissioneSpostamento, annullaSpostamento, dichiaraVuoto, completaMissioneNavetta,
-  creaNavetta, aggiornaNavetta, setAttiva, setStatoManuale, statisticheNavette,
+  creaNavetta, aggiornaNavetta, setAttiva, setStatoManuale, eliminaNavetta, statisticheNavette,
 };
 export default NavetteCore;

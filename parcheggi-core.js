@@ -7,7 +7,10 @@
 // esiste una sola istanza (la cache-busting ?v= creerebbe copie distinte).
 //
 // Responsabilità:
-//   1. Tabella unica (parcheggi-data.js) → derivati: SPOT_DEFS, ZONES, criteri
+//   1. Tabella posti → derivati: SPOT_DEFS, ZONES, criteri
+//      Fonte: config/posti { righe:[...] } se esiste (modificabile da Impostazioni),
+//      altrimenti parcheggi-data.js (valori di partenza). Al primo salvataggio
+//      dall'app la tabella viene copiata su Firestore.
 //   2. Posti e ribalte attivi           → config/parcheggi { disattivati:[], ribalteDisattivate:[] }
 //   3. Occupazione a sotto-posti        → spots/<posto>.occupanti
 //   4. Scritture SEMPRE in transazione  → assegna / libera / aggiorna / sposta
@@ -44,24 +47,65 @@ const CAMPI_MEZZO = ['full', 'damaged', 'unusable', 'urgente', 'urgentePlate', '
 const _def = {};          // id → riga tabella
 const _ordine = [];       // id in ordine di tabella
 const _zoneOrdine = [];   // zone in ordine di prima apparizione
+let _fonteTabella = 'codice';   // 'codice' (parcheggi-data.js) | 'firestore' (config/posti)
 
-PARCHEGGI.forEach(p => {
-  const id = String(p.id).trim().toUpperCase();
-  const err = (m) => console.error(`[parcheggi-data] ${id}: ${m}`);
-  if (_def[id]) { err('ID duplicato, riga ignorata'); return; }
-  const ammessi = (p.ammessi || []).filter(t => t === 'container' || t === 'cassa');
-  if (!ammessi.length) err('ammessi vuoto o non valido');
-  const sotto = Number(p.sotto) || 1;
-  if (sotto < 1 || sotto > 3) err('sotto deve essere tra 1 e 3');
-  if (ammessi.length === 1 && ammessi[0] === 'container' && sotto !== 1)
-    err('posto solo container: sotto deve essere 1');
-  if (p.stato !== 'pieno' && p.stato !== 'vuoto') err("stato deve essere 'pieno' o 'vuoto'");
-  if (!Array.isArray(p.rect) || p.rect.length !== 4) err('rect deve essere [x,y,w,h]');
-  _def[id] = { id, zona: p.zona, ammessi, stato: p.stato, sotto: Math.min(3, Math.max(1, sotto)),
-               slide: p.slide ?? null, rect: p.rect || [0, 0, 0, 0] };
-  _ordine.push(id);
-  if (!_zoneOrdine.includes(p.zona)) _zoneOrdine.push(p.zona);
-});
+const RE_ID_POSTO = /^[A-Z0-9][A-Z0-9-]{0,9}$/;
+
+/** Riga normalizzata (maiuscole, numeri, ammessi validi). Non valida. */
+function _normRiga(p) {
+  const ammessi = ['container', 'cassa'].filter(t => (p.ammessi || []).includes(t));
+  const rect = Array.isArray(p.rect) ? p.rect.slice(0, 4).map(Number) : [];
+  const slide = (p.slide === '' || p.slide === null || p.slide === undefined) ? null : Number(p.slide);
+  return {
+    id: String(p.id || '').trim().toUpperCase(),
+    zona: String(p.zona || '').trim().toUpperCase(),
+    ammessi,
+    stato: p.stato,
+    sotto: Number(p.sotto) || 1,
+    slide: Number.isFinite(slide) ? slide : null,
+    rect,
+  };
+}
+
+/** Errori di una riga (vuoto = valida). */
+function validaRiga(p) {
+  const r = _normRiga(p), e = [];
+  if (!RE_ID_POSTO.test(r.id)) e.push('ID non valido (lettere, numeri e trattino, max 10)');
+  if (!r.zona) e.push('Zona mancante');
+  if (!r.ammessi.length) e.push('Indica almeno un tipo ammesso');
+  if (r.sotto < 1 || r.sotto > 3 || !Number.isInteger(r.sotto)) e.push('Sotto-posti tra 1 e 3');
+  if (r.ammessi.length === 1 && r.ammessi[0] === 'container' && r.sotto !== 1)
+    e.push('Posto solo container: sotto-posti deve essere 1');
+  if (r.stato !== 'pieno' && r.stato !== 'vuoto') e.push("Stato deve essere 'pieno' o 'vuoto'");
+  if (r.rect.length !== 4 || r.rect.some(n => !Number.isFinite(n) || n < 0)) e.push('Rettangolo: 4 numeri ≥ 0 (x, y, larghezza, altezza)');
+  return e;
+}
+
+/** Ricarica la tabella SUL POSTO (stessi oggetti) da un elenco di righe. */
+function _caricaTabella(righe) {
+  Object.keys(_def).forEach(k => delete _def[k]);
+  _ordine.length = 0; _zoneOrdine.length = 0;
+  (righe || []).forEach(p => {
+    const r = _normRiga(p);
+    const err = (m) => console.error(`[parcheggi] ${r.id || '?'}: ${m}`);
+    if (_def[r.id]) { err('ID duplicato, riga ignorata'); return; }
+    validaRiga(r).forEach(err);
+    if (!r.id) return;
+    _def[r.id] = { id: r.id, zona: r.zona, ammessi: r.ammessi, stato: r.stato,
+                   sotto: Math.min(3, Math.max(1, r.sotto)), slide: r.slide,
+                   rect: r.rect.length === 4 ? r.rect : [0, 0, 0, 0] };
+    _ordine.push(r.id);
+    if (!_zoneOrdine.includes(r.zona)) _zoneOrdine.push(r.zona);
+  });
+}
+_caricaTabella(PARCHEGGI);
+
+/** Copia della tabella corrente (righe pronte per config/posti). */
+function righeTabella() {
+  return _ordine.map(id => { const d = _def[id];
+    return { id: d.id, zona: d.zona, ammessi: d.ammessi.slice(), stato: d.stato, sotto: d.sotto, slide: d.slide, rect: d.rect.slice() }; });
+}
+function fonteTabella() { return _fonteTabella; }
 
 function defPosto(id) { return _def[String(id || '').trim().toUpperCase()] || null; }
 function esiste(id)    { return !!defPosto(id); }
@@ -449,7 +493,7 @@ async function cercaTarga(plate) {
 // 6. LISTENER (uno solo, condiviso fra tutti i moduli della pagina)
 // ══════════════════════════════════════════════════════════════════════════════
 let _docs = {};               // id → data grezza
-let _unsubSpots = null, _unsubCfg = null;
+let _unsubSpots = null, _unsubCfg = null, _unsubTab = null;
 const _subs = new Set();      // callback(mappaRaw, mappaDate)
 
 /** Mappa { id: vista } dei soli posti ATTIVI. */
@@ -464,6 +508,15 @@ function _notifica() {
 }
 
 function _avvia() {
+  if (!_unsubTab) {
+    _unsubTab = onSnapshot(doc(_db(), 'config', 'posti'), snap => {
+      const righe = snap.exists() && Array.isArray(snap.data().righe) ? snap.data().righe : null;
+      _fonteTabella = righe ? 'firestore' : 'codice';
+      _caricaTabella(righe || PARCHEGGI);
+      _ricostruisciDerivati();
+      _notifica();
+    }, err => console.error('[ParcheggiCore] config/posti:', err));
+  }
   if (!_unsubCfg) {
     _unsubCfg = onSnapshot(doc(_db(), 'config', 'parcheggi'), snap => {
       const lista = (snap.exists() && Array.isArray(snap.data().disattivati)) ? snap.data().disattivati : [];
@@ -507,6 +560,7 @@ function ascolta(cb) {
     if (!_subs.size) {
       if (_unsubSpots) { _unsubSpots(); _unsubSpots = null; }
       if (_unsubCfg)   { _unsubCfg();   _unsubCfg   = null; }
+      if (_unsubTab)   { _unsubTab();   _unsubTab   = null; }
       _docs = {};
     }
   };
@@ -621,6 +675,144 @@ async function impostaRibaltaAttiva(id, attiva, user) {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
+// 9. MODIFICA / ELIMINAZIONE (solo amministratore, da Impostazioni)
+// ══════════════════════════════════════════════════════════════════════════════
+const _who = (u) => u?.email || u?.name || null;
+const _sortId = (a, b) => String(a).localeCompare(String(b), undefined, { numeric: true });
+
+/** Crea (idOriginale vuoto) o modifica un posto. Struttura (ID, tipi, sotto-posti)
+ *  modificabile solo se il posto è vuoto e senza missioni aperte. */
+async function salvaPosto(riga, idOriginale, user) {
+  const r = _normRiga(riga);
+  const errs = validaRiga(r);
+  if (errs.length) throw _err(errs.join(' · '), 'valida');
+  const old = idOriginale ? defPosto(idOriginale) : null;
+  if (idOriginale && !old) throw _err('Posto inesistente', 'posto');
+  if ((!old || r.id !== old.id) && defPosto(r.id)) throw _err(`Esiste già un posto ${r.id}`, 'valida');
+  const struttura = old && (r.id !== old.id || r.sotto !== old.sotto ||
+    r.ammessi.join() !== old.ammessi.join());
+  if (struttura) {
+    const m = await motivoBloccoDisattivazione(old.id);
+    if (m) throw _err('ID, tipi ammessi e sotto-posti si cambiano solo a posto vuoto. ' + m, 'bloccato');
+  }
+  const tabRef = doc(_db(), 'config', 'posti');
+  const cfgRef = doc(_db(), 'config', 'parcheggi');
+  await runTransaction(_db(), async tx => {
+    const tabSnap = await tx.get(tabRef);
+    const cfgSnap = await tx.get(cfgRef);
+    if (struttura) {
+      const sp = await tx.get(_ref(old.id));
+      if (vista(old.id, sp.exists() ? sp.data() : null).occupanti.length)
+        throw _err('Nel frattempo è stato parcheggiato un mezzo: liberalo prima', 'bloccato');
+    }
+    const righe = (tabSnap.exists() && Array.isArray(tabSnap.data().righe)) ? tabSnap.data().righe.map(_normRiga) : righeTabella();
+    if (righe.some(x => x.id === r.id && (!old || x.id !== old.id))) throw _err(`Esiste già un posto ${r.id}`, 'valida');
+    const i = old ? righe.findIndex(x => x.id === old.id) : -1;
+    if (i >= 0) righe[i] = r; else righe.push(r);
+    tx.set(tabRef, { righe, aggiornatoDa: _who(user), aggiornatoIl: serverTimestamp() });
+    // rinomina di un posto disattivato: la disattivazione segue il nuovo ID
+    const dis = (cfgSnap.exists() && cfgSnap.data().disattivati) || [];
+    if (old && r.id !== old.id && dis.includes(old.id))
+      tx.set(cfgRef, { disattivati: dis.map(x => x === old.id ? r.id : x).sort(_sortId) }, { merge: true });
+  });
+  if (window.logHistory) {
+    try { await window.logHistory({ spot: r.id, action: old ? 'Posto modificato' : 'Posto creato',
+      ...(old && old.id !== r.id ? { idPrecedente: old.id } : {}) }); } catch (e) {}
+  }
+}
+
+async function eliminaPosto(id, user) {
+  const d = defPosto(id);
+  if (!d) throw _err('Posto inesistente', 'posto');
+  const m = await motivoBloccoDisattivazione(d.id);
+  if (m) throw _err(m, 'bloccato');
+  const tabRef = doc(_db(), 'config', 'posti');
+  const cfgRef = doc(_db(), 'config', 'parcheggi');
+  await runTransaction(_db(), async tx => {
+    const tabSnap = await tx.get(tabRef);
+    const cfgSnap = await tx.get(cfgRef);
+    const sp = await tx.get(_ref(d.id));
+    if (vista(d.id, sp.exists() ? sp.data() : null).occupanti.length)
+      throw _err('Nel frattempo è stato parcheggiato un mezzo: liberalo prima', 'bloccato');
+    const righe = ((tabSnap.exists() && Array.isArray(tabSnap.data().righe)) ? tabSnap.data().righe.map(_normRiga) : righeTabella())
+      .filter(x => x.id !== d.id);
+    tx.set(tabRef, { righe, aggiornatoDa: _who(user), aggiornatoIl: serverTimestamp() });
+    const dis = (cfgSnap.exists() && cfgSnap.data().disattivati) || [];
+    if (dis.includes(d.id)) tx.set(cfgRef, { disattivati: dis.filter(x => x !== d.id) }, { merge: true });
+    if (sp.exists()) tx.delete(_ref(d.id));
+  });
+  if (window.logHistory) { try { await window.logHistory({ spot: d.id, action: 'Posto eliminato' }); } catch (e) {} }
+}
+
+// ── Ribalte: rinomina / elimina (config/magazzino + config/parcheggi) ─────────
+const RE_RIBALTA = /^PNT[12]-\d{2}$/;
+
+function _ribalteInMagazzino(m) {
+  const tutte = [];
+  Object.values(m.reparti || {}).forEach(r => (r.ribalte || []).forEach(x => tutte.push(_normRib(x))));
+  (m.nonAssegnate || []).forEach(x => tutte.push(_normRib(x)));
+  return tutte;
+}
+
+async function rinominaRibalta(vecchio, nuovo, user) {
+  const a = _normRib(vecchio), b = _normRib(nuovo);
+  if (!RE_RIBALTA.test(b)) throw _err('Formato ribalta non valido (es. PNT1-05)', 'valida');
+  if (a === b) return;
+  const m0 = await motivoBloccoRibalta(a);
+  if (m0) throw _err('Si rinomina solo una ribalta non in uso. ' + m0, 'bloccato');
+  const magRef = doc(_db(), 'config', 'magazzino');
+  const cfgRef = doc(_db(), 'config', 'parcheggi');
+  await runTransaction(_db(), async tx => {
+    const magSnap = await tx.get(magRef);
+    const cfgSnap = await tx.get(cfgRef);
+    const ribSnap = await tx.get(doc(_db(), 'ribalte', a));
+    if (!magSnap.exists()) throw _err('Configurazione magazzino assente', 'config');
+    if (ribSnap.exists() && ribSnap.data().occupied) throw _err('Nel frattempo la ribalta è stata occupata', 'bloccato');
+    const mag = magSnap.data();
+    if (_ribalteInMagazzino(mag).includes(b)) throw _err(`Esiste già la ribalta ${b}`, 'valida');
+    const reparti = {};
+    Object.keys(mag.reparti || {}).forEach(k => {
+      const rr = mag.reparti[k];
+      reparti[k] = { ...rr, ribalte: (rr.ribalte || []).map(x => _normRib(x) === a ? b : x).sort(_sortId) };
+    });
+    const nonAssegnate = (mag.nonAssegnate || []).map(x => _normRib(x) === a ? b : x);
+    tx.set(magRef, { reparti, nonAssegnate }, { merge: true });
+    const dis = ((cfgSnap.exists() && cfgSnap.data().ribalteDisattivate) || []).map(_normRib);
+    if (dis.includes(a)) tx.set(cfgRef, { ribalteDisattivate: dis.map(x => x === a ? b : x).sort(_sortId),
+      aggiornatoDa: _who(user), aggiornatoIl: serverTimestamp() }, { merge: true });
+    if (ribSnap.exists()) tx.delete(doc(_db(), 'ribalte', a));
+  });
+  if (window.logHistory) { try { await window.logHistory({ spot: b, ribalta: b, idPrecedente: a, action: 'Ribalta rinominata' }); } catch (e) {} }
+}
+
+async function eliminaRibalta(id, user) {
+  const a = _normRib(id);
+  const m0 = await motivoBloccoRibalta(a);
+  if (m0) throw _err(m0, 'bloccato');
+  const magRef = doc(_db(), 'config', 'magazzino');
+  const cfgRef = doc(_db(), 'config', 'parcheggi');
+  await runTransaction(_db(), async tx => {
+    const magSnap = await tx.get(magRef);
+    const cfgSnap = await tx.get(cfgRef);
+    const ribSnap = await tx.get(doc(_db(), 'ribalte', a));
+    if (!magSnap.exists()) throw _err('Configurazione magazzino assente', 'config');
+    if (ribSnap.exists() && ribSnap.data().occupied) throw _err('Nel frattempo la ribalta è stata occupata', 'bloccato');
+    const mag = magSnap.data();
+    const reparti = {};
+    Object.keys(mag.reparti || {}).forEach(k => {
+      const rr = mag.reparti[k];
+      reparti[k] = { ...rr, ribalte: (rr.ribalte || []).filter(x => _normRib(x) !== a) };
+    });
+    tx.set(magRef, { reparti, nonAssegnate: (mag.nonAssegnate || []).filter(x => _normRib(x) !== a) }, { merge: true });
+    const dis = ((cfgSnap.exists() && cfgSnap.data().ribalteDisattivate) || []).map(_normRib);
+    if (dis.includes(a)) tx.set(cfgRef, { ribalteDisattivate: dis.filter(x => x !== a),
+      aggiornatoDa: _who(user), aggiornatoIl: serverTimestamp() }, { merge: true });
+    if (ribSnap.exists()) tx.delete(doc(_db(), 'ribalte', a));
+  });
+  if (window.logHistory) { try { await window.logHistory({ spot: a, ribalta: a, action: 'Ribalta eliminata' }); } catch (e) {} }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
 // ESPORTAZIONE
 // ══════════════════════════════════════════════════════════════════════════════
 const ParcheggiCore = {
@@ -631,6 +823,8 @@ const ParcheggiCore = {
   isAttivo, idAttivi, idTutti, disattivati, impostaAttivo, motivoBloccoDisattivazione,
   // ribalte attive
   ribaltaAttiva, ribalteDisattivate, filtraReparti, impostaRibaltaAttiva, motivoBloccoRibalta,
+  // modifica tabella / ribalte (Impostazioni)
+  righeTabella, fonteTabella, validaRiga, salvaPosto, eliminaPosto, rinominaRibalta, eliminaRibalta,
   // viste
   vista, vistaVuota, disponibilePer, etichettaOcc, trovaMezzo, mezzi, mappa, riempi,
   // calcoli puri
