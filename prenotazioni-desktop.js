@@ -416,8 +416,9 @@ function renderCasse() {
   if (!container) return;
 
   // Filtra i posti occupati da casse piene (plate = 3 cifre + flag full)
-  const casseOccupate = Object.values(window.spots).filter(s =>
-    s.occupied && s.full && s.plate && window.RE_CASSA.test(s.plate.trim())
+  // Un elemento per mezzo: su un posto possono esserci più casse
+  const casseOccupate = window.ParcheggiCore.mezzi(window.spots).filter(s =>
+    s.full && s.plate && window.RE_CASSA.test(s.plate.trim())
   );
 
   if (!casseOccupate.length) {
@@ -466,8 +467,8 @@ function renderCasse() {
           ${s.full ? '<span class="badge-pieno" style="font-size:1rem">📦 Piena</span>' : ''}
           ${puoUrgenza
             ? (urgente
-                ? `<button onclick="toggleUrgenzaCassa('${_esc(s.id)}', false)" title="Togli urgenza" style="padding:4px 10px;border-radius:6px;border:1px solid var(--red,#ef4444);background:transparent;color:var(--red,#ef4444);font-size:12px;font-weight:700;cursor:pointer">✕ Togli urgenza</button>`
-                : `<button onclick="toggleUrgenzaCassa('${_esc(s.id)}', true)" title="Porta in cima all'elenco autista" style="padding:4px 10px;border-radius:6px;border:1px solid var(--border,#3a4050);background:var(--surface2,#2e333d);color:var(--text,#e8eaf0);font-size:12px;font-weight:700;cursor:pointer">🚨 Segna urgente</button>`)
+                ? `<button onclick="toggleUrgenzaCassa('${_esc(s.id)}', false, '${_esc(s.plate)}')" title="Togli urgenza" style="padding:4px 10px;border-radius:6px;border:1px solid var(--red,#ef4444);background:transparent;color:var(--red,#ef4444);font-size:12px;font-weight:700;cursor:pointer">✕ Togli urgenza</button>`
+                : `<button onclick="toggleUrgenzaCassa('${_esc(s.id)}', true, '${_esc(s.plate)}')" title="Porta in cima all'elenco autista" style="padding:4px 10px;border-radius:6px;border:1px solid var(--border,#3a4050);background:var(--surface2,#2e333d);color:var(--text,#e8eaf0);font-size:12px;font-weight:700;cursor:pointer">🚨 Segna urgente</button>`)
             : ''}
         </div>
       </div>`;
@@ -486,16 +487,15 @@ function _puoSegnareUrgenzaCasse() {
   return u.role === 'amministrativo' && _isReverseUser();
 }
 
-window.toggleUrgenzaCassa = async function(spotId, val) {
+window.toggleUrgenzaCassa = async function(spotId, val, plate) {
   if (!_puoSegnareUrgenzaCasse()) { window.showToast('Non hai i permessi per gestire le urgenze.', 'error'); return; }
-  const s = window.spots?.[spotId];
-  if (!s || !s.occupied || !s.plate) { window.showToast('Posto non più occupato', 'error'); return; }
+  const v = window.spots?.[spotId];
+  const s = v && (v.occupanti || []).find(o => !plate || o.plate === plate);
+  if (!s || !s.plate) { window.showToast('Cassa non più sul posto', 'error'); return; }
   try {
-    await setDoc(doc(window.db, 'spots', spotId), {
+    await window.ParcheggiCore.aggiorna(spotId, s.plate, {
       urgente: !!val, urgentePlate: val ? s.plate : null
-    }, { merge: true });
-    // aggiornamento locale immediato (il listener spots allinea comunque)
-    s.urgente = !!val; s.urgentePlate = val ? s.plate : null;
+    });
     await window.logHistory({ spot: spotId, action: val ? 'Urgenza impostata' : 'Urgenza rimossa', plate: s.plate, tipo: 'cassa' });
     window.showToast(val ? `🚨 Cassa ${s.plate} urgente: in cima all'elenco autista` : `Urgenza rimossa da ${s.plate}`, 'success');
     renderCasse();
@@ -585,9 +585,9 @@ function _containerPrenotabili(prefisso) {
   const allaRibalta = new Set(
     Object.values(_ribalteData).filter(r => r.occupied && r.plate).map(r => String(r.plate).toUpperCase())
   );
-  return Object.values(window.spots || {})
+  return window.ParcheggiCore.mezzi(window.spots)
     .filter(s => {
-      if (!s.occupied || !s.full || !s.plate) return false;
+      if (!s.full || !s.plate) return false;
       if (s.unusable) return false;
       const p = String(s.plate).trim().toUpperCase();
       if (!RE.test(p)) return false;
@@ -701,14 +701,14 @@ async function cercaMezzo() {
   feedback.textContent = 'Ricerca in corso…';
   feedback.className = 'pren-feedback';
   try {
-    const snap = await getDocs(query(collection(window.db, 'spots'), where('plate', '==', targa), limit(1)));
-    if (snap.empty) {
+    const trovato = await window.ParcheggiCore.cercaTarga(targa);
+    if (!trovato) {
       feedback.textContent = '⚠️ Nessun container trovato con ID "' + targa + '".';
       feedback.className = 'pren-feedback err';
       return;
     }
-    const docSnap = snap.docs[0];
-    const data = docSnap.data();
+    const docSnap = { id: trovato.posto };
+    const data = { ...trovato.mezzo, occupied: true };
     _mezzoCorrente = { spotId: docSnap.id, plate: data.plate, occupied: data.occupied };
 
     // Blocco se container inutilizzabile e vuoto
@@ -1033,11 +1033,9 @@ window.confermaDeskCompleta = async function(id) {
     // Libera posto parcheggio origine (leggi full prima di liberarlo)
     let spotFull = false;
     if (pren?.spotId && !pren.spotId.startsWith('PNT')) {
-      const spotObj = window.spots?.[pren.spotId];
-      spotFull = spotObj?.full || false;
-      await setDoc(doc(window.db, 'spots', pren.spotId), {
-        occupied: false, plate: null, since: null, user: null, full: false
-      });
+      // Libera solo QUESTO mezzo dal posto (possono essercene altri)
+      const rimosso = await window.ParcheggiCore.libera(pren.spotId, pren.plate || null);
+      spotFull = rimosso?.full || false;
     }
     // Occupa ribalta destinazione propagando il flag full della cassa
     await setDoc(doc(window.db, 'ribalte', dest), {

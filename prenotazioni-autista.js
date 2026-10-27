@@ -26,12 +26,18 @@ function isValidRibalta(id) {
   if (!id) return false;
   return _tutteRibalte().includes(String(id).trim().toUpperCase());
 }
+// Posto parcheggio valido = esiste nella tabella unica ed è ATTIVO
+const _PC = () => window.ParcheggiCore;
 function isValidSpot(id) {
   if (!id) return false;
-  const k = String(id).trim().toUpperCase();
-  if (_spots && _spots[k]) return true;
-  return Array.isArray(window.SPOT_DEFS) &&
-         window.SPOT_DEFS.some(d => String(d[0]).trim().toUpperCase() === k);
+  return _PC().isAttivo(String(id).trim().toUpperCase());
+}
+// Il mezzo con questa targa sul posto indicato (o null)
+function _mezzoInPosto(spotId, plate) {
+  const v = _spots[String(spotId || '').trim().toUpperCase()];
+  if (!v) return null;
+  const t = String(plate || '').trim().toUpperCase();
+  return (v.occupanti || []).find(o => String(o.plate).toUpperCase() === t) || null;
 }
 function validateDestination(dest) {
   const d = (dest || '').trim().toUpperCase();
@@ -51,30 +57,20 @@ function _tipoDaPlate(plate) {
 }
 
 // ── Criteri parcheggi ─────────────────────────────────────────────────────────
-// A01–A12 container pieno · A13–A24 container vuoto
-// B01–B09 cassa pieno · C** / D** cassa vuoto
-function _spotCriterio(id) {
-  const m = String(id || '').trim().toUpperCase().match(/^([A-D])(\d{2})$/);
-  if (!m) return null;
-  const zona = m[1], n = parseInt(m[2], 10);
-  if (zona === 'A') return { tipo: 'container', stato: n <= 12 ? 'pieno' : 'vuoto' };
-  if (zona === 'B') return { tipo: 'cassa', stato: 'pieno' };
-  return { tipo: 'cassa', stato: 'vuoto' };
-}
+// Tipo ammesso e stato (pieno/vuoto) vengono dalla tabella unica
+// (parcheggi-data.js) tramite ParcheggiCore. Solo posti attivi.
 
-// Parcheggi liberi compatibili con tipo (+ eventuale stato)
+// Parcheggi che possono ricevere ORA un mezzo di questo tipo (+ eventuale stato).
+// Casse: prima i posti già parziali, così i posti interi restano ai container.
 function _postiLiberiPerTipo(tipo, stato = null) {
-  const ids = Array.isArray(window.SPOT_DEFS) && window.SPOT_DEFS.length
-    ? window.SPOT_DEFS.map(d => String(d[0]).trim().toUpperCase())
-    : Object.keys(_spots);
-  return ids.filter(id => {
-    const c = _spotCriterio(id);
-    if (!c || c.tipo !== tipo) return false;
-    if (stato && c.stato !== stato) return false;
-    const s = _spots[id];
-    if (s && (s.occupied || s.unusable)) return false;
-    return true;
-  }).sort();
+  const C = _PC();
+  const ids = C.idAttivi()
+    .filter(id => C.accetta(id, tipo) && (!stato || C.criterio(id).stato === stato))
+    .filter(id => C.disponibilePer(_spots[id] || C.vistaVuota(id), tipo))
+    .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+  if (tipo !== 'cassa') return ids;
+  const parz = ids.filter(id => _spots[id] && _spots[id].statoOcc === 'parziale');
+  return parz.concat(ids.filter(id => !(_spots[id] && _spots[id].statoOcc === 'parziale')));
 }
 
 // ── Helper ribalte libere ──────────────────────────────────────────────────────
@@ -188,11 +184,14 @@ async function _apriBloccoPren(lista) {
 }
 
 // Lista casse piene, ordinata dalla più vecchia alla più recente.
+// Un elemento per MEZZO (id = posto): su un posto possono esserci più casse.
 function _casseOccupateOrdinate() {
-  return Object.values(_spots)
-    .filter(s => s.occupied && s.full && s.plate && RE_CASSA.test(s.plate.trim()))
+  return _PC().mezzi(_spots)
+    .filter(s => s.full && s.plate && RE_CASSA.test(s.plate.trim()))
     .sort((a, b) => _tsVal(a.since) - _tsVal(b.since));
 }
+// Chiave univoca di una cassa parcheggiata (posto + targa), usata anche negli id DOM
+const _kCassa = s => s.id + '_' + String(s.plate || '').trim().toUpperCase();
 
 // ── SEQUENZA PIENO / VUOTO ALTERNATA ──────────────────────────────────────────
 // L'autista lavora con un solo rimorchio: porta un pieno alla ribalta e riporta
@@ -290,17 +289,16 @@ function _cassaUrgente(s) {
 }
 
 async function _apriBloccoCasse(lista) {
-  const nuove = lista.filter(s => !_bloccoInFlight.has('s:' + s.id));
+  const nuove = lista.filter(s => !_bloccoInFlight.has('s:' + _kCassa(s)));
   if (!nuove.length) return;
-  nuove.forEach(s => _bloccoInFlight.add('s:' + s.id));
+  nuove.forEach(s => _bloccoInFlight.add('s:' + _kCassa(s)));
   try {
-    await Promise.all(nuove.map(s =>
-      setDoc(doc(window.db, 'spots', s.id), { bloccoPlate: s.plate || null }, { merge: true })
-    ));
+    // In sequenza: più casse possono stare sullo stesso posto (stesso documento)
+    for (const s of nuove) await _PC().aggiorna(s.id, s.plate, { bloccoPlate: s.plate || null });
   } catch (e) {
     console.error('Errore apertura blocco casse:', e);
   } finally {
-    nuove.forEach(s => _bloccoInFlight.delete('s:' + s.id));
+    nuove.forEach(s => _bloccoInFlight.delete('s:' + _kCassa(s)));
   }
 }
 
@@ -332,23 +330,12 @@ err => console.error('Errore prenotazioni:', err)
 
 if (_unsubSpots) _unsubSpots();
 
-_unsubSpots = onSnapshot(
-
-collection(window.db, 'spots'),
-
-snap => {
-
-_spots = {};
-
-snap.docs.forEach(d => { _spots[d.id] = { id: d.id, ...d.data() }; });
-
-renderPrenotazioni();
-
-},
-
-err => console.error('Errore spots:', err)
-
-);
+// Posti + config/parcheggi: listener condiviso in ParcheggiCore.
+// _spots = { id: vista } dei soli posti attivi (occupanti[], statoOcc, ...).
+_unsubSpots = _PC().ascolta(() => {
+  _spots = _PC().mappa();
+  renderPrenotazioni();
+});
 
 if (_unsubSeq) _unsubSeq();
 
@@ -419,7 +406,7 @@ const richiesteCassa = _prenotazioni.filter(p => p.tipoMissione === 'cassa_vuota
 const items = [
   ...richiesteCassa.map(p => ({ key: 'p:' + p.id, pren: p, pieno: false, urg: !!p.urgente, ts: _tsPren(p), marcato: !!p.bloccoAt })),
   ...missioniCasse.map(p => ({ key: 'p:' + p.id, pren: p, pieno: _isPienoPren(p), urg: !!p.urgente, ts: _tsPren(p), marcato: !!p.bloccoAt })),
-  ...casseOccupate.map(s => ({ key: 's:' + s.id, spot: s, pieno: true, urg: _cassaUrgente(s), ts: _tsVal(s.since), marcato: !!(s.bloccoPlate && s.bloccoPlate === s.plate) })),
+  ...casseOccupate.map(s => ({ key: 's:' + _kCassa(s), spot: s, pieno: true, urg: _cassaUrgente(s), ts: _tsVal(s.since), marcato: !!(s.bloccoPlate && s.bloccoPlate === s.plate) })),
 ];
 
 if (!items.length) {
@@ -550,14 +537,15 @@ function _cassaCard(s, idx, abilitato, urgente) {
     ? sinceTs.toLocaleDateString('it-IT', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' })
     : '—';
   const rankClass = abilitato ? 'cassa-rank top' : 'cassa-rank';
+  const k = _esc(_kCassa(s));
   const completaBtn = abilitato
-    ? `<div id="nfRow_s_${_esc(s.id)}" style="display:flex;gap:8px;align-items:stretch">
-  <button class="btnCompletaOrange" style="flex:2;margin:0" onclick="aprirCompletaCassa('${_esc(s.id)}','${_esc(s.plate)}','cassa_${_esc(s.id)}')">✅ Completa missione</button>
-  ${_btnNonTrovato(`nonTrovatoSpot('${_esc(s.id)}')`)}
+    ? `<div id="nfRow_s_${k}" style="display:flex;gap:8px;align-items:stretch">
+  <button class="btnCompletaOrange" style="flex:2;margin:0" onclick="aprirCompletaCassa('${_esc(s.id)}','${_esc(s.plate)}','cassa_${k}')">✅ Completa missione</button>
+  ${_btnNonTrovato(`nonTrovatoSpot('${_esc(s.id)}','${_esc(s.plate)}')`)}
 </div>
-<div id="nfConf_s_${_esc(s.id)}" style="display:none"></div>
-<div id="cfCassa_cassa_${_esc(s.id)}" style="display:none"></div>
-<div id="cfCassaUndo_cassa_${_esc(s.id)}" style="display:none"></div>`
+<div id="nfConf_s_${k}" style="display:none"></div>
+<div id="cfCassa_cassa_${k}" style="display:none"></div>
+<div id="cfCassaUndo_cassa_${k}" style="display:none"></div>`
     : `<button disabled class="btnBlocco">🔒 In attesa</button>`;
   const cardClass = abilitato ? 'casseCard pendente' : 'casseCard bloccata';
   const urgStyle = urgente ? ' style="border:2px solid var(--red,#ef4444)"' : '';
@@ -674,9 +662,9 @@ function _casseVuoteDisponibili(destRichiesta) {
     .map(p => String(p.plate).trim().toUpperCase()));
   const repDest = _repartoDi(destRichiesta);
   const out = [];
-  Object.values(_spots).forEach(s => {
+  _PC().mezzi(_spots).forEach(s => {
     const pl = String(s.plate || '').trim().toUpperCase();
-    if (!s.occupied || s.full || s.unusable || !RE_CASSA.test(pl) || inMissione.has(pl)) return;
+    if (s.full || s.unusable || !RE_CASSA.test(pl) || inMissione.has(pl)) return;
     out.push({ tipo: 'parcheggio', id: s.id, plate: pl, since: s.since, gruppo: 2 });
   });
   Object.values(_ribalte).forEach(r => {
@@ -813,20 +801,27 @@ window.cvConferma = async function(id) {
   const { tipo, id: luogo, plate } = st.sel;
   try {
     const prenRef = doc(window.db, 'prenotazioni', id);
-    const oriRef  = doc(window.db, tipo === 'parcheggio' ? 'spots' : 'ribalte', luogo);
+    const oriRef  = tipo === 'parcheggio' ? null : doc(window.db, 'ribalte', luogo);
     const destRef = doc(window.db, 'ribalte', dest);
     await runTransaction(window.db, async (tx) => {
       const ps = await tx.get(prenRef);
-      const os = await tx.get(oriRef);
+      // Parcheggio: vista del posto (più mezzi possibili) letta nella transazione
+      let vOri = null, o = null;
+      if (tipo === 'parcheggio') {
+        vOri = await _PC().txLeggi(tx, luogo);
+        const m = vOri.occupanti.find(x => String(x.plate || '').toUpperCase() === plate);
+        o = m ? { occupied: true, plate: m.plate, full: !!m.full } : null;
+      } else {
+        const os = await tx.get(oriRef);
+        o = os.exists() ? os.data() : null;
+      }
       const ds = await tx.get(destRef);
       if (!ps.exists() || ps.data().stato !== 'creata') throw new Error('Richiesta non più aperta');
-      const o = os.exists() ? os.data() : null;
       if (!o || !o.occupied || String(o.plate || '').toUpperCase() !== plate || o.full)
         throw new Error(`La cassa ${plate} non è più disponibile in ${luogo}`);
       if (ds.exists() && ds.data().occupied) throw new Error(`La ribalta ${dest} è ancora occupata`);
       if (tipo === 'parcheggio') {
-        tx.set(oriRef, { occupied: false, plate: null, since: null, user: null, full: false,
-          bloccoPlate: null, urgente: false, urgentePlate: null }, { merge: true });
+        _PC().txScrivi(tx, luogo, _PC().calcolaLibera(vOri, plate).occupanti, vOri);
       } else {
         tx.set(oriRef, { occupied: false, plate: null, since: null, user: null, full: false,
           inUscita: false, ribaltaRichiesta: null, inLiberazione: null, liberazioneDa: null,
@@ -1170,11 +1165,9 @@ window.nonTrovatoPrenExec = async function(id) {
       annullataDaUid:  user?.uid  || null,
       annullataDaNome: user?.name || user?.email || null,
     }));
-    if (isValidSpot(luogo)) {
-      ops.push(setDoc(doc(window.db, 'spots', luogo), {
-        occupied: false, plate: null, since: null, user: null, full: false,
-        bloccoPlate: null, urgente: false, urgentePlate: null,
-      }, { merge: true }));
+    if (_PC().esiste(luogo)) {
+      // Libera solo QUESTO mezzo (sul posto possono essercene altri)
+      ops.push(_PC().libera(luogo, p.plate || null));
     } else if (isValidRibalta(luogo)) {
       ops.push(setDoc(doc(window.db, 'ribalte', luogo), {
         occupied: false, plate: null, since: null, user: null, full: false,
@@ -1198,34 +1191,31 @@ window.nonTrovatoPrenExec = async function(id) {
   }
 };
 
-// Cassa parcheggiata (nessuna prenotazione): libera solo il posto
-window.nonTrovatoSpot = function(spotId) {
-  const s = _spots[spotId];
-  if (!s) { showToast('Posto non trovato', 'error'); return; }
-  _nfChiedi('s_' + spotId, 'Il veicolo non è sul posto?',
-    `<strong>${_esc(s.plate || '—')}</strong> risulta al parcheggio <strong>${_esc(spotId)}</strong>.<br>
-     Confermando, il parcheggio viene liberato.`,
-    `nonTrovatoSpotExec('${spotId}')`);
+// Cassa parcheggiata (nessuna prenotazione): libera solo QUELLA cassa dal posto
+window.nonTrovatoSpot = function(spotId, plate) {
+  const m = _mezzoInPosto(spotId, plate);
+  if (!m) { showToast('Cassa non più sul posto', 'error'); return; }
+  const key = 's_' + _kCassa({ id: spotId, plate: m.plate });
+  _nfChiedi(key, 'Il veicolo non è sul posto?',
+    `<strong>${_esc(m.plate || '—')}</strong> risulta al parcheggio <strong>${_esc(spotId)}</strong>.<br>
+     Confermando, viene tolto dal parcheggio.`,
+    `nonTrovatoSpotExec('${_esc(spotId)}','${_esc(m.plate)}')`);
 };
 
-window.nonTrovatoSpotExec = async function(spotId) {
-  const key = 's_' + spotId;
+window.nonTrovatoSpotExec = async function(spotId, plate) {
+  const key = 's_' + _kCassa({ id: spotId, plate });
   if (_nfInCorso.has(key)) return;
-  const s = _spots[spotId];
-  if (!s) { showToast('Posto non trovato', 'error'); return; }
+  const m = _mezzoInPosto(spotId, plate);
+  if (!m) { showToast('Cassa non più sul posto', 'error'); return; }
   _nfInCorso.add(key);
   const btn = document.getElementById('nfSi_' + key);
   if (btn) { btn.disabled = true; btn.textContent = '⏳…'; }
-  const plate = s.plate;
   try {
     await Promise.all([
-      setDoc(doc(window.db, 'spots', spotId), {
-        occupied: false, plate: null, since: null, user: null, full: false,
-        bloccoPlate: null, urgente: false, urgentePlate: null,
-      }, { merge: true }),
-      _nfRegistra({ plate, luogo: spotId, tipoLuogo: 'parcheggio', prenId: null, tipoMissione: 'cassa_parcheggiata' }),
+      _PC().libera(spotId, m.plate),
+      _nfRegistra({ plate: m.plate, luogo: spotId, tipoLuogo: 'parcheggio', prenId: null, tipoMissione: 'cassa_parcheggiata' }),
     ]);
-    showToast(`Segnalato: ${plate || '—'} non trovato — ${spotId} liberato`, 'success');
+    showToast(`Segnalato: ${m.plate || '—'} non trovato — tolto da ${spotId}`, 'success');
   } catch (e) {
     showToast('Errore: ' + (e.message || e), 'error');
     if (btn) { btn.disabled = false; btn.textContent = "✓ Sì, non c'è"; }
@@ -1239,7 +1229,7 @@ window.nonTrovatoSpotExec = async function(spotId) {
 function _buildPostiPicker(p) {
   const tipo = _tipoDaPlate(p.plate);
   // Lo stato dichiarato dall'operativo alla liberazione della ribalta decide
-  // la famiglia di parcheggi: pieno → A01–A12 / B01–B09, vuoto → A13–A24 / C–D.
+  // la famiglia di parcheggi (campo `stato` dei posti in parcheggi-data.js).
   const stato = p.fullAllaLibera ? 'pieno' : 'vuoto';
   const liberi = _postiLiberiPerTipo(tipo, stato);
 
@@ -1652,18 +1642,6 @@ try {
 
 const ops = [];
 
-ops.push(updateDoc(doc(window.db, 'prenotazioni', id), {
-
-stato: 'completata',
-
-completataAt: serverTimestamp(),
-
-postoFine,
-
-ribaltaRichiesta
-
-}));
-
 if (pren) {
 
 const origine = (pren.spotId || '').trim().toUpperCase();
@@ -1676,15 +1654,22 @@ const dest = postoFine.trim().toUpperCase();
 const isSpost = pren.tipoMissione === 'spostamento';
 const statoPieno = (pren.tipoMissione === 'ribalta' || isSpost)
   ? !!pren.fullAllaLibera
-  : !!(_spots[origine] && _spots[origine].full);
+  : !!(_mezzoInPosto(origine, pren.plate)?.full);
 
-if (isValidSpot(origine)) {
+// Parcheggio di destinazione: si occupa PRIMA di tutto il resto, in transazione.
+// Se nel frattempo si è riempito, si ferma qui senza toccare nient'altro.
+if (_PC().esiste(dest)) {
+  await _PC().assegna(dest, {
+    plate: pren.plate || null,
+    user: pren.utenteEmail || null,
+    full: statoPieno,
+  });
+}
 
-ops.push(setDoc(doc(window.db, 'spots', origine), {
+if (_PC().esiste(origine)) {
 
-occupied: false, plate: null, since: null, user: null, full: false
-
-}, { merge: true }));
+// Libera solo QUESTO mezzo dal posto d'origine
+ops.push(_PC().libera(origine, pren.plate || null));
 
 } else if (isValidRibalta(origine)) {
 
@@ -1697,21 +1682,9 @@ inLiberazione: null, liberazioneDa: null, inSpostamento: null, spostamentoVerso:
 
 }
 
-if (isValidSpot(dest)) {
+if (_PC().esiste(dest)) {
 
-ops.push(setDoc(doc(window.db, 'spots', dest), {
-
-occupied: true,
-
-plate: pren.plate || null,
-
-since: serverTimestamp(),
-
-user: pren.utenteEmail || null,
-
-full: statoPieno,
-
-}, { merge: true }));
+// già occupato sopra, in transazione
 
 } else if (isValidRibalta(dest)) {
 
@@ -1761,6 +1734,20 @@ richiedente: pren.operatoreNome || pren.utenteNome || pren.operatoreEmail || pre
 }));
 
 }
+
+// La prenotazione si chiude solo dopo che il parcheggio di destinazione
+// (se è un parcheggio) è stato occupato con successo, sopra.
+ops.push(updateDoc(doc(window.db, 'prenotazioni', id), {
+
+stato: 'completata',
+
+completataAt: serverTimestamp(),
+
+postoFine,
+
+ribaltaRichiesta
+
+}));
 
 await Promise.all(ops);
 
@@ -1980,12 +1967,10 @@ async function selezionaRibalta_cassa_exec(spotId, plate, ribaltaId, user) {
   try {
     // Stato del veicolo letto PRIMA di liberare il posto: se partiva pieno,
     // resta pieno finché l'operativo non dichiara la ribalta vuota.
-    const eraPieno = !!(_spots[spotId] && _spots[spotId].full);
+    const eraPieno = !!(_mezzoInPosto(spotId, plate)?.full);
     const ops = [];
-    ops.push(setDoc(doc(window.db, 'spots', spotId), {
-      occupied: false, plate: null, since: null, user: null, full: false, bloccoPlate: null,
-      urgente: false, urgentePlate: null
-    }, { merge: true }));
+    // Libera solo QUESTA cassa dal posto (possono essercene altre)
+    ops.push(_PC().libera(spotId, plate || null));
     ops.push(setDoc(doc(window.db, 'ribalte', ribaltaId), {
       occupied: true, plate: plate || null, since: serverTimestamp(), user: user?.email || null, full: eraPieno,
       inUscita: false, ribaltaRichiesta: null,
@@ -2030,15 +2015,12 @@ ribaltaRichiesta: isValidRibalta(pren.destinazione) ? String(pren.destinazione).
 const spotId = (pren.spotId || '').trim();
 
 // Stato del veicolo letto PRIMA di liberare il posto d'origine.
-const eraPieno = !!(spotId && _spots[spotId] && _spots[spotId].full);
+const eraPieno = !!(spotId && _mezzoInPosto(spotId, pren.plate)?.full);
 
-if (spotId) {
+if (spotId && _PC().esiste(spotId)) {
 
-ops.push(setDoc(doc(window.db, 'spots', spotId), {
-
-occupied: false, plate: null, since: null, user: null, full: false
-
-}, { merge: true }));
+// Libera solo QUESTO mezzo dal posto d'origine
+ops.push(_PC().libera(spotId, pren.plate || null));
 
 }
 

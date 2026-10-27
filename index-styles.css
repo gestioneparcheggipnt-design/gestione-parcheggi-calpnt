@@ -61,6 +61,8 @@
   .spot.free:hover rect{fill:rgba(164,210,0,.5);}
   .spot.occupied rect{fill:rgba(239,68,68,.35);stroke:#dc2626;stroke-width:1.2;}
   .spot.occupied:hover rect{fill:rgba(239,68,68,.65);}
+  .spot.partial rect{fill:rgba(59,130,246,.35);stroke:#2563eb;stroke-width:1.2;}
+  .spot.partial:hover rect{fill:rgba(59,130,246,.6);}
   .spot.highlight rect{stroke:#f59e0b!important;stroke-width:2.5!important;fill:rgba(245,158,11,.45)!important;}
   .spot.unusable rect{fill:rgba(124,58,237,.35);stroke:#7c3aed;stroke-width:1.2;}
   .spot.unusable:hover rect{fill:rgba(124,58,237,.55);}
@@ -76,6 +78,7 @@
   .zoneName{font-size:11px;color:var(--muted);margin-bottom:11px;}
   .statusBadge{display:inline-flex;align-items:center;gap:5px;border-radius:20px;padding:3px 10px;font-size:11px;font-weight:600;margin-bottom:11px;}
   .statusBadge.free{background:#A4D20018;color:var(--accent);border:1px solid #A4D20040;}
+  .statusBadge.partial{background:#3b82f618;color:#2563eb;border:1px solid #3b82f640;}
   .statusBadge.occupied{background:#ef444418;color:var(--red);border:1px solid #ef444440;}
   .plateInput{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:9px 11px;color:var(--text);font-family:'DM Mono',monospace;font-size:15px;font-weight:600;text-transform:uppercase;letter-spacing:2px;outline:none;text-align:center;margin-bottom:9px;}
   .plateInput:focus{border-color:var(--accent);}

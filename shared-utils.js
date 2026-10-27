@@ -85,25 +85,24 @@ export function validateDestination(dest, validList) {
 }
 
 // ── Controllo duplicato veicolo ───────────────────────────────────────────────
-export async function checkVehicleNotDuplicate(plate, spots) {
-  const occupied = Object.values(spots).find(
-    s => s.occupied && s.plate === plate
-  );
-  if (occupied) return { ok: false, msg: `Veicolo ${plate} già presente nel posto ${occupied.id}.` };
+// spots = mappa { id: vista } di ParcheggiCore (un posto può avere più mezzi)
+export function checkVehicleNotDuplicate(plate, spots) {
+  const hit = window.ParcheggiCore.trovaMezzo(spots, plate);
+  if (hit) return { ok: false, msg: `Veicolo ${plate} già presente nel posto ${hit.posto}.` };
   return { ok: true };
 }
 
-// ── Controllo posto libero ────────────────────────────────────────────────────
-export function checkSpotFree(spotId, spots) {
+// ── Controllo spazio sul posto per un tipo di mezzo ───────────────────────────
+export function checkSpotFree(spotId, spots, tipo = 'container') {
   const sp = spots[spotId];
-  if (!sp) return { ok: false, msg: `Posto ${spotId} non trovato.` };
-  if (sp.occupied) return { ok: false, msg: `Posto ${spotId} già occupato da ${sp.plate}.` };
+  if (!sp) return { ok: false, msg: `Posto ${spotId} non trovato o disattivato.` };
+  if (!window.ParcheggiCore.disponibilePer(sp, tipo)) return { ok: false, msg: `Posto ${spotId} senza spazio per ${tipo === 'cassa' ? 'una cassa' : 'un container'}.` };
   return { ok: true };
 }
 
 // ── Validazione spot e ribalta ────────────────────────────────────────────────
-export function isValidSpot(spotId, spots) {
-  return spotId && spots[spotId] !== undefined;
+export function isValidSpot(spotId) {
+  return !!spotId && window.ParcheggiCore.isAttivo(spotId);
 }
 
 export function isValidRibalta(ribaltaId, validList) {

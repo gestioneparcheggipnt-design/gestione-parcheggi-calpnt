@@ -156,10 +156,7 @@
     <div class="filterRow" id="filterZonaRow">
       <select class="filterSelect" id="filterZona" onchange="renderPosti()">
         <option value="">Tutte le zone</option>
-        <option value="ZONA A">Zona A</option>
-        <option value="ZONA B">Zona B</option>
-        <option value="ZONA C">Zona C</option>
-        <option value="ZONA D">Zona D</option>
+        <!-- opzioni generate dalla tabella unica dei parcheggi -->
       </select>
     </div>
 
@@ -320,6 +317,7 @@
 <!-- ══ LOGICA APPLICAZIONE ════════════════════════════════════════════════════ -->
 <script type="module">
 import './firebase-config.js';
+import './parcheggi-core.js';
 import './navette-core.js';
 import { signInWithEmailAndPassword, signOut, onAuthStateChanged }
   from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
@@ -349,10 +347,22 @@ let historyCache = [];
 let _filterPill  = ''; // '' | 'libero' | 'occupato'
 let unsubSpots = null, unsubHistory = null;
 
-// Inizializza spots da SPOT_DEFS
-SPOT_DEFS.forEach(([id, zone]) => {
-  spots[id] = { id, zone, occupied: false, plate: null, since: null, user: null, damaged: false, full: false };
-});
+// Posti ATTIVI come viste normalizzate (vedi ParcheggiCore.vista):
+// occupanti[], statoOcc, slotLiberi + campi del primo mezzo per compatibilità.
+// Riempito sul posto dal listener: getSpots() restituisce sempre lo stesso oggetto.
+window.ParcheggiCore.riempi(spots, { date: true });
+
+// Opzioni del filtro zona: dalla tabella unica (solo zone con posti attivi)
+function _popolaFiltroZona() {
+  const sel = document.getElementById('filterZona');
+  if (!sel) return;
+  const cur = sel.value;
+  const zone = window.ParcheggiCore.zone().filter(z => (window.ZONES[z] || []).length);
+  sel.innerHTML = '<option value="">Tutte le zone</option>' +
+    zone.map(z => `<option value="${z}">${z.charAt(0) + z.slice(1).toLowerCase()}</option>`).join('');
+  sel.value = zone.includes(cur) ? cur : '';
+}
+_popolaFiltroZona();
 
 initCheckin({
   getSpots: () => spots,
@@ -572,22 +582,10 @@ window._getFilterPill = () => _filterPill;
 
 // ── LISTENERS ─────────────────────────────────────────────────────────────────
 function startListeners() {
-  unsubSpots = onSnapshot(collection(window.db, 'spots'), snap => {
-    snap.docChanges().forEach(ch => {
-      const data = ch.doc.data(), id = ch.doc.id;
-      if (spots[id]) {
-        if (ch.type === 'removed') {
-          spots[id] = { ...spots[id], occupied: false, plate: null, since: null, user: null, full: false, unusable: false };
-        } else {
-          spots[id] = { ...spots[id],
-            occupied: data.occupied || false, plate: data.plate || null,
-            since:    data.since?.toDate() || null, user: data.user || null,
-            damaged:  data.damaged || false, full: data.full || false,
-            unusable: data.unusable || false
-          };
-        }
-      }
-    });
+  // Posti + config/parcheggi: un solo listener condiviso, in ParcheggiCore
+  unsubSpots = window.ParcheggiCore.ascolta(() => {
+    window.ParcheggiCore.riempi(spots, { date: true });
+    _popolaFiltroZona();
     updateCheckinUI();
     renderPosti();
     updateAdminStats();
@@ -628,11 +626,13 @@ function showPage(id, btn) {
 function updateAdminStats() {
   if (currentUser?.role !== 'amministratore' && currentUser?.role !== 'amministrativo') return;
   const all = Object.values(spots);
-  const occ = all.filter(s => s.occupied).length;
+  const lib = all.filter(s => s.statoOcc === 'libero').length;
+  const parz = all.filter(s => s.statoOcc === 'parziale').length;
+  const occ = all.length - lib;
   document.getElementById('adminStats').innerHTML = `
     <div class="statCard blue"><div class="val">${all.length}</div><div class="lbl">Totali</div></div>
-    <div class="statCard green"><div class="val">${all.length - occ}</div><div class="lbl">Liberi</div></div>
-    <div class="statCard red"><div class="val">${occ}</div><div class="lbl">Occupati</div></div>
+    <div class="statCard green"><div class="val">${lib}</div><div class="lbl">Liberi</div></div>
+    <div class="statCard red"><div class="val">${occ}</div><div class="lbl">${parz ? 'Occupati · ' + parz + ' parz.' : 'Occupati'}</div></div>
     <div class="statCard orange"><div class="val">${historyCache.length}</div><div class="lbl">Movimenti</div></div>`;
 }
 

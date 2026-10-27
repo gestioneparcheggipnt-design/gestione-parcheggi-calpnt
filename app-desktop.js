@@ -3,6 +3,7 @@
 // Il deploy aggiorna automaticamente il ?v= ad ogni push.
 
 import './firebase-config.js';
+import './parcheggi-core.js';
 import './spots-data-desktop.js';
 import './shared-utils-desktop.js';
 import './map-renderer.js';

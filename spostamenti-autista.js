@@ -1,4 +1,3 @@
-import { doc, serverTimestamp, setDoc } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
 // ── spostamenti-autista.js ────────────────────────────────────────────────────
 // Spostamento manuale di un veicolo da un parcheggio a un altro (ruolo autista).
 // Flusso: elenco parcheggi occupati → «Sposta» → scelta zona → scelta posto libero
@@ -33,16 +32,9 @@ export function initSpostamenti({ getSpots, getUser }) {
 }
 
 // ── CRITERI PARCHEGGI ─────────────────────────────────────────────────────────
-// A01–A12 container pieno · A13–A24 container vuoto
-// B01–B09 cassa pieno · C** / D** cassa vuoto
-function _spotCriterio(id) {
-  const m = String(id || '').trim().toUpperCase().match(/^([A-D])(\d{2})$/);
-  if (!m) return null;
-  const zona = m[1], n = parseInt(m[2], 10);
-  if (zona === 'A') return { tipo: 'container', stato: n <= 12 ? 'pieno' : 'vuoto' };
-  if (zona === 'B') return { tipo: 'cassa', stato: 'pieno' };
-  return { tipo: 'cassa', stato: 'vuoto' };
-}
+// Tipo ammesso e stato pieno/vuoto dalla tabella unica (parcheggi-data.js).
+const _PC = () => window.ParcheggiCore;
+function _spotCriterio(id) { return _PC().criterio(id); }
 
 function _tipoDaPlate(plate) {
   const k = (plate || '').trim().toUpperCase();
@@ -57,13 +49,20 @@ function _tipoDaPlate(plate) {
 function _compatibile(spotId, veicolo) {
   const c = _spotCriterio(spotId);
   if (!c) return false;
-  const tipo = _tipoDaPlate(veicolo.plate);
-  if (tipo && c.tipo !== tipo) return false;
+  const tipo = _tipoDaPlate(veicolo.plate) || 'container';
+  if (!c.ammessi.includes(tipo)) return false;
   return c.stato === (veicolo.full ? 'pieno' : 'vuoto');
 }
 
-function _liberi() {
-  return Object.values(_getSpots()).filter(s => !s.occupied && !s.unusable);
+// Posti che possono ricevere ORA questo veicolo (tipo ammesso + spazio libero),
+// escluso il posto dove si trova già. Senza veicolo: posti con spazio libero.
+function _liberi(veicolo) {
+  const tipo = veicolo ? (_tipoDaPlate(veicolo.plate) || 'container') : null;
+  return Object.values(_getSpots()).filter(s => {
+    if (veicolo && s.id === veicolo.id) return false;
+    if (tipo) return _PC().disponibilePer(s, tipo);
+    return s.attivo && !s.inutilizzabile && s.statoOcc !== 'pieno';
+  });
 }
 
 function _zonaDi(s) {
@@ -76,9 +75,10 @@ export function render() {
   if (!el) return;
 
   const spots = _getSpots();
-  const occupati = Object.values(spots)
-    .filter(s => s.occupied && s.plate)
-    .sort((a, b) => String(a.id).localeCompare(String(b.id)));
+  // Un elemento per mezzo (id = posto): su un posto possono esserci più mezzi
+  const occupati = _PC().mezzi(spots)
+    .filter(s => s.plate)
+    .sort((a, b) => String(a.id).localeCompare(String(b.id), undefined, { numeric: true }) || String(a.plate).localeCompare(String(b.plate)));
 
   const statsEl = document.getElementById('spostStats');
   if (statsEl) {
@@ -108,7 +108,7 @@ export function render() {
 }
 
 function _cardPosto(s) {
-  const aperto = _sel && _sel.from === s.id;
+  const aperto = _sel && _sel.from === s.id && _sel.plate === s.plate;
   const tipo = _tipoDaPlate(s.plate);
   const badgeTipo = tipo === 'cassa' ? '📦 Cassa' : (tipo === 'container' ? '🚢 Container' : '—');
   const badgePieno = s.full ? '🟡 Pieno' : '🟢 Vuoto';
@@ -124,7 +124,7 @@ function _cardPosto(s) {
   <div style="font-size:12px;color:var(--muted)">${badgeTipo} · ${badgePieno}${extra}${s.since ? ' · ⏱ ' + fmtDur(s.since) : ''}</div>
   ${aperto
     ? `<div style="margin-top:10px">${_pannelloScelta(s)}</div>`
-    : `<button onclick="spostApri('${_esc(s.id)}')"
+    : `<button onclick="spostApri('${_esc(s.id)}','${_esc(s.plate)}')"
          style="width:100%;margin-top:10px;padding:11px;border-radius:8px;border:none;
                 background:linear-gradient(135deg,var(--accent),var(--accent2));color:#1C1F26;
                 font-family:inherit;font-size:14px;font-weight:700;cursor:pointer">
@@ -169,7 +169,7 @@ function _pannelloScelta(s) {
 </div>`;
   }
 
-  const liberi = _liberi();
+  const liberi = _liberi(s);
   const mostraTutti = !!_sel.tutti;
 
   // Fase 2 — scelta posto nella zona
@@ -189,7 +189,7 @@ function _pannelloScelta(s) {
         const ok = _compatibile(x.id, s);
         h += `<button style="${ok ? _BTN.posto : _BTN.postoAlt}"
                 onclick="spostScegli('${_esc(x.id)}')"
-                title="${_esc(_descCriterio(x.id))}">${_esc(x.id)}${ok ? '' : ' ⚠️'}</button>`;
+                title="${_esc(_descCriterio(x.id))}">${_esc(x.id)}${x.statoOcc === 'parziale' ? ' ◐' : ''}${ok ? '' : ' ⚠️'}</button>`;
       });
       h += '</div>';
     }
@@ -224,12 +224,12 @@ function _pannelloScelta(s) {
 function _descCriterio(id) {
   const c = _spotCriterio(id);
   if (!c) return 'posto';
-  return `${c.tipo === 'cassa' ? 'casse' : 'container'} ${c.stato === 'pieno' ? 'pieni' : 'vuoti'}`;
+  return `${c.ammessi.map(t => t === 'cassa' ? 'casse' : 'container').join('/')} ${c.stato === 'pieno' ? 'pieni' : 'vuoti'}`;
 }
 
 // ── AZIONI UI ─────────────────────────────────────────────────────────────────
-window.spostApri = function(id) {
-  _sel = { from: id, zona: null, to: null, tutti: false };
+window.spostApri = function(id, plate) {
+  _sel = { from: id, plate: plate || null, zona: null, to: null, tutti: false };
   render();
 };
 
@@ -269,38 +269,19 @@ window.spostConferma = async function() {
   if (!_sel || !_sel.to || _inCorso) return;
   const spots = _getSpots();
   const from = _sel.from, to = _sel.to;
-  const s = spots[from];
-  const d = spots[to];
+  const v = spots[from];
+  const s = v && (v.occupanti || []).find(o => !_sel.plate || o.plate === _sel.plate);
 
-  if (!s || !s.occupied || !s.plate) { showToast('Il posto di partenza non è più occupato', 'error'); _sel = null; render(); return; }
-  if (!d || d.occupied)              { showToast(`Il posto ${to} è stato occupato nel frattempo`, 'error'); _sel.to = null; render(); return; }
+  if (!s || !s.plate) { showToast('Il veicolo non è più sul posto di partenza', 'error'); _sel = null; render(); return; }
 
   _inCorso = true;
   const btn = document.getElementById('spostBtnSi');
   if (btn) { btn.disabled = true; btn.textContent = '⏳…'; }
 
-  const user = _getUser ? _getUser() : null;
-
   try {
-    // Destinazione: il veicolo porta con sé stato, anzianità ed eventuali flag.
-    await setDoc(doc(window.db, 'spots', to), {
-      occupied: true,
-      plate:    s.plate,
-      since:    s.since || serverTimestamp(),   // anzianità preservata
-      user:     s.user || user?.email || null,
-      full:     !!s.full,
-      damaged:  !!s.damaged,
-      unusable: !!s.unusable,
-      urgente:  !!s.urgente,
-      urgentePlate: s.urgente ? s.plate : null,
-      bloccoPlate:  null,
-    }, { merge: true });
-
-    // Origine liberata
-    await setDoc(doc(window.db, 'spots', from), {
-      occupied: false, plate: null, since: null, user: null, full: false,
-      damaged: false, unusable: false, urgente: false, urgentePlate: null, bloccoPlate: null,
-    }, { merge: true });
+    // Una sola transazione: il veicolo porta con sé stato, anzianità ed
+    // eventuali flag; se la destinazione si è riempita nel frattempo, nulla cambia.
+    await _PC().sposta(from, to, s.plate, { patch: { bloccoPlate: null } });
 
     await window.logHistory({
       spot: to,

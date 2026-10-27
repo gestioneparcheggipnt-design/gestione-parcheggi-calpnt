@@ -13,13 +13,37 @@ if (id === 'Impostazioni' && window.renderImpostazioni) window.renderImpostazion
 }
 window.showPage = showPage;
 
+// Conteggi per posto (libero / parziale / pieno) e occupazione per sotto-posti
+function _contaPosti(){
+  const all=Object.values(window.spots||{});
+  const liberi=all.filter(s=>s.statoOcc==='libero').length;
+  const parziali=all.filter(s=>s.statoOcc==='parziale').length;
+  const sottoTot=all.reduce((n,s)=>n+(s.sotto||1),0);
+  const sottoOcc=all.reduce((n,s)=>n+((s.sotto||1)-(s.slotLiberi||[]).length),0);
+  return { tot:all.length, liberi, parziali, occ:all.length-liberi,
+           perc: sottoTot ? Math.round(sottoOcc/sottoTot*100) : 0 };
+}
+function _lblOccupati(c){ return c.parziali ? `Occupati · ${c.parziali} parz.` : 'Occupati'; }
+
+// Righe "spazio" per la tabella Ricerca: un posto libero = 1 riga,
+// ogni mezzo parcheggiato = 1 riga; un posto parziale ha in più 1 riga libera.
+function _righeParcheggi(){
+  const out=[];
+  Object.values(window.spots||{}).forEach(v=>{
+    (v.occupanti||[]).forEach(o=>out.push({ ...o, id:v.id, zone:v.zone, occupied:true, statoOcc:v.statoOcc, sotto:v.sotto }));
+    if(v.statoOcc!=='pieno') out.push({ id:v.id, zone:v.zone, occupied:false, plate:null, since:null, user:null,
+      full:false, damaged:false, unusable:!!v.inutilizzabile, statoOcc:v.statoOcc, parziale:v.statoOcc==='parziale' });
+  });
+  return out;
+}
+
 function updateMapStats(){
-  const all=Object.values(window.spots), occ=all.filter(s=>s.occupied).length;
+  const c=_contaPosti();
   document.getElementById("mapStats").innerHTML=`
-    <div class="statCard blue"><div class="val">${all.length}</div><div class="lbl">Totali</div></div>
-    <div class="statCard green"><div class="val">${all.length-occ}</div><div class="lbl">Liberi</div></div>
-    <div class="statCard red"><div class="val">${occ}</div><div class="lbl">Occupati</div></div>
-    <div class="statCard orange"><div class="val">${Math.round(occ/all.length*100)}%</div><div class="lbl">Occupazione</div></div>`;
+    <div class="statCard blue"><div class="val">${c.tot}</div><div class="lbl">Totali</div></div>
+    <div class="statCard green"><div class="val">${c.liberi}</div><div class="lbl">Liberi</div></div>
+    <div class="statCard red"><div class="val">${c.occ}</div><div class="lbl">${_lblOccupati(c)}</div></div>
+    <div class="statCard orange"><div class="val">${c.perc}%</div><div class="lbl">Occupazione</div></div>`;
 }
 
 let sortCol='id', sortDir='asc';
@@ -168,7 +192,7 @@ window.sortStorico=sortStorico;
 function doSearch(){
   // popola i menù a tendina dei filtri con tutte le voci presenti
   {
-    const spotsArr = Object.values(window.spots||{});
+    const spotsArr = _righeParcheggi();
     let ribArr = [];
     if(window.REPARTI){
       ribArr = Object.values(window.REPARTI).flat().map(id=>(window.ribalte||{})[id]).filter(Boolean);
@@ -198,7 +222,7 @@ function doSearch(){
   const fStatoVeicolo=(document.getElementById("fStatoVeicolo")?.value||"");
   const _prenotate=_targhePrenotate();
   _aggiornaPresetBtn();
-  let res=Object.values(window.spots);
+  let res=_righeParcheggi();
   // Filtri preimpostati: agiscono solo sui parcheggi (le ribalte sono escluse sotto)
   if(_presetRicerca==='container-scaricare'){
     res=res.filter(s=>s.occupied && s.full && !s.unusable && s.plate
@@ -262,7 +286,7 @@ function doSearch(){
     return `
     <tr onclick="window._goToSpot('${s.id}')" style="cursor:pointer">
       <td class="mono">${s.id}</td>
-      <td>${s.occupied ? '<span class="tagOcc">Occupato</span>' : '<span class="tagFree">Libero</span>'}</td>
+      <td>${s.occupied ? '<span class="tagOcc">Occupato</span>' : (s.parziale ? '<span class="tagFree">Libero (parziale)</span>' : '<span class="tagFree">Libero</span>')}</td>
       <td class="mono">${s.plate||"&mdash;"}</td>
       <td>${tipoMezzo}</td>
       <td>${s.since?fmtDate(s.since):"&mdash;"}</td>
@@ -552,11 +576,12 @@ function renderStorico(){
 }
 
 function renderStatistiche(){
-  const all=Object.values(window.spots), occ=all.filter(s=>s.occupied).length;
+  const c=_contaPosti();
+  const all=window.ParcheggiCore.mezzi(window.spots);   // un elemento per mezzo parcheggiato
   document.getElementById("globalStats").innerHTML=`
-    <div class="statCard blue"><div class="val">${all.length}</div><div class="lbl">Totali</div></div>
-    <div class="statCard green"><div class="val">${all.length-occ}</div><div class="lbl">Liberi</div></div>
-    <div class="statCard red"><div class="val">${occ}</div><div class="lbl">Occupati</div></div>
+    <div class="statCard blue"><div class="val">${c.tot}</div><div class="lbl">Totali</div></div>
+    <div class="statCard green"><div class="val">${c.liberi}</div><div class="lbl">Liberi</div></div>
+    <div class="statCard red"><div class="val">${c.occ}</div><div class="lbl">${_lblOccupati(c)}</div></div>
     <div class="statCard orange"><div class="val">${window.historyCache.length}</div><div class="lbl">Movimenti</div></div>`;
   const cnt={};
   window.historyCache.filter(h=>h.action==="Assegnato").forEach(h=>{cnt[h.spot]=(cnt[h.spot]||0)+1;});
@@ -703,12 +728,7 @@ function renderHeatmap(cnt){
     const scY = dH / nH;
     const svg = document.getElementById("heatmapSvg");
     svg.setAttribute("viewBox", `0 0 ${dW} ${dH}`);
-    const PATCHES_HM=[
-      [1291,351,302,177],[1658,139,221,97],[324,1012,89,384],
-      [348,1002,63,13],[317,1395,96,45],[413,1010,32,388],
-      [324,1565,89,385],[317,1470,60,100],[317,1949,65,65],
-      [413,1563,32,388]
-    ];
+    const PATCHES_HM = window.PATCHES || [];
     let html = "";
     PATCHES_HM.forEach(([x,y,w,h])=>{
       html += `<rect x="${x*scX}" y="${y*scY}" width="${w*scX}" height="${h*scY}" fill="#aaaaaa" opacity="0.18" rx="2"/>`;
@@ -988,56 +1008,56 @@ window.addUser = async function(){
   }
 };
 
-async function removeDamaged(id){
+async function removeDamaged(id, plate){
   try{
-    await updateDoc(doc(window.db,"spots",id),{ damaged: false });
+    const m = await window.ParcheggiCore.aggiorna(id, plate || null, { damaged: false });
     await window.logHistory({
-      spot:id, action:"Danno rimosso", plate:window.spots[id].plate
+      spot:id, action:"Danno rimosso", plate:m.plate
     });
     window.selectSpot(id);
-    showToast(`Segnalazione danno rimossa per posto ${id}`,"success");
+    showToast(`Segnalazione danno rimossa: ${m.plate} (${id})`,"success");
   }catch(e){
     showToast("Errore: "+e.message,"error");
   }
 }
 window._removeDamaged=removeDamaged;
 
-async function addDamaged(id){
+async function addDamaged(id, plate){
   try{
-    await updateDoc(doc(window.db,"spots",id),{ damaged: true });
+    const m = await window.ParcheggiCore.aggiorna(id, plate || null, { damaged: true });
     await window.logHistory({
-      spot:id, action:"Danno segnalato", plate:window.spots[id].plate
+      spot:id, action:"Danno segnalato", plate:m.plate
     });
     window.selectSpot(id);
-    showToast(`Veicolo danneggiato segnalato per posto ${id}`,"success");
+    showToast(`Veicolo danneggiato segnalato: ${m.plate} (${id})`,"success");
   }catch(e){
     showToast("Errore: "+e.message,"error");
   }
 }
 window._addDamaged=addDamaged;
 
-async function addUnusable(id){
+async function addUnusable(id, plate){
   try{
-    await updateDoc(doc(window.db,"spots",id),{ unusable: true });
+    const m = await window.ParcheggiCore.aggiorna(id, plate || null, { unusable: true });
     await window.logHistory({
-      spot:id, action:"Inutilizzabile segnalato", plate:window.spots[id].plate
+      spot:id, action:"Inutilizzabile segnalato", plate:m.plate
     });
     window.selectSpot(id);
-    showToast(`Veicolo segnato come inutilizzabile: posto ${id}`,"success");
+    showToast(`Veicolo segnato come inutilizzabile: ${m.plate} (${id})`,"success");
   }catch(e){
     showToast("Errore: "+e.message,"error");
   }
 }
 window._addUnusable=addUnusable;
 
-async function removeUnusable(id){
+async function removeUnusable(id, plate){
   try{
-    await updateDoc(doc(window.db,"spots",id),{ unusable: false });
+    const m = await window.ParcheggiCore.aggiorna(id, plate || null, { unusable: false });
     await window.logHistory({
-      spot:id, action:"Inutilizzabile rimosso", plate:window.spots[id].plate
+      spot:id, action:"Inutilizzabile rimosso", plate:m.plate
     });
     window.selectSpot(id);
-    showToast(`Segnalazione inutilizzabile rimossa: posto ${id}`,"success");
+    showToast(`Segnalazione inutilizzabile rimossa: ${m.plate} (${id})`,"success");
   }catch(e){
     showToast("Errore: "+e.message,"error");
   }

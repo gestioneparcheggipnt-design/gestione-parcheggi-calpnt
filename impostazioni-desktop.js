@@ -1,7 +1,8 @@
 // ── impostazioni-desktop.js ─ Tab Impostazioni magazzino (solo amministratore) ──
 // Migra la config del magazzino (reparti → ribalte, zone → parcheggi) su Firestore
 // nel documento config/magazzino. Fallback sui dati statici di spots-data-desktop.js
-// (window.REPARTI / window.ZONES / window.SPOT_DEFS) se il documento non esiste.
+// (window.REPARTI) e sulla tabella unica parcheggi-data.js (zone) se non esiste.
+// Posti attivi/disattivati: config/parcheggi, gestito da ParcheggiCore.
 import { doc, getDoc, setDoc, onSnapshot }
   from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
 
@@ -13,11 +14,13 @@ const _DEFAULT_REPARTO_LABELS = {
   'LAV MAN': 'Lav man', 'REVERSE': 'Reverse', 'ESTERO': 'Estero',
   'E-COMMERCE': 'E-commerce', 'TGW': 'TGW'
 };
+// Etichette di default delle zone (solo per il primo seed). Il TIPO ammesso non
+// è più per zona: è per posto, nella tabella unica parcheggi-data.js.
 const _DEFAULT_ZONE = {
-  'ZONA A': { label: 'P Verde (A)', tipo: 'container' },
-  'ZONA B': { label: 'P Blu (B)',   tipo: 'cassa' },
-  'ZONA C': { label: 'Zona C',      tipo: 'cassa' },
-  'ZONA D': { label: 'Zona D',      tipo: 'cassa' },
+  'ZONA A': { label: 'P Verde (A)' },
+  'ZONA B': { label: 'P Blu (B)' },
+  'ZONA C': { label: 'Zona C' },
+  'ZONA D': { label: 'Zona D' },
 };
 
 const _RE_RIBALTA = /^PNT[12]-\d{2}$/;
@@ -39,11 +42,8 @@ function _buildDefaultConfig(){
     ordine.push(code);
   });
   const zone = {};
-  Object.keys(window.ZONES || {}).forEach(z => {
-    zone[z] = {
-      label: (_DEFAULT_ZONE[z] && _DEFAULT_ZONE[z].label) || z,
-      tipo:  (_DEFAULT_ZONE[z] && _DEFAULT_ZONE[z].tipo)  || 'cassa'
-    };
+  window.ParcheggiCore.zone().forEach(z => {
+    zone[z] = { label: (_DEFAULT_ZONE[z] && _DEFAULT_ZONE[z].label) || z };
   });
   return { reparti, ordine, zone };
 }
@@ -99,7 +99,7 @@ async function initImpostazioniConfig(){
     _cfg = snap.data();
     // completa eventuali zone mancanti (per never-used) dai dati statici
     _cfg.zone = _cfg.zone || {};
-    Object.keys(window.ZONES || {}).forEach(z => { if(!_cfg.zone[z]) _cfg.zone[z] = { label:z, tipo:(_DEFAULT_ZONE[z]?.tipo||'cassa') }; });
+    window.ParcheggiCore.zone().forEach(z => { if(!_cfg.zone[z]) _cfg.zone[z] = { label: _DEFAULT_ZONE[z]?.label || z }; });
     _applyToGlobals(_cfg);
     _refreshDependents();
   }, ()=>{});
@@ -205,7 +205,7 @@ window._impRenameZona = function(z){
   const nl = prompt('Etichetta per la zona ' + z + ':', cur);
   if(nl===null) return;
   _cfg.zone = _cfg.zone || {};
-  _cfg.zone[z] = _cfg.zone[z] || { tipo: (_DEFAULT_ZONE[z]?.tipo||'cassa') };
+  _cfg.zone[z] = _cfg.zone[z] || {};
   _cfg.zone[z].label = nl.trim() || z;
   _saveConfig();
 };
@@ -361,20 +361,36 @@ function renderImpostazioni(){
       + '</div></div>';
   }
 
-  // Zone / parcheggi (overview; label editabile)
+  // Zone / parcheggi: TUTTI i posti della tabella unica (anche disattivati),
+  // con interruttore attivo/disattivo per posto. Etichetta zona editabile.
   const zone = _cfg.zone || {};
-  const zoneHTML = Object.keys(window.ZONES||{}).map(z=>{
-    const spots = (window.ZONES[z]||[]).slice().sort((a,b)=>a.localeCompare(b,undefined,{numeric:true}));
-    const meta = zone[z] || {label:z, tipo:'cassa'};
+  const C = window.ParcheggiCore;
+  const _amm = a => a.map(t => t === 'cassa' ? 'casse' : 'container').join(' / ');
+  const zoneHTML = C.zone().map(z=>{
+    const ids = C.idTutti().filter(id => C.criterio(id).zona === z)
+      .sort((a,b)=>a.localeCompare(b,undefined,{numeric:true}));
+    const attivi = ids.filter(id => C.isAttivo(id)).length;
+    const tipi = [...new Set(ids.flatMap(id => C.criterio(id).ammessi))];
+    const meta = zone[z] || {label:z};
+    const chips = ids.map(id=>{
+      const c = C.criterio(id), on = C.isAttivo(id);
+      const v = (window.spots||{})[id];
+      const occ = v ? C.etichettaOcc(v) : '';
+      const targhe = v ? (v.occupanti||[]).map(o=>o.plate).join(', ') : '';
+      const title = `${id} · ${_amm(c.ammessi)} ${c.stato==='pieno'?'pieni':'vuoti'} · ${c.sotto} sotto-post${c.sotto>1?'i':'o'}`
+        + (on ? ` · ${occ}${targhe?' ('+targhe+')':''}` : ' · DISATTIVATO') + ' — clic per ' + (on?'disattivare':'attivare');
+      return `<button class="imp-posto ${on?'on':'off'}" title="${esc(title)}" onclick="window._impTogglePosto('${esc(id)}')">`
+        + `${esc(id)}${on && occ && occ!=='libero' ? ' <small>'+esc(occ)+'</small>' : ''}${c.sotto>1?' <small>×'+c.sotto+'</small>':''}</button>`;
+    }).join('');
     return `
     <div class="imp-card">
       <div class="imp-card-head">
         <div><span class="imp-rep-label">${esc(meta.label||z)}</span>
           <span class="imp-rep-code">${esc(z)}</span>
-          <span class="imp-count">${spots.length} posti · ${esc(meta.tipo||'cassa')}</span></div>
+          <span class="imp-count">${attivi}/${ids.length} attivi · ${esc(_amm(tipi))}</span></div>
         <button class="btnEdit" title="Rinomina zona" onclick="window._impRenameZona('${esc(z)}')">✏️</button>
       </div>
-      <div class="imp-chips">${spots.map(s=>'<span class="imp-chip imp-chip-ro">'+esc(s)+'</span>').join('')}</div>
+      <div class="imp-chips">${chips}</div>
     </div>`;
   }).join('');
 
@@ -392,12 +408,32 @@ function renderImpostazioni(){
     ${_navetteSectionHTML()}
     <div class="imp-section">
       <div class="imp-section-title">Parcheggi e zone</div>
-      <div class="imp-note">Gli ID posto e le coordinate sono legati alla planimetria e ai criteri della portineria:
-        qui è modificabile solo l'etichetta della zona. La gestione strutturale dei posti richiede l'editor sulla mappa.</div>
+      <div class="imp-note">Clic su un posto per <strong>attivarlo / disattivarlo</strong>: un posto disattivato sparisce
+        da mappa, portineria, check-in, missioni e statistiche. Si può disattivare solo un posto senza mezzi e senza missioni aperte.
+        ID, coordinate, tipo ammesso, pieno/vuoto e sotto-posti si cambiano nella tabella <code>parcheggi-data.js</code>.</div>
       ${zoneHTML}
     </div>`;
 }
 window.renderImpostazioni = renderImpostazioni;
+
+// Attiva / disattiva un posto (config/parcheggi). Blocchi e controlli in ParcheggiCore.
+const _impToggleInCorso = new Set();
+window._impTogglePosto = async function(id){
+  if(window.currentUser?.role !== 'amministratore'){ window.showToast('Solo l\'amministratore può attivare o disattivare i posti.','error'); return; }
+  if(_impToggleInCorso.has(id)) return;
+  const C = window.ParcheggiCore;
+  const attiva = !C.isAttivo(id);
+  if(!attiva && !confirm(`Disattivare il posto ${id}?\nNon comparirà più in nessuna funzione finché non lo riattivi.`)) return;
+  _impToggleInCorso.add(id);
+  try{
+    await C.impostaAttivo(id, attiva, window.currentUser);
+    window.showToast(`Posto ${id} ${attiva ? 'attivato' : 'disattivato'}`, 'success');
+  }catch(e){
+    window.showToast((e.message||e), 'error');
+  }finally{
+    _impToggleInCorso.delete(id);
+  }
+};
 window.initImpostazioniConfig = initImpostazioniConfig;
 window.stopImpostazioni = stopImpostazioni;
 
@@ -418,6 +454,11 @@ window.stopImpostazioni = stopImpostazioni;
     border:1px solid var(--border,#2a3140);border-radius:4px;padding:1px 6px}
   #pageImpostazioni .imp-count{font-size:12px;color:var(--muted,#94a3b8);margin-left:8px}
   #pageImpostazioni .imp-chips{display:flex;flex-wrap:wrap;gap:6px}
+  #pageImpostazioni .imp-posto{font-family:'DM Mono',monospace;font-size:12px;font-weight:600;border-radius:6px;
+    padding:4px 9px;cursor:pointer;border:1px solid var(--border,#2a3140)}
+  #pageImpostazioni .imp-posto.on{background:#A4D20018;color:var(--text);border-color:#A4D20060}
+  #pageImpostazioni .imp-posto.off{background:transparent;color:var(--muted,#94a3b8);text-decoration:line-through;opacity:.7}
+  #pageImpostazioni .imp-posto small{font-size:10px;opacity:.75;margin-left:2px}
   #pageImpostazioni .imp-chip{display:inline-flex;align-items:center;gap:4px;background:var(--surface2,#1e2430);
     border:1px solid var(--border,#2a3140);border-radius:6px;padding:2px 6px;font-size:12px;font-family:var(--mono,monospace)}
   #pageImpostazioni .imp-chip-ro{opacity:.85}

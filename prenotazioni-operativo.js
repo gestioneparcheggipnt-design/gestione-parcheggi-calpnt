@@ -167,9 +167,10 @@ function _skeletonContainer() {
 function _containerPrenotabili(q) {
   const inPren = new Set(_pren.filter(p => p.stato === 'creata' && p.plate).map(p => String(p.plate).toUpperCase()));
   const allaRib = new Set(Object.values(getRibalteData()).filter(r => r.occupied && r.plate).map(r => String(r.plate).toUpperCase()));
-  return Object.values(_getSpots() || {})
+  // Un elemento per mezzo (id = posto): su un posto possono esserci più mezzi
+  return window.ParcheggiCore.mezzi(_getSpots() || {})
     .filter(s => {
-      if (!s.occupied || !s.full || !s.plate || s.unusable) return false;
+      if (!s.full || !s.plate || s.unusable) return false;
       const p = String(s.plate).trim().toUpperCase();
       if (!RE_CONTAINER.test(p)) return false;
       if (inPren.has(p) || allaRib.has(p)) return false;
@@ -188,7 +189,7 @@ window.pOpSuggerisci = function() {
   if (q.length < 2) { box.style.display = 'none'; return; }
   const l = _containerPrenotabili(q);
   box.innerHTML = l.length
-    ? l.map(s => `<div onclick="pOpScegli('${_esc(s.id)}')"
+    ? l.map(s => `<div onclick="pOpScegli('${_esc(s.id)}','${_esc(s.plate)}')"
         style="display:flex;justify-content:space-between;padding:10px 12px;border-bottom:1px solid var(--border);cursor:pointer">
         <strong>${_esc(s.plate)}</strong><span style="color:var(--muted)">${_esc(s.id)} · 🟡 pieno</span></div>`).join('')
     : `<div style="padding:10px 12px;color:var(--muted);font-size:13px">Nessun container prenotabile trovato.<br>
@@ -196,8 +197,9 @@ window.pOpSuggerisci = function() {
   box.style.display = 'block';
 };
 
-window.pOpScegli = function(spotId) {
-  const s = (_getSpots() || {})[spotId];
+window.pOpScegli = function(spotId, plate) {
+  const v = (_getSpots() || {})[spotId];
+  const s = v && (v.occupanti || []).find(o => !plate || o.plate === plate);
   if (!s) return;
   _selezionaMezzo({ spotId, plate: s.plate });
   const inp = document.getElementById('pOpTarga'); if (inp) inp.value = s.plate;
@@ -239,8 +241,9 @@ window.pOpSalva = async function() {
   const dataStr = document.getElementById('pOpData')?.value;
   if (!dataStr) return err('Inserisci data e ora dello spostamento.');
   // Ricontrollo stato mezzo al momento del salvataggio
-  const s = (_getSpots() || {})[_mezzo.spotId];
-  if (!s || !s.occupied || s.plate !== _mezzo.plate || !s.full) return err('Il container non risulta più parcheggiato pieno.');
+  const _v = (_getSpots() || {})[_mezzo.spotId];
+  const s = _v && (_v.occupanti || []).find(o => o.plate === _mezzo.plate);
+  if (!s || !s.full) return err('Il container non risulta più parcheggiato pieno.');
   if (_pren.some(p => p.stato === 'creata' && p.plate === _mezzo.plate)) return err('Esiste già una prenotazione aperta per questo container.');
   if (_inCorso.has('salva')) return;
   _inCorso.add('salva');
