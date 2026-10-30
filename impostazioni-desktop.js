@@ -185,25 +185,95 @@ window._impDeleteReparto = function(code){
   _saveConfig().catch(()=>{});
 };
 
+// Tutte le zone: quelle che hanno posti (tabella) + quelle create da qui ancora vuote
+function _zoneTutte(){
+  const out = window.ParcheggiCore.zone().slice();
+  Object.keys(_cfg?.zone || {}).forEach(z => { if(!out.includes(z)) out.push(z); });
+  return out;
+}
+const _postiInZona = z => window.ParcheggiCore.idTutti().filter(id => window.ParcheggiCore.criterio(id).zona === z);
+
+// Campi comuni della finestra zona
+function _campiZona(meta, ist){
+  return `<div class="formGroup"><label>Etichetta (nome mostrato)</label><input id="imp-z-label" value="${_esc(meta.label || '')}" placeholder="es. P Rosso (E)"></div>
+    <div class="formGroup"><label>Percorso dalla portineria (un passo per riga)</label>
+      <textarea id="imp-z-ist" rows="6" placeholder="Esci dall'area portineria verso destra">${_esc(ist.join('\n'))}</textarea></div>`;
+}
+const _leggiIstruzioni = () => (document.getElementById('imp-z-ist')?.value || '').split('\n').map(x => x.trim()).filter(Boolean);
+
+// Nuova zona: codice + etichetta + percorso. Salvata in config/magazzino.zone;
+// compare negli elenchi subito, anche prima di avere posti.
+window._impAddZona = function(){
+  if(!_isAdmin()){ window.showToast('Operazione riservata all\'amministratore.','error'); return; }
+  const esistenti = _zoneTutte();
+  const lettera = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('').find(l => !esistenti.includes('ZONA ' + l));
+  const creaZona = async () => {
+    let code = _val('imp-z-code').toUpperCase().replace(/\s+/g, ' ');
+    if(/^[A-Z0-9]{1,3}$/.test(code)) code = 'ZONA ' + code;          // "E" → "ZONA E"
+    if(!/^[A-Z0-9][A-Z0-9 _-]{0,19}$/.test(code)) throw new Error('Codice zona non valido (lettere, numeri, spazi, max 20)');
+    if(_zoneTutte().includes(code)) throw new Error(`Esiste già la zona ${code}`);
+    _cfg.zone = _cfg.zone || {};
+    _cfg.zone[code] = { label: _val('imp-z-label') || code, istruzioni: _leggiIstruzioni() };
+    await _saveConfig();
+    if(window.logHistory) try{ await window.logHistory({ action: 'Zona creata', zona: code }); }catch(e){}
+    window.showToast(`Zona ${code} creata`, 'success');
+    return code;
+  };
+  _apri('Nuova zona parcheggio', `
+    <div class="formGroup"><label>Codice zona</label>
+      <input id="imp-z-code" value="${lettera ? 'ZONA ' + lettera : ''}" placeholder="ZONA E" spellcheck="false" style="text-transform:uppercase"></div>
+    ${_campiZona({}, [])}`,
+  () => creaZona(),
+  'Il codice identifica la zona (non si potrà cambiare). Dopo la creazione aggiungi i posti con «+ Posto», scegliendo questa zona.',
+  {
+    extra: `<button class="btnSecondary imp-salvadup" id="imp-z-addposto" title="Crea la zona e apri subito un nuovo posto in questa zona">Crea e aggiungi posto</button>`,
+    onOpen: () => {
+      const b = document.getElementById('imp-z-addposto');
+      b.onclick = async () => {
+        const errEl = document.getElementById('imp-modal-err'); errEl.textContent = '';
+        b.disabled = true;
+        try{
+          const code = await creaZona();
+          _formPosto('', { id: '', zona: code, ammessi: ['container'], stato: 'pieno', sotto: 1, slide: null, rect: null });
+        }catch(e){ errEl.textContent = e.message || String(e); b.disabled = false; }
+      };
+    },
+  });
+};
+
 // Zona: etichetta + percorso mostrato dalla portineria (un passo per riga)
 window._impRenameZona = function(z){
   if(!_isAdmin()){ window.showToast('Operazione riservata all\'amministratore.','error'); return; }
   const meta = (_cfg.zone || {})[z] || {};
   const salvate = Array.isArray(meta.istruzioni) ? meta.istruzioni.filter(Boolean) : [];
   const ist = salvate.length ? salvate : ((window._PORT_ISTRUZIONI_DEFAULT || {})[z] || []);
-  _apri(`Zona ${_esc(z)}`, `
-    <div class="formGroup"><label>Etichetta</label><input id="imp-z-label" value="${_esc(meta.label || z)}"></div>
-    <div class="formGroup"><label>Percorso dalla portineria (un passo per riga)</label>
-      <textarea id="imp-z-ist" rows="6" placeholder="Esci dall'area portineria verso destra">${_esc(ist.join('\n'))}</textarea></div>`,
+  const nPosti = _postiInZona(z).length;
+  _apri(`Zona ${_esc(z)}`, _campiZona({ label: meta.label || z }, ist),
   async () => {
     const label = _val('imp-z-label') || z;
-    const istruzioni = (document.getElementById('imp-z-ist')?.value || '').split('\n').map(x => x.trim()).filter(Boolean);
     _cfg.zone = _cfg.zone || {};
-    _cfg.zone[z] = { ...meta, label, istruzioni };
+    _cfg.zone[z] = { ...meta, label, istruzioni: _leggiIstruzioni() };
     await _saveConfig();
     window.showToast(`Zona ${z} aggiornata`, 'success');
   },
-  'Il percorso compare nel riquadro della portineria quando suggerisce un posto di questa zona. Se lo lasci vuoto si usano le indicazioni predefinite.');
+  'Il percorso compare nel riquadro della portineria quando suggerisce un posto di questa zona. Se lo lasci vuoto si usano le indicazioni predefinite.'
+    + (nPosti ? ` La zona ha ${nPosti} post${nPosti === 1 ? 'o' : 'i'}: si elimina solo dopo averli eliminati o spostati in un'altra zona.` : ''),
+  nPosti ? {} : {
+    extra: `<button class="btnSecondary" id="imp-z-del" style="color:var(--red);border-color:#ef444440">Elimina zona</button>`,
+    onOpen: () => {
+      document.getElementById('imp-z-del').onclick = async () => {
+        if(_postiInZona(z).length){ document.getElementById('imp-modal-err').textContent = 'La zona ha dei posti: non si può eliminare.'; return; }
+        if(!confirm(`Eliminare la zona ${z}?`)) return;
+        try{
+          delete _cfg.zone[z];
+          await _saveConfig();
+          if(window.logHistory) try{ await window.logHistory({ action: 'Zona eliminata', zona: z }); }catch(e){}
+          window.showToast(`Zona ${z} eliminata`, 'success');
+          window._impChiudi();
+        }catch(e){ document.getElementById('imp-modal-err').textContent = e.message || String(e); }
+      };
+    },
+  });
 };
 
 // Opzioni <option> per i dropdown reparto (usato anche da admin-desktop.js)
@@ -369,10 +439,11 @@ function _repartiZoneHTML(){
       <td class="imp-azioni"><button class="imp-act" onclick="window._impRenameReparto('${_esc(code)}')">Rinomina</button>
       <button class="imp-act danger" onclick="window._impDeleteReparto('${_esc(code)}')">Elimina</button></td></tr>`;
   }).join('');
-  const zone = window.ParcheggiCore.zone().map(z => {
+  const zone = _zoneTutte().map(z => {
     const lab = _cfg.zone?.[z]?.label || z;
     const nIst = (_cfg.zone?.[z]?.istruzioni || []).filter(Boolean).length;
-    return `<button class="imp-pill" title="Etichetta e percorso portineria" onclick="window._impRenameZona('${_esc(z)}')">${_esc(lab)} <small>${_esc(z)}${nIst ? ' · percorso' : ''} ✏️</small></button>`;
+    const n = _postiInZona(z).length;
+    return `<button class="imp-pill" title="Etichetta e percorso portineria" onclick="window._impRenameZona('${_esc(z)}')">${_esc(lab)} <small>${_esc(z)} · ${n ? n + ' posti' : 'nessun posto'}${nIst ? ' · percorso' : ''} ✏️</small></button>`;
   }).join('');
   return `
     <div class="imp-cols">
@@ -386,8 +457,9 @@ function _repartiZoneHTML(){
         </div>
       </div>
       <div class="imp-card">
-        <div class="imp-card-title">Zone (etichetta e percorso portineria)</div>
+        <div class="imp-card-title">Zone parcheggio (etichetta e percorso portineria)</div>
         <div class="imp-chips">${zone}</div>
+        <div class="imp-addrep"><button class="imp-act primary" onclick="window._impAddZona()">+ Zona</button></div>
       </div>
     </div>`;
 }
@@ -790,11 +862,11 @@ function _presetAccanto(riga){
 function _formPosto(id, preset){
   const C = window.ParcheggiCore;
   const nuovo = !id;
-  const base = preset || (nuovo ? { zona: C.zone()[0] || '', ammessi:['container'], stato:'pieno', sotto:1, slide:null, rect:null }
+  const base = preset || (nuovo ? { zona: _zoneTutte()[0] || '', ammessi:['container'], stato:'pieno', sotto:1, slide:null, rect:null }
                                 : { ...C.criterio(id), rect: C.defPosto(id).rect.slice() });
   const v = !nuovo ? (window.spots||{})[id] : null;
   const occupato = !!(v && v.occupanti && v.occupanti.length);
-  const zoneOpts = C.zone().map(z => `<option value="${_esc(z)}">${_esc(_cfg.zone?.[z]?.label || z)}</option>`).join('');
+  const zoneOpts = _zoneTutte().map(z => `<option value="${_esc(z)}">${_esc(_cfg.zone?.[z]?.label || z)}</option>`).join('');
   const chk = t => (base.ammessi||[]).includes(t) ? 'checked' : '';
   const [x,y,w,h] = base.rect || ['','','',''];
   const idIniziale = nuovo ? (preset?.id || '') : id;
