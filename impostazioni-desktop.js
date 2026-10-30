@@ -185,14 +185,25 @@ window._impDeleteReparto = function(code){
   _saveConfig().catch(()=>{});
 };
 
+// Zona: etichetta + percorso mostrato dalla portineria (un passo per riga)
 window._impRenameZona = function(z){
-  const cur = (_cfg.zone?.[z]?.label) || z;
-  const nl = prompt('Etichetta per la zona ' + z + ':', cur);
-  if(nl===null) return;
-  _cfg.zone = _cfg.zone || {};
-  _cfg.zone[z] = _cfg.zone[z] || {};
-  _cfg.zone[z].label = nl.trim() || z;
-  _saveConfig().catch(()=>{});
+  if(!_isAdmin()){ window.showToast('Operazione riservata all\'amministratore.','error'); return; }
+  const meta = (_cfg.zone || {})[z] || {};
+  const salvate = Array.isArray(meta.istruzioni) ? meta.istruzioni.filter(Boolean) : [];
+  const ist = salvate.length ? salvate : ((window._PORT_ISTRUZIONI_DEFAULT || {})[z] || []);
+  _apri(`Zona ${_esc(z)}`, `
+    <div class="formGroup"><label>Etichetta</label><input id="imp-z-label" value="${_esc(meta.label || z)}"></div>
+    <div class="formGroup"><label>Percorso dalla portineria (un passo per riga)</label>
+      <textarea id="imp-z-ist" rows="6" placeholder="Esci dall'area portineria verso destra">${_esc(ist.join('\n'))}</textarea></div>`,
+  async () => {
+    const label = _val('imp-z-label') || z;
+    const istruzioni = (document.getElementById('imp-z-ist')?.value || '').split('\n').map(x => x.trim()).filter(Boolean);
+    _cfg.zone = _cfg.zone || {};
+    _cfg.zone[z] = { ...meta, label, istruzioni };
+    await _saveConfig();
+    window.showToast(`Zona ${z} aggiornata`, 'success');
+  },
+  'Il percorso compare nel riquadro della portineria quando suggerisce un posto di questa zona. Se lo lasci vuoto si usano le indicazioni predefinite.');
 };
 
 // Opzioni <option> per i dropdown reparto (usato anche da admin-desktop.js)
@@ -360,7 +371,8 @@ function _repartiZoneHTML(){
   }).join('');
   const zone = window.ParcheggiCore.zone().map(z => {
     const lab = _cfg.zone?.[z]?.label || z;
-    return `<button class="imp-pill" title="Rinomina etichetta" onclick="window._impRenameZona('${_esc(z)}')">${_esc(lab)} <small>${_esc(z)} ✏️</small></button>`;
+    const nIst = (_cfg.zone?.[z]?.istruzioni || []).filter(Boolean).length;
+    return `<button class="imp-pill" title="Etichetta e percorso portineria" onclick="window._impRenameZona('${_esc(z)}')">${_esc(lab)} <small>${_esc(z)}${nIst ? ' · percorso' : ''} ✏️</small></button>`;
   }).join('');
   return `
     <div class="imp-cols">
@@ -374,7 +386,7 @@ function _repartiZoneHTML(){
         </div>
       </div>
       <div class="imp-card">
-        <div class="imp-card-title">Etichette zone</div>
+        <div class="imp-card-title">Zone (etichetta e percorso portineria)</div>
         <div class="imp-chips">${zone}</div>
       </div>
     </div>`;
@@ -491,20 +503,28 @@ function _modal(){
   if(!m){
     m = document.createElement('div');
     m.id = 'imp-modal'; m.className = 'modal';
-    m.addEventListener('click', e => { if(e.target === m) window._impChiudi(); });
+    // chiude solo se il clic inizia E finisce sullo sfondo: trascinando un posto
+    // sulla mappa fino a fuori dalla finestra non si perdono le modifiche
+    m.addEventListener('pointerdown', e => { m._giuSfondo = (e.target === m); });
+    m.addEventListener('click', e => { if(e.target === m && m._giuSfondo) window._impChiudi(); });
     document.body.appendChild(m);
   }
   return m;
 }
-window._impChiudi = function(){ const m = document.getElementById('imp-modal'); if(m) m.classList.remove('open'); };
+window._impChiudi = function(){
+  const m = document.getElementById('imp-modal');
+  if(m){ m.classList.remove('open'); if(m._chiusura){ try{ m._chiusura(); }catch(e){} m._chiusura = null; } }
+};
 
-function _apri(titolo, campi, onSalva, nota){
+function _apri(titolo, campi, onSalva, nota, opts = {}){
   const m = _modal();
-  m.innerHTML = `<div class="modalBox imp-modalbox"><h3>${titolo}</h3>
+  if(m._chiusura){ try{ m._chiusura(); }catch(e){} m._chiusura = null; }
+  m.innerHTML = `<div class="modalBox imp-modalbox${opts.wide ? ' wide' : ''}"><h3>${titolo}</h3>
     ${nota ? `<div class="imp-note">${nota}</div>` : ''}
     ${campi}
     <div class="imp-err" id="imp-modal-err"></div>
     <div class="modalActions">
+      ${opts.extra || ''}
       <button class="btnSecondary" onclick="window._impChiudi()">Annulla</button>
       <button class="btnPrimary" id="imp-modal-ok" style="flex:1;margin-top:0">Salva</button>
     </div></div>`;
@@ -518,8 +538,9 @@ function _apri(titolo, campi, onSalva, nota){
     catch(e){ errEl.textContent = e.message || String(e); }
     finally{ ok.disabled = false; ok.textContent = 'Salva'; }
   };
+  if(opts.onOpen) opts.onOpen(m);
   const first = m.querySelector('input:not([disabled]),select');
-  if(first) setTimeout(() => first.focus(), 30);
+  if(first && !opts.noFocus) setTimeout(() => first.focus(), 30);
 }
 
 const _val = id => (document.getElementById(id)?.value ?? '').trim();
@@ -569,51 +590,280 @@ function _formRibalta(id){
   uso.uso ? `In uso (${_esc(uso.txt)}): puoi cambiare il reparto, ma non l'ID.` : '');
 }
 
-// Posto: tutti i campi della tabella
-function _formPosto(id){
+// ── EDITOR SULLA PLANIMETRIA ───────────────────────────────────────────────────
+// Disegna / sposta / ridimensiona il rettangolo di UN posto sopra la planimetria,
+// con tutti gli altri posti in trasparenza come riferimento.
+//   host: elemento contenitore · opts.rect: [x,y,w,h] o null · opts.id: posto in modifica
+//   opts.onChange(rect): chiamata a ogni cambio (valori interi)
+// Restituisce { setRect(rect), destroy() }.
+function _editorMappa(host, opts){
+  const C = window.ParcheggiCore;
+  const W = window.IMG_W || 3000, H = window.IMG_H || 2250;
+  const src = document.getElementById('mapImg')?.getAttribute('src') || '';
+  let rect = opts.rect && opts.rect[2] > 0 && opts.rect[3] > 0 ? opts.rect.map(Number) : null;
+  let disegna = !rect;
+  let vb = [0, 0, W, H];
+  let drag = null;
+
+  const altri = C.idTutti().filter(x => x !== opts.id).map(x => ({ id: x, r: C.defPosto(x).rect, on: C.isAttivo(x) }));
+  const fsz = r => Math.max(6, Math.min(r[2], r[3]) * 0.44).toFixed(1);
+  host.innerHTML = `
+    <div class="imp-ed-tools">
+      <button type="button" class="imp-act" data-a="disegna">✏️ Disegna</button>
+      <button type="button" class="imp-act" data-a="piu" title="Ingrandisci">＋</button>
+      <button type="button" class="imp-act" data-a="meno" title="Riduci">－</button>
+      <button type="button" class="imp-act" data-a="tutta">Tutta la mappa</button>
+      <button type="button" class="imp-act" data-a="centra">Centra sul posto</button>
+    </div>
+    <div class="imp-ed-wrap"><svg class="imp-ed-svg" xmlns="http://www.w3.org/2000/svg">
+      <image href="${src}" x="0" y="0" width="${W}" height="${H}" preserveAspectRatio="none"/>
+      ${(window.PATCHES || []).map(([x,y,w,h]) => `<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="white"/>`).join('')}
+      <g class="imp-ed-altri">${altri.map(a => `<g class="${a.on ? '' : 'off'}"><rect x="${a.r[0]}" y="${a.r[1]}" width="${a.r[2]}" height="${a.r[3]}" rx="2"/>`
+        + `<text x="${a.r[0] + a.r[2]/2}" y="${a.r[1] + a.r[3]/2}" style="font-size:${fsz(a.r)}px">${a.id}</text><title>${a.id}${a.on ? '' : ' (disattivato)'}</title></g>`).join('')}</g>
+      <g class="imp-ed-cur"></g>
+      <rect class="imp-ed-bozza" style="display:none"/>
+    </svg></div>
+    <div class="imp-ed-hint"></div>
+    <div class="imp-ed-warn"></div>`;
+  const svg = host.querySelector('svg'), cur = host.querySelector('.imp-ed-cur');
+  const hint = host.querySelector('.imp-ed-hint'), warn = host.querySelector('.imp-ed-warn');
+
+  const pt = e => { const p = svg.createSVGPoint(); p.x = e.clientX; p.y = e.clientY; return p.matrixTransform(svg.getScreenCTM().inverse()); };
+  const unita = () => vb[2] / Math.max(1, svg.clientWidth);      // unità immagine per pixel schermo
+  const clampR = r => {
+    let [x, y, w, h] = r.map(n => Math.round(n));
+    w = Math.max(4, Math.min(w, W)); h = Math.max(4, Math.min(h, H));
+    x = Math.max(0, Math.min(x, W - w)); y = Math.max(0, Math.min(y, H - h));
+    return [x, y, w, h];
+  };
+  const applicaVB = () => svg.setAttribute('viewBox', vb.map(n => n.toFixed(1)).join(' '));
+  const vista = (cx, cy, larg) => {
+    larg = Math.max(80, Math.min(larg, W * 1.4));
+    const alt = larg * (svg.clientHeight || 1) / (svg.clientWidth || 1);
+    vb = [cx - larg / 2, cy - alt / 2, larg, alt]; applicaVB(); disegnaCur();
+  };
+  const tutta = () => {
+    const k = Math.max(W / (svg.clientWidth || 1), H / (svg.clientHeight || 1));
+    vista(W / 2, H / 2, k * (svg.clientWidth || 1));
+  };
+  const centra = () => { if(!rect) return tutta(); vista(rect[0] + rect[2]/2, rect[1] + rect[3]/2, Math.max(rect[2], rect[3]) * 10); };
+
+  function sovrapposti(){
+    if(!rect) return [];
+    const [x, y, w, h] = rect;
+    return altri.filter(a => { const [ax, ay, aw, ah] = a.r;
+      return Math.min(x + w, ax + aw) - Math.max(x, ax) > 0.5 && Math.min(y + h, ay + ah) - Math.max(y, ay) > 0.5; }).map(a => a.id);
+  }
+  function disegnaCur(){
+    if(!rect){ cur.innerHTML = ''; }
+    else {
+      const [x, y, w, h] = rect, hs = 9 * unita();
+      const ang = [[x, y], [x + w, y], [x + w, y + h], [x, y + h]];
+      cur.innerHTML = `<rect class="imp-ed-rect" x="${x}" y="${y}" width="${w}" height="${h}" rx="2"/>`
+        + `<text x="${x + w/2}" y="${y + h/2}" style="font-size:${fsz(rect)}px">${_esc(opts.etichetta ? opts.etichetta() : (opts.id || 'NUOVO'))}</text>`
+        + ang.map(([ax, ay], i) => `<rect class="imp-ed-h h${i}" data-h="${i}" x="${ax - hs/2}" y="${ay - hs/2}" width="${hs}" height="${hs}"/>`).join('');
+    }
+    host.querySelector('[data-a="disegna"]').classList.toggle('primary', disegna);
+    svg.classList.toggle('disegna', disegna);
+    hint.textContent = disegna
+      ? 'Trascina sulla planimetria per disegnare il posto.'
+      : 'Trascina il posto per spostarlo, gli angoli per ridimensionarlo · rotella = zoom · trascina lo sfondo = sposta la vista · frecce = 1 px (Maiusc 10 px)';
+    const sov = sovrapposti();
+    warn.textContent = sov.length ? '⚠ Si sovrappone a: ' + sov.join(', ') : '';
+  }
+  const cambiato = () => { disegnaCur(); if(opts.onChange) opts.onChange(rect ? rect.slice() : null); };
+
+  svg.addEventListener('pointerdown', e => {
+    if(e.button !== 0) return;
+    // toglie il focus dai campi: così le frecce spostano il posto
+    if(document.activeElement && document.activeElement.blur) document.activeElement.blur();
+    const p = pt(e), t = e.target;
+    if(t.dataset && t.dataset.h !== undefined && rect) drag = { tipo:'resize', h:+t.dataset.h, r0:rect.slice() };
+    else if(t.classList && t.classList.contains('imp-ed-rect') && !disegna) drag = { tipo:'move', r0:rect.slice(), p0:p };
+    else if(disegna) drag = { tipo:'draw', p0:p };
+    else drag = { tipo:'pan', vb0:vb.slice(), c0:{ x:e.clientX, y:e.clientY } };
+    svg.setPointerCapture(e.pointerId);
+    e.preventDefault();
+  });
+  svg.addEventListener('pointermove', e => {
+    if(!drag) return;
+    const p = pt(e);
+    if(drag.tipo === 'pan'){
+      const u = unita();
+      vb[0] = drag.vb0[0] - (e.clientX - drag.c0.x) * u; vb[1] = drag.vb0[1] - (e.clientY - drag.c0.y) * u;
+      applicaVB(); return;
+    }
+    if(drag.tipo === 'move'){
+      rect = clampR([drag.r0[0] + p.x - drag.p0.x, drag.r0[1] + p.y - drag.p0.y, drag.r0[2], drag.r0[3]]);
+    } else if(drag.tipo === 'resize'){
+      let [x1, y1] = drag.r0, x2 = drag.r0[0] + drag.r0[2], y2 = drag.r0[1] + drag.r0[3];
+      if(drag.h === 0 || drag.h === 3) x1 = Math.min(p.x, x2 - 4); else x2 = Math.max(p.x, x1 + 4);
+      if(drag.h === 0 || drag.h === 1) y1 = Math.min(p.y, y2 - 4); else y2 = Math.max(p.y, y1 + 4);
+      rect = clampR([x1, y1, x2 - x1, y2 - y1]);
+    } else if(drag.tipo === 'draw'){
+      const b = svg.querySelector('.imp-ed-bozza');
+      const x = Math.min(p.x, drag.p0.x), y = Math.min(p.y, drag.p0.y);
+      b.setAttribute('x', x); b.setAttribute('y', y);
+      b.setAttribute('width', Math.abs(p.x - drag.p0.x)); b.setAttribute('height', Math.abs(p.y - drag.p0.y));
+      b.style.display = ''; drag.ult = [x, y, Math.abs(p.x - drag.p0.x), Math.abs(p.y - drag.p0.y)];
+      return;
+    }
+    cambiato();
+  });
+  const fine = () => {
+    if(!drag) return;
+    if(drag.tipo === 'draw'){
+      svg.querySelector('.imp-ed-bozza').style.display = 'none';
+      if(drag.ult && drag.ult[2] >= 3 && drag.ult[3] >= 3){ rect = clampR(drag.ult); disegna = false; cambiato(); }
+    }
+    drag = null;
+  };
+  svg.addEventListener('pointerup', fine);
+  svg.addEventListener('pointercancel', fine);
+  svg.addEventListener('wheel', e => {
+    e.preventDefault();
+    const p = pt(e), f = e.deltaY < 0 ? 0.8 : 1.25;
+    const nw = Math.max(80, Math.min(vb[2] * f, W * 1.4)), k = nw / vb[2];
+    vb = [p.x - (p.x - vb[0]) * k, p.y - (p.y - vb[1]) * k, vb[2] * k, vb[3] * k];
+    applicaVB(); disegnaCur();
+  }, { passive:false });
+  host.querySelector('.imp-ed-tools').addEventListener('click', e => {
+    const a = e.target.closest('[data-a]')?.dataset.a; if(!a) return;
+    const cx = vb[0] + vb[2]/2, cy = vb[1] + vb[3]/2;
+    if(a === 'disegna'){ disegna = !disegna; disegnaCur(); }
+    if(a === 'piu') vista(cx, cy, vb[2] * 0.7);
+    if(a === 'meno') vista(cx, cy, vb[2] / 0.7);
+    if(a === 'tutta') tutta();
+    if(a === 'centra') centra();
+  });
+  // Frecce: sposta il posto (fuori dai campi di testo)
+  const tasti = e => {
+    if(!rect || /INPUT|SELECT|TEXTAREA/.test(document.activeElement?.tagName || '')) return;
+    const d = { ArrowLeft:[-1,0], ArrowRight:[1,0], ArrowUp:[0,-1], ArrowDown:[0,1] }[e.key];
+    if(!d) return;
+    e.preventDefault();
+    const n = e.shiftKey ? 10 : 1;
+    rect = clampR([rect[0] + d[0]*n, rect[1] + d[1]*n, rect[2], rect[3]]);
+    cambiato();
+  };
+  document.addEventListener('keydown', tasti);
+
+  requestAnimationFrame(() => { rect ? centra() : tutta(); });
+  return {
+    setRect(r){
+      const ok = r && r.length === 4 && r.every(n => Number.isFinite(n)) && r[2] > 0 && r[3] > 0;
+      rect = ok ? clampR(r) : null; if(rect) disegna = false; disegnaCur();
+    },
+    ridisegna: disegnaCur,
+    centra,
+    destroy(){ document.removeEventListener('keydown', tasti); },
+  };
+}
+
+// 'A07' → 'A08' (stesso numero di cifre), saltando gli ID già esistenti
+function _prossimoId(id){
+  const C = window.ParcheggiCore;
+  const m = String(id || '').match(/^(.*?)(\d+)$/);
+  if(!m) return '';
+  let n = parseInt(m[2], 10);
+  for(let i = 0; i < 500; i++){
+    n++;
+    const c = m[1] + String(n).padStart(m[2].length, '0');
+    if(!C.defPosto(c)) return c;
+  }
+  return '';
+}
+
+// Posto: campi della tabella + posizione sulla planimetria
+// preset: valori di partenza per un NUOVO posto (es. da "Duplica")
+function _formPosto(id, preset){
   const C = window.ParcheggiCore;
   const nuovo = !id;
-  const c = nuovo ? { zona: C.zone()[0] || '', ammessi:['container'], stato:'pieno', sotto:1, slide:null } : C.criterio(id);
-  const d = nuovo ? { rect:[0,0,30,90] } : C.defPosto(id);
+  const base = preset || (nuovo ? { zona: C.zone()[0] || '', ammessi:['container'], stato:'pieno', sotto:1, slide:null, rect:null }
+                                : { ...C.criterio(id), rect: C.defPosto(id).rect.slice() });
   const v = !nuovo ? (window.spots||{})[id] : null;
   const occupato = !!(v && v.occupanti && v.occupanti.length);
   const zoneOpts = C.zone().map(z => `<option value="${_esc(z)}">${_esc(_cfg.zone?.[z]?.label || z)}</option>`).join('');
-  const chk = t => (c.ammessi||[]).includes(t) ? 'checked' : '';
-  const [x,y,w,h] = d.rect || [0,0,0,0];
-  _apri(nuovo ? 'Nuovo posto' : `Modifica posto ${_esc(id)}`, `
-    <div class="imp-grid2">
-      <div class="formGroup"><label>ID posto</label><input id="imp-f-id" value="${_esc(id||'')}" placeholder="A25" spellcheck="false" style="text-transform:uppercase"></div>
-      <div class="formGroup"><label>Zona</label><input id="imp-f-zona" list="imp-zone-list" value="${_esc(c.zona||'')}" placeholder="ZONA A" style="text-transform:uppercase"><datalist id="imp-zone-list">${zoneOpts}</datalist></div>
-    </div>
-    <div class="formGroup"><label>Tipi ammessi</label>
-      <div class="imp-checks"><label><input type="checkbox" id="imp-f-cont" ${chk('container')}> Container</label>
-      <label><input type="checkbox" id="imp-f-cassa" ${chk('cassa')}> Casse</label></div></div>
-    <div class="imp-grid3">
-      <div class="formGroup"><label>Mezzi</label><select id="imp-f-stato">
-        <option value="pieno" ${c.stato==='pieno'?'selected':''}>pieni</option><option value="vuoto" ${c.stato==='vuoto'?'selected':''}>vuoti</option></select></div>
-      <div class="formGroup"><label>Sotto-posti</label><select id="imp-f-sotto">
-        ${[1,2,3].map(n=>`<option value="${n}" ${c.sotto===n?'selected':''}>${n}</option>`).join('')}</select></div>
-      <div class="formGroup"><label>Slide portineria</label><input id="imp-f-slide" type="number" min="1" value="${c.slide ?? ''}"></div>
-    </div>
-    <div class="formGroup"><label>Rettangolo sulla planimetria (x, y, larghezza, altezza)</label>
-      <div class="imp-grid4">
-        <input id="imp-f-x" type="number" min="0" value="${x}"><input id="imp-f-y" type="number" min="0" value="${y}">
-        <input id="imp-f-w" type="number" min="0" value="${w}"><input id="imp-f-h" type="number" min="0" value="${h}">
-      </div></div>`,
+  const chk = t => (base.ammessi||[]).includes(t) ? 'checked' : '';
+  const [x,y,w,h] = base.rect || ['','','',''];
+  const idIniziale = nuovo ? (preset?.id || '') : id;
+  let ed = null;
+  const leggiRect = () => ['x','y','w','h'].map(k => Number(_val('imp-f-'+k)));
+  const scriviRect = r => ['x','y','w','h'].forEach((k, i) => { const el = document.getElementById('imp-f-'+k); if(el) el.value = r ? r[i] : ''; });
+
+  _apri(nuovo ? (preset ? 'Nuovo posto (copia)' : 'Nuovo posto') : `Modifica posto ${_esc(id)}`, `
+    <div class="imp-posto-grid">
+      <div class="imp-ed" id="imp-ed"></div>
+      <div class="imp-posto-campi">
+        <div class="imp-grid2">
+          <div class="formGroup"><label>ID posto</label><input id="imp-f-id" value="${_esc(idIniziale)}" placeholder="A25" spellcheck="false" style="text-transform:uppercase"></div>
+          <div class="formGroup"><label>Zona</label><input id="imp-f-zona" list="imp-zone-list" value="${_esc(base.zona||'')}" placeholder="ZONA A" style="text-transform:uppercase"><datalist id="imp-zone-list">${zoneOpts}</datalist></div>
+        </div>
+        <div class="formGroup"><label>Tipi ammessi</label>
+          <div class="imp-checks"><label><input type="checkbox" id="imp-f-cont" ${chk('container')}> Container</label>
+          <label><input type="checkbox" id="imp-f-cassa" ${chk('cassa')}> Casse</label></div></div>
+        <div class="imp-grid3">
+          <div class="formGroup"><label>Mezzi</label><select id="imp-f-stato">
+            <option value="pieno" ${base.stato==='pieno'?'selected':''}>pieni</option><option value="vuoto" ${base.stato==='vuoto'?'selected':''}>vuoti</option></select></div>
+          <div class="formGroup"><label>Sotto-posti</label><select id="imp-f-sotto">
+            ${[1,2,3].map(n=>`<option value="${n}" ${base.sotto===n?'selected':''}>${n}</option>`).join('')}</select></div>
+          <div class="formGroup"><label>Slide</label><input id="imp-f-slide" type="number" min="1" value="${base.slide ?? ''}" title="Mappa percorso stampata dalla portineria"></div>
+        </div>
+        <div class="formGroup"><label>Posizione (x, y, larghezza, altezza)</label>
+          <div class="imp-grid4">
+            <input id="imp-f-x" type="number" min="0" value="${x}"><input id="imp-f-y" type="number" min="0" value="${y}">
+            <input id="imp-f-w" type="number" min="1" value="${w}"><input id="imp-f-h" type="number" min="1" value="${h}">
+          </div></div>
+      </div>
+    </div>`,
   async () => {
     const ammessi = [];
     if(document.getElementById('imp-f-cont').checked) ammessi.push('container');
     if(document.getElementById('imp-f-cassa').checked) ammessi.push('cassa');
+    const rect = leggiRect();
+    if(rect.some(n => !Number.isFinite(n)) || rect[2] < 4 || rect[3] < 4)
+      throw new Error('Posiziona il posto sulla planimetria (o inserisci x, y, larghezza e altezza).');
     const riga = {
       id: _val('imp-f-id').toUpperCase(), zona: _val('imp-f-zona').toUpperCase(), ammessi,
       stato: _val('imp-f-stato'), sotto: Number(_val('imp-f-sotto')),
       slide: _val('imp-f-slide') === '' ? null : Number(_val('imp-f-slide')),
-      rect: ['x','y','w','h'].map(k => Number(_val('imp-f-'+k))),
+      rect,
     };
     await C.salvaPosto(riga, nuovo ? null : id, window.currentUser);
     window.showToast(nuovo ? `Posto ${riga.id} creato` : `Posto ${riga.id} aggiornato`, 'success');
   },
-  occupato ? 'Il posto ha mezzi sopra: puoi cambiare zona, pieni/vuoti, slide e rettangolo, ma non ID, tipi ammessi e sotto-posti.' : '');
+  occupato ? 'Il posto ha mezzi sopra: puoi cambiare zona, pieni/vuoti, slide e posizione, ma non ID, tipi ammessi e sotto-posti.'
+           : (nuovo && !preset ? 'Disegna il posto trascinando sulla planimetria, poi compila i campi.' : ''),
+  {
+    wide: true,
+    extra: `<button class="btnSecondary" id="imp-dup" title="Nuovo posto con le stesse caratteristiche, accanto a questo">⧉ Duplica</button>`,
+    onOpen: (m) => {
+      ed = _editorMappa(document.getElementById('imp-ed'), {
+        id: nuovo ? null : id,
+        rect: base.rect,
+        etichetta: () => _val('imp-f-id').toUpperCase() || 'NUOVO',
+        onChange: r => scriviRect(r),
+      });
+      m._chiusura = () => ed && ed.destroy();
+      ['x','y','w','h'].forEach(k => document.getElementById('imp-f-'+k)
+        .addEventListener('input', () => ed.setRect(leggiRect())));
+      document.getElementById('imp-f-id').addEventListener('input', () => ed.ridisegna());
+      // Duplica: nuovo posto con gli stessi valori, spostato di un posto
+      // (a destra se il posto è stretto e alto, sotto se è largo e basso)
+      document.getElementById('imp-dup').onclick = () => {
+        const r = leggiRect(), ok = r.every(Number.isFinite) && r[2] > 0 && r[3] > 0;
+        const am = []; if(document.getElementById('imp-f-cont').checked) am.push('container');
+        if(document.getElementById('imp-f-cassa').checked) am.push('cassa');
+        const p = {
+          id: _prossimoId(_val('imp-f-id').toUpperCase()), zona: _val('imp-f-zona').toUpperCase(), ammessi: am,
+          stato: _val('imp-f-stato'), sotto: Number(_val('imp-f-sotto')),
+          slide: _val('imp-f-slide') === '' ? null : Number(_val('imp-f-slide')),
+          rect: ok ? (r[2] <= r[3] ? [r[0] + r[2], r[1], r[2], r[3]] : [r[0], r[1] + r[3], r[2], r[3]]) : null,
+        };
+        _formPosto('', p);
+      };
+    },
+  });
 }
 
 // Navetta: nome (solo alla creazione), posizione, stato
@@ -717,6 +967,28 @@ window.stopImpostazioni = stopImpostazioni;
   .imp-modalbox .imp-grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
   .imp-modalbox .imp-grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
   .imp-err{color:var(--red);font-size:13px;min-height:4px;margin-top:4px}
+  .imp-modalbox textarea{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:9px 10px;
+    color:var(--text);font-family:inherit;font-size:14px;outline:none;resize:vertical}
+  .imp-modalbox.wide{max-width:min(1400px,96vw);max-height:96vh;overflow:auto;padding:20px 22px}
+  .imp-posto-grid{display:grid;grid-template-columns:minmax(0,1fr) 330px;gap:18px;align-items:start}
+  @media (max-width:1000px){ .imp-posto-grid{grid-template-columns:1fr} }
+  .imp-ed-tools{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px}
+  .imp-ed-tools .imp-act{margin-left:0}
+  .imp-ed-wrap{border:1px solid var(--border);border-radius:10px;overflow:hidden;background:#fff}
+  .imp-ed-svg{display:block;width:100%;height:min(66vh,680px);cursor:grab;touch-action:none;user-select:none}
+  .imp-ed-svg.disegna{cursor:crosshair}
+  .imp-ed-altri rect{fill:rgba(100,116,139,.28);stroke:#64748b;stroke-width:1}
+  .imp-ed-altri g.off rect{fill:rgba(100,116,139,.08);stroke-dasharray:4 3}
+  .imp-ed-svg text{font-family:'Barlow Condensed','DM Mono',monospace;font-weight:700;fill:#1e293b;dominant-baseline:middle;text-anchor:middle;pointer-events:none}
+  .imp-ed-altri g.off text{fill:#94a3b8}
+  .imp-ed-rect{fill:rgba(245,158,11,.45);stroke:#d97706;stroke-width:2;cursor:move;vector-effect:non-scaling-stroke}
+  .imp-ed-cur text{fill:#7c2d12}
+  .imp-ed-h{fill:#fff;stroke:#d97706;stroke-width:1.5;vector-effect:non-scaling-stroke}
+  .imp-ed-h.h0,.imp-ed-h.h2{cursor:nwse-resize}
+  .imp-ed-h.h1,.imp-ed-h.h3{cursor:nesw-resize}
+  .imp-ed-bozza{fill:rgba(245,158,11,.25);stroke:#d97706;stroke-width:1.5;stroke-dasharray:6 4;vector-effect:non-scaling-stroke;pointer-events:none}
+  .imp-ed-hint{font-size:12px;color:var(--muted);margin-top:6px}
+  .imp-ed-warn{font-size:12px;color:var(--orange,#f59e0b);margin-top:4px;min-height:14px}
   `;
   document.head.appendChild(s);
 })();

@@ -171,6 +171,7 @@ function selectSpot(id){
       <button onclick="window._cancelSelect()" style="background:transparent;border:none;color:var(--muted);font-size:18px;cursor:pointer;line-height:1">&#10005;</button>
     </div>
     ${_badgePosto(sp)}
+    ${perm.gestire && window._impModifica ? `<button class="imp-act" style="float:right;margin-top:-2px" title="Modifica caratteristiche e posizione" onclick="window._impModifica('posto','${id}')">✏️ Modifica</button>` : ''}
     <div style="color:var(--muted);font-size:12px;margin-top:-4px">Accetta: ${ammessiTxt}${capienza} · ${sp.statoPosto === 'pieno' ? 'mezzi pieni' : 'mezzi vuoti'}</div>`;
 
   if (sp.inutilizzabile) {

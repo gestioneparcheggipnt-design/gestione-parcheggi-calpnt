@@ -104,6 +104,18 @@ const _PORT_ISTRUZIONI = {
     'ZONA C': ['Esci dall\'area portineria verso sinistra', 'Percorri il perimetro esterno in senso antiorario', 'La Zona C è sul lato ovest dell\'impianto'],
     'ZONA D': ['Esci dall\'area portineria verso sinistra', 'Percorri il perimetro esterno fino al fondo', 'La Zona D è sul lato sud-ovest dell\'impianto'],
   };
+// Default esposti per Impostazioni (precompila l'editor del percorso zona)
+window._PORT_ISTRUZIONI_DEFAULT = _PORT_ISTRUZIONI;
+// Percorso di una zona: quello salvato in Impostazioni (config/magazzino.zone),
+// altrimenti il default qui sopra. Testo inserito dall'utente → sempre escapato.
+const _escP = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+function _istruzioniZona(z) {
+  const m = window.ZONE_META?.[z]?.istruzioni;
+  const l = (Array.isArray(m) && m.filter(Boolean).length) ? m.filter(Boolean)
+          : (_PORT_ISTRUZIONI[z] || ['Seguire indicazioni sulla mappa stampata']);
+  return l.map(_escP);
+}
+
 
 // ── HELPER: rileva tipo da id ────────────────────────────────────────────────
 function _portRilevaTipo(id) {
@@ -195,9 +207,7 @@ async function portineriaCerca() {
   const zona     = _zonaPosto(posto);
   const slideIdx = _slidePosto(posto);
 
-  const istruzioni = _PORT_ISTRUZIONI;
-
-  const steps = istruzioni[zona] || ['Seguire indicazioni sulla mappa stampata'];
+  const steps = _istruzioniZona(zona);
 
   resEl.innerHTML = `
     <div class="port-ok">
@@ -512,7 +522,7 @@ async function _portCercaDoppio() {
   const cap = t => t.charAt(0).toUpperCase() + t.slice(1);
   const zone = [...new Set([_zonaPosto(a.p1), _zonaPosto(a.p2)])];
   const percorso = zone.map(z => {
-    const steps = _PORT_ISTRUZIONI[z] || ['Seguire indicazioni sulla mappa stampata'];
+    const steps = _istruzioniZona(z);
     const head  = zone.length > 1 ? `<div style="margin-top:6px"><strong>${z}</strong></div>` : '';
     return head + '<ol>' + steps.map(st => '<li>' + st + '</li>').join('') + '</ol>';
   }).join('');
