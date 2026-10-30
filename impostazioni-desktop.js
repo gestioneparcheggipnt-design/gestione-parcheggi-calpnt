@@ -774,6 +774,17 @@ function _prossimoId(id){
   return '';
 }
 
+// Valori per il posto "successivo": stesse caratteristiche, ID seguente,
+// rettangolo accanto (a destra se stretto e alto, sotto se largo e basso)
+function _presetAccanto(riga){
+  const r = riga.rect || [], ok = r.length === 4 && r.every(Number.isFinite) && r[2] > 0 && r[3] > 0;
+  return {
+    id: _prossimoId(riga.id), zona: riga.zona, ammessi: (riga.ammessi || []).slice(),
+    stato: riga.stato, sotto: riga.sotto, slide: riga.slide,
+    rect: ok ? (r[2] <= r[3] ? [r[0] + r[2], r[1], r[2], r[3]] : [r[0], r[1] + r[3], r[2], r[3]]) : null,
+  };
+}
+
 // Posto: campi della tabella + posizione sulla planimetria
 // preset: valori di partenza per un NUOVO posto (es. da "Duplica")
 function _formPosto(id, preset){
@@ -789,6 +800,25 @@ function _formPosto(id, preset){
   const idIniziale = nuovo ? (preset?.id || '') : id;
   let ed = null;
   const leggiRect = () => ['x','y','w','h'].map(k => Number(_val('imp-f-'+k)));
+  const leggiRiga = () => {
+    const ammessi = [];
+    if(document.getElementById('imp-f-cont').checked) ammessi.push('container');
+    if(document.getElementById('imp-f-cassa').checked) ammessi.push('cassa');
+    return {
+      id: _val('imp-f-id').toUpperCase(), zona: _val('imp-f-zona').toUpperCase(), ammessi,
+      stato: _val('imp-f-stato'), sotto: Number(_val('imp-f-sotto')),
+      slide: _val('imp-f-slide') === '' ? null : Number(_val('imp-f-slide')),
+      rect: leggiRect(),
+    };
+  };
+  const salva = async () => {
+    const riga = leggiRiga();
+    if(riga.rect.some(n => !Number.isFinite(n)) || riga.rect[2] < 4 || riga.rect[3] < 4)
+      throw new Error('Posiziona il posto sulla planimetria (o inserisci x, y, larghezza e altezza).');
+    await C.salvaPosto(riga, nuovo ? null : id, window.currentUser);
+    window.showToast(nuovo ? `Posto ${riga.id} creato` : `Posto ${riga.id} aggiornato`, 'success');
+    return riga;
+  };
   const scriviRect = r => ['x','y','w','h'].forEach((k, i) => { const el = document.getElementById('imp-f-'+k); if(el) el.value = r ? r[i] : ''; });
 
   _apri(nuovo ? (preset ? 'Nuovo posto (copia)' : 'Nuovo posto') : `Modifica posto ${_esc(id)}`, `
@@ -816,27 +846,13 @@ function _formPosto(id, preset){
           </div></div>
       </div>
     </div>`,
-  async () => {
-    const ammessi = [];
-    if(document.getElementById('imp-f-cont').checked) ammessi.push('container');
-    if(document.getElementById('imp-f-cassa').checked) ammessi.push('cassa');
-    const rect = leggiRect();
-    if(rect.some(n => !Number.isFinite(n)) || rect[2] < 4 || rect[3] < 4)
-      throw new Error('Posiziona il posto sulla planimetria (o inserisci x, y, larghezza e altezza).');
-    const riga = {
-      id: _val('imp-f-id').toUpperCase(), zona: _val('imp-f-zona').toUpperCase(), ammessi,
-      stato: _val('imp-f-stato'), sotto: Number(_val('imp-f-sotto')),
-      slide: _val('imp-f-slide') === '' ? null : Number(_val('imp-f-slide')),
-      rect,
-    };
-    await C.salvaPosto(riga, nuovo ? null : id, window.currentUser);
-    window.showToast(nuovo ? `Posto ${riga.id} creato` : `Posto ${riga.id} aggiornato`, 'success');
-  },
+  () => salva(),
   occupato ? 'Il posto ha mezzi sopra: puoi cambiare zona, pieni/vuoti, slide e posizione, ma non ID, tipi ammessi e sotto-posti.'
            : (nuovo && !preset ? 'Disegna il posto trascinando sulla planimetria, poi compila i campi.' : ''),
   {
     wide: true,
-    extra: `<button class="btnSecondary" id="imp-dup" title="Nuovo posto con le stesse caratteristiche, accanto a questo">⧉ Duplica</button>`,
+    extra: `<button class="btnSecondary" id="imp-dup" title="Nuovo posto con le stesse caratteristiche, accanto a questo (senza salvare questo)">⧉ Duplica</button>
+            <button class="btnSecondary imp-salvadup" id="imp-salvadup" title="Salva questo posto e apri subito il successivo, accanto">💾 Salva e duplica</button>`,
     onOpen: (m) => {
       ed = _editorMappa(document.getElementById('imp-ed'), {
         id: nuovo ? null : id,
@@ -850,17 +866,24 @@ function _formPosto(id, preset){
       document.getElementById('imp-f-id').addEventListener('input', () => ed.ridisegna());
       // Duplica: nuovo posto con gli stessi valori, spostato di un posto
       // (a destra se il posto è stretto e alto, sotto se è largo e basso)
-      document.getElementById('imp-dup').onclick = () => {
-        const r = leggiRect(), ok = r.every(Number.isFinite) && r[2] > 0 && r[3] > 0;
-        const am = []; if(document.getElementById('imp-f-cont').checked) am.push('container');
-        if(document.getElementById('imp-f-cassa').checked) am.push('cassa');
-        const p = {
-          id: _prossimoId(_val('imp-f-id').toUpperCase()), zona: _val('imp-f-zona').toUpperCase(), ammessi: am,
-          stato: _val('imp-f-stato'), sotto: Number(_val('imp-f-sotto')),
-          slide: _val('imp-f-slide') === '' ? null : Number(_val('imp-f-slide')),
-          rect: ok ? (r[2] <= r[3] ? [r[0] + r[2], r[1], r[2], r[3]] : [r[0], r[1] + r[3], r[2], r[3]]) : null,
-        };
-        _formPosto('', p);
+      document.getElementById('imp-dup').onclick = () => _formPosto('', _presetAccanto(leggiRiga()));
+      // Salva e duplica: salva questo posto; se va a buon fine apre il successivo
+      // accanto. Ripetendo si crea una fila di posti senza riaprire niente.
+      const sd = document.getElementById('imp-salvadup');
+      sd.onclick = async () => {
+        const errEl = document.getElementById('imp-modal-err');
+        errEl.textContent = '';
+        sd.disabled = true; sd.textContent = 'Salvataggio…';
+        try{
+          const riga = await salva();
+          // il listener di config/posti aggiorna la tabella: attendi che il posto
+          // appena salvato sia visibile, così l'ID successivo salta quelli esistenti
+          for(let i = 0; i < 20 && !C.defPosto(riga.id); i++) await new Promise(r => setTimeout(r, 100));
+          _formPosto('', _presetAccanto(riga));
+        }catch(e){
+          errEl.textContent = e.message || String(e);
+          sd.disabled = false; sd.textContent = '💾 Salva e duplica';
+        }
       };
     },
   });
@@ -967,6 +990,7 @@ window.stopImpostazioni = stopImpostazioni;
   .imp-modalbox .imp-grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
   .imp-modalbox .imp-grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
   .imp-err{color:var(--red);font-size:13px;min-height:4px;margin-top:4px}
+  .imp-modalbox .imp-salvadup{border-color:#A4D20066;color:var(--accent)}
   .imp-modalbox textarea{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:9px 10px;
     color:var(--text);font-family:inherit;font-size:14px;outline:none;resize:vertical}
   .imp-modalbox.wide{max-width:min(1400px,96vw);max-height:96vh;overflow:auto;padding:20px 22px}
